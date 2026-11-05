@@ -28,6 +28,7 @@
   };
   var CTA_BOTTOM = 349 + 54.5;   // hero CTA: top + height (components.css .cta2)
   var MOCK_TOP = 558;            // browser mock top (showcase.css .browser)
+  var RING_GAP_ABOVE = 28;       // tall tablets: max empty gap kept between CTA and ring (design px)
   var LINK_CAP = 7.9;       // shared cap height of the nav links
   var LINK_ROW_W = 317;     // the whole link row is squeezed to this width
 
@@ -126,6 +127,37 @@
       fill -= sshift;                                       // mock keeps the rest
     }
 
+    // The poster ring is fitted between the hero CTA and the browser mock
+    // (which overlaps its lower third), in showcase coordinates (the showcase
+    // is moved by sshift, the hero text by stshift), and to the visible width.
+    var ringBox = {
+      mode: mode,
+      // tablet preferences blend in with the same ramp as the scale law, so
+      // the ring is identical at 1080 and 1081px
+      arc: mode === 'tablet' ? 33 - 3 * ramp : 33,
+      maxS: mode === 'tablet' ? 150 + 10 * ramp : 150,
+      halfWidth: avail / (2 * k) - 12,
+      bandTop: CTA_BOTTOM + stshift - sshift,
+      bandBottom: MOCK_TOP
+    };
+    var ringGeo = fitRing(ringBox);
+
+    // Tall tablets: the reference pushes the mock far down to use spare height,
+    // but the ring is anchored to the mock, so that would open a large empty gap
+    // under the CTA. Lift ring + mock together until the gap is comfortable; the
+    // mock grows by the same amount, so it still reaches the bottom edge. The
+    // hero text (stshift) stays exactly where it was.
+    if (mode === 'tablet' && ringGeo && ringGeo.need) {
+      var excess = (MOCK_TOP - ringBox.bandTop) - ringGeo.need;
+      var lift = Math.min(sshift, Math.max(0, excess - RING_GAP_ABOVE));
+      if (lift > 0.5) {
+        sshift -= lift;
+        fill += lift;
+        ringBox.bandTop = CTA_BOTTOM + stshift - sshift;
+        ringGeo = fitRing(ringBox);
+      }
+    }
+
     state.k = k;
     state.tboost = mode === 'tablet' ? 1 + 0.14 * ramp : 1;
     setVars({
@@ -135,24 +167,11 @@
       '--sshift': sshift.toFixed(2) + 'px',
       '--rs': rs.toFixed(4)
     });
-    // The poster ring is fitted into the free band between the hero CTA and
-    // the browser mock, in showcase coordinates (the showcase itself is moved
-    // by --sshift, the hero text by --stshift), and to the visible width.
-    fitRing({
-      mode: mode,
-      // tablet preferences blend in with the same ramp as the scale law, so
-      // the ring is identical at 1080 and 1081px
-      arc: mode === 'tablet' ? 38 - 8 * ramp : 38,
-      maxS: mode === 'tablet' ? 130 + 20 * ramp : 130,
-      halfWidth: avail / (2 * k) - 12,
-      bandTop: CTA_BOTTOM + stshift - sshift,
-      bandBottom: MOCK_TOP
-    });
     layout();
   }
 
   function fitRing(box) {
-    if (Eventora.carousel && Eventora.carousel.fit) Eventora.carousel.fit(box);
+    return Eventora.carousel && Eventora.carousel.fit ? Eventora.carousel.fit(box) : null;
   }
 
   function fitterTargets() {

@@ -3,8 +3,10 @@
    centre (CSS perspective === radius), so every card faces the viewer and
    edge cards grow by exactly 1/cos(angle).
 
-   FITTED GEOMETRY. Cards must be shown complete: never behind the browser
-   mock, never under the CTA, never cut by the screen edge. fit() therefore
+   FITTED GEOMETRY. As in the reference, the browser mock sits in front of the
+   ring and hides the lower third of the centre card (phones excepted, where
+   cards are shown whole). Cards are never under the CTA and never cut by the
+   screen edge. fit() therefore
    derives the card size S, radius R, visible half-arc A and vertical position
    from the free band the layout reports (CTA bottom → mock top) and the
    visible half-width:
@@ -34,14 +36,15 @@
   var MAX_ARC = 40;
   var EDGE_GAP = 10;                       // breathing room inside the band (local px)
 
-  /* Per-mode preferences: the arc we aim for and the largest card allowed. */
+  /* Per-mode preferences: the arc we aim for, the largest card allowed and
+     how much of the centre card tucks behind the browser mock. */
   var PREFS = {
-    desktop: { arc: 38, maxS: 130 },   // wide arc: the ring spans the hero, as approved
-    tablet:  { arc: 30, maxS: 150 },
-    phone:   { arc: 14, maxS: 120 }
+    desktop: { arc: 33, maxS: 150, tuck: 0.35 },  // mock overlaps the lower third, as in the reference
+    tablet:  { arc: 30, maxS: 160, tuck: 0.35 },
+    phone:   { arc: 14, maxS: 120, tuck: 0 }      // width-limited: cards stay fully visible
   };
 
-  var geo = { S: 106, R: 692, A: 35, cardY: 480, horizon: 95 };
+  var geo = { S: 106, R: 692, A: 35, cardY: 580, horizon: 95, tuck: 0.35 };
   var ring = null;
   var cards = [];
   var phase = -2;           // running rotation, never reset
@@ -62,45 +65,69 @@
       1 / cos A. Using the centre value under-sizes the arc by ~6% at 38°. */
   function edgeScale(aDeg) { return Math.cos(HALF_CARD * DEG) / Math.cos((aDeg + HALF_CARD) * DEG); }
 
-  /** Height of the whole arc (edge-card top → centre-card bottom) per unit S. */
+  /** Height of the whole arc (edge-card top -> centre-card bottom) per unit S. */
   function spanFactor(aDeg) { return (HORIZON + 0.5) * edgeScale(aDeg) - (HORIZON - 0.5); }
 
   /**
    * Fits the ring into a band.
-   * @param {{mode:string, halfWidth:number, bandTop:number, bandBottom:number}} box
-   *        all in the ring's local px (design px on desktop/tablet, CSS px on phone)
+   * @param {{mode:string, halfWidth:number, bandTop:number, bandBottom:number,
+   *          arc?:number, maxS?:number, tuck?:number}} box
+   *        lengths in the ring's local px (design px on desktop/tablet, CSS px on phone)
+   *
+   * tuck > 0 (desktop/tablet): the browser mock sits IN FRONT of the ring, as in
+   * the reference composition - the centre card's bottom tuck*S is hidden
+   * behind it; edge cards ride higher on the arc and show more. The arc is
+   * anchored to that overlap, its top kept clear of the CTA.
+   * tuck = 0 (phone): cards are width-limited, so they stay fully visible,
+   * centred in the band.
    */
   function fit(box) {
     var base = PREFS[box.mode] || PREFS.desktop;
-    // The layout may blend preferences (e.g. desktop → tablet over the same
+    // The layout may blend preferences (e.g. desktop -> tablet over the same
     // 120px ramp as the scale law) so the ring never jumps at a breakpoint.
-    var pref = { arc: box.arc || base.arc, maxS: box.maxS || base.maxS };
+    var pref = {
+      arc: box.arc || base.arc,
+      maxS: box.maxS || base.maxS,
+      tuck: box.tuck !== undefined ? box.tuck : base.tuck
+    };
+    var tuck = pref.tuck;
     var halfW = Math.max(60, box.halfWidth);
-    var h = Math.max(60, box.bandBottom - box.bandTop - 2 * EDGE_GAP);
+    // Vertical room: from just below the CTA to the mock top (+ the tucked part).
+    var h = Math.max(60, box.bandBottom - box.bandTop - (tuck > 0 ? EDGE_GAP : 2 * EDGE_GAP));
+    function fitsHeight(S, a) { return S * (spanFactor(a) - tuck) <= h; }
 
     // 1) Card size: the largest square that fits BOTH width and height at the
     //    preferred arc. Size wins over card count, so S is never reduced later.
     var A0 = pref.arc;
     var S = Math.min(pref.maxS,
       halfW / (SPACING * Math.tan((A0 + HALF_CARD) * DEG)),
-      h / spanFactor(A0));
+      h / (spanFactor(A0) - tuck));
     // 2) Arc: widen beyond the preference only as far as that size still fits
-    //    horizontally (closed form) and vertically (bisection on spanFactor).
+    //    horizontally (closed form) and vertically (bisection).
     var aWidth = Math.atan(halfW / (SPACING * S)) / DEG - HALF_CARD;
     var lo = 0, hi = MAX_ARC;
     for (var i = 0; i < 24; i++) {
       var mid = (lo + hi) / 2;
-      if (S * spanFactor(mid) <= h) lo = mid; else hi = mid;
+      if (fitsHeight(S, mid)) lo = mid; else hi = mid;
     }
     var A = Math.max(1, Math.min(MAX_ARC, aWidth, lo));
     var R = SPACING * S;
     var d = HORIZON * S;
-    var span = S * spanFactor(A);
-    // Place the arc centred in the band: its top is the edge card's top.
-    var top = box.bandTop + EDGE_GAP + (h - span) / 2;
-    var cardY = top - d + (d + S / 2) * edgeScale(A);
+    var cardY;
+    if (tuck > 0) {
+      // centre card bottom sits tuck*S below the mock's top edge
+      cardY = box.bandBottom + tuck * S - S / 2;
+    } else {
+      // centred in the band: the arc's top is the edge card's top
+      var span = S * spanFactor(A);
+      var top = box.bandTop + EDGE_GAP + (h - span) / 2;
+      cardY = top - d + (d + S / 2) * edgeScale(A);
+    }
 
-    geo = { S: S, R: R, A: A, cardY: cardY, horizon: d };
+    // Height the arc actually needs inside the band (CTA gap included), so the
+    // layout can tell how much spare room is left above the ring.
+    var need = tuck > 0 ? S * (spanFactor(A) - tuck) + EDGE_GAP : S * spanFactor(A) + 2 * EDGE_GAP;
+    geo = { S: S, R: R, A: A, cardY: cardY, horizon: d, tuck: tuck, need: need };
     apply();
     return geo;
   }
@@ -116,21 +143,22 @@
   }
 
   /* ---------- Poster artwork (130×130 box, scaled by --art-k) ----------
-     Photos carry no text; all typography is HTML/CSS overlay. */
+     Photos carry no text; all typography is HTML/CSS overlay and lives in the
+     top ~60% of the card, because the lower third tucks behind the mock. */
   function creative(d) {
     var im = '<img alt="" src="' + esc(d.url) + '" decoding="async">';
 
     switch (d.v) {
       case 'ticket':
         return '<div class="fill" style="background:#efedea"></div>' +
-          '<div class="ph" style="top:0;height:62px">' + im + '</div>' +
+          '<div class="cv" style="top:10px;font-size:3.4px;letter-spacing:.15em;color:#8d9298">ADMIT ONE · WORLD TOUR</div>' +
+          '<div class="cv t-big" style="top:17px;font-size:14px;color:#16171b">Electric</div>' +
+          '<div class="cv t-big" style="top:31px;font-size:14px;color:#e5202f">Live on stage</div>' +
+          '<div class="cv" style="top:49px;font-size:5px;font-weight:700;color:#16171b">' +
+            '<b class="dot"></b>SAT 14 NOV · <b>ARENA 9</b></div>' +
           '<div style="position:absolute;left:0;right:0;top:62px;height:3px;background:#e5202f"></div>' +
           '<i class="notch" style="left:-5px"></i><i class="notch" style="right:-5px"></i>' +
-          '<div class="cv" style="top:71px;font-size:3.4px;letter-spacing:.15em;color:#8d9298">ADMIT ONE · WORLD TOUR</div>' +
-          '<div class="cv t-big" style="top:78px;font-size:14px;color:#16171b">Electric</div>' +
-          '<div class="cv t-big" style="top:92px;font-size:14px;color:#e5202f">Live on stage</div>' +
-          '<div class="cv" style="top:110px;font-size:5px;font-weight:700;color:#16171b">' +
-            '<b class="dot"></b>SAT 14 NOV · <b>ARENA 9</b></div>';   // 14 Nov 2026 is a Saturday
+          '<div class="ph" style="top:65px;bottom:0">' + im + '</div>';   // 14 Nov 2026 is a Saturday
 
       case 'gala':
         return '<div class="fill" style="background:linear-gradient(168deg,#f9d9e5,#f3bdd2 55%,#e8a3c0)"></div>' +
@@ -141,10 +169,10 @@
 
       case 'workshop':
         return '<div class="fill" style="background:#fff"></div>' +
-          '<div class="ph" style="top:0;height:76px">' + im + '</div>' +
-          '<div class="cv" style="top:84px;font-size:5.4px;font-weight:700;letter-spacing:.09em;color:#16171b">CREATIVE WORKSHOP</div>' +
-          '<div class="cv" style="top:94px;font-size:4.2px;color:#7b8087">Design · Build · Launch</div>' +
-          '<div style="position:absolute;left:10px;top:104px;padding:4px 11px;border-radius:20px;background:#16171b;font-size:4.6px;font-weight:600;color:#fff;letter-spacing:.05em">Reserve a seat</div>';
+          '<div class="cv" style="top:12px;font-size:5.4px;font-weight:700;letter-spacing:.09em;color:#16171b">CREATIVE WORKSHOP</div>' +
+          '<div class="cv" style="top:22px;font-size:4.2px;color:#7b8087">Design · Build · Launch</div>' +
+          '<div style="position:absolute;left:10px;top:32px;padding:4px 11px;border-radius:20px;background:#16171b;font-size:4.6px;font-weight:600;color:#fff;letter-spacing:.05em">Reserve a seat</div>' +
+          '<div class="ph" style="top:52px;bottom:0">' + im + '</div>';
 
       case 'summit':
         return '<div class="fill" style="background:linear-gradient(180deg,#0a2a4a,#0d3a63 50%,#08192b)"></div>' +
@@ -161,26 +189,25 @@
           '<div style="position:absolute;left:-6px;right:-6px;top:14px;height:12px;background:#ff2d8a;transform:rotate(-2.6deg);box-shadow:0 4px 12px rgba(255,45,138,.5)"></div>' +
           '<div style="position:absolute;left:0;right:0;top:15.5px;transform:rotate(-2.6deg);text-align:center;font-size:5.2px;font-weight:700;letter-spacing:.05em;color:#fff">THREE DAYS · OPEN AIR</div>' +
           '<div class="cv t-big" style="top:36px;font-size:22px;color:#fff;text-shadow:0 3px 0 rgba(84,9,124,.6)">Colour</div>' +
-          '<div class="cv t-big" style="top:58px;font-size:22px;color:#fff;text-shadow:0 3px 0 rgba(84,9,124,.6)">Fest</div>' +
-          '<div class="cv t-big" style="top:84px;font-size:17px;color:#fff">+</div>';
+          '<div class="cv t-big" style="top:58px;font-size:22px;color:#fff;text-shadow:0 3px 0 rgba(84,9,124,.6)">Fest</div>';
 
       case 'stage':
         return '<div class="ph phf">' + im + '</div>' +
-          '<div class="fill" style="background:linear-gradient(180deg,rgba(6,5,10,0) 28%,rgba(6,5,10,.55) 50%,rgba(6,5,10,.92) 78%)"></div>' +
-          '<div class="cv t-serif" style="top:70px;font-size:13px;color:#fff">A NIGHT OF</div>' +
-          '<div class="cv t-serif" style="top:85px;font-size:13px;color:#fff">PURE SOUL</div>' +
-          '<div class="cv" style="top:104px;font-size:4.2px;letter-spacing:.07em;color:rgba(255,255,255,.85)">one voice, one stage, one evening</div>';
+          '<div class="fill" style="background:linear-gradient(0deg,rgba(6,5,10,0) 38%,rgba(6,5,10,.55) 62%,rgba(6,5,10,.9) 100%)"></div>' +
+          '<div class="cv t-serif" style="top:12px;font-size:13px;color:#fff">A NIGHT OF</div>' +
+          '<div class="cv t-serif" style="top:27px;font-size:13px;color:#fff">PURE SOUL</div>' +
+          '<div class="cv" style="top:46px;font-size:4.2px;letter-spacing:.07em;color:rgba(255,255,255,.85)">one voice, one stage, one evening</div>';
 
       case 'early':
         return '<div class="ph phf">' + im + '</div>' +
-          '<div class="fill" style="background:linear-gradient(180deg,rgba(3,9,20,0) 26%,rgba(3,9,20,.6) 50%,rgba(3,9,20,.95) 76%)"></div>' +
-          '<div class="cv t-big" style="top:80px;font-size:9px;color:#fff;opacity:.9">Early bird · til</div>' +
-          '<div class="cv t-big" style="top:92px;font-size:20px;color:#3fe3ff;text-shadow:0 0 16px rgba(63,227,255,.5)">40% off</div>';
+          '<div class="fill" style="background:linear-gradient(0deg,rgba(3,9,20,0) 40%,rgba(3,9,20,.6) 62%,rgba(3,9,20,.94) 100%)"></div>' +
+          '<div class="cv t-big" style="top:12px;font-size:9px;color:#fff;opacity:.9">Early bird · til</div>' +
+          '<div class="cv t-big" style="top:24px;font-size:20px;color:#3fe3ff;text-shadow:0 0 16px rgba(63,227,255,.5)">40% off</div>';
 
       default: // 'plain' — full-bleed photo with a tracked caption
         return '<div class="ph phf">' + im + '</div>' +
-          '<div class="fill" style="background:linear-gradient(180deg,rgba(4,8,16,0) 40%,rgba(4,8,16,.85) 76%)"></div>' +
-          '<div class="cv" style="top:108px;font-size:5.4px;font-weight:600;letter-spacing:.2em;color:#fff">' + esc(d.t || '') + '</div>';
+          '<div class="fill" style="background:linear-gradient(0deg,rgba(4,8,16,0) 55%,rgba(4,8,16,.8) 100%)"></div>' +
+          '<div class="cv" style="top:12px;font-size:5.4px;font-weight:600;letter-spacing:.2em;color:#fff">' + esc(d.t || '') + '</div>';
     }
   }
 

@@ -4,8 +4,8 @@
 .showcase { left: 0; top: 0; width: 1172px; height: 0; }
 
 /* The camera sits at the ring centre: perspective === radius. js/carousel.js
-   fits the geometry to the free band between the CTA and the browser mock and
-   writes it here: perspective, perspective-origin (the horizon, just below
+   fits the geometry between the CTA and the browser mock (which overlaps the
+   ring's lower third, as in the reference) and writes it here: perspective, perspective-origin (the horizon, just below
    the cards), --card-s (square size) and --card-y (card centre line). */
 .ring {
   position: absolute; left: 0; top: 0; width: 1172px; height: 657px;
@@ -39,7 +39,7 @@
 .card.broken img { display: none; }
 /* ticket-stub notches on the "ticket" poster */
 .card .notch {
-  position: absolute; top: 58px; width: 10px; height: 10px; border-radius: 50%;
+  position: absolute; top: 58.5px; width: 10px; height: 10px; border-radius: 50%;
   background: #020204;
 }
 

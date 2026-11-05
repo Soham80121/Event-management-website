@@ -32,13 +32,20 @@ You can also open `index.html` directly, because the scripts are plain (non-modu
 
 ## Hero poster ring
 
-The ring holds 37 square posters, authored at 130×130 and scaled to fit. `Eventora.carousel.fit()` sizes the ring for each viewport so every card is shown complete. It takes the free band between the hero CTA and the app preview, plus the visible half-width, and works out:
+The ring holds 37 square posters, authored at 130×130 and scaled to fit. As in the design reference, the browser mock sits in front of the ring.
+
+- **Desktop and tablet.** The centre card's lower 35% tucks behind the preview. Edge cards ride higher on the arc and show more. All poster text sits in the top ~60% of each card, so it's never hidden.
+- **Phones.** Cards are limited by screen width, not height, so they stay fully visible above the preview.
+
+`Eventora.carousel.fit()` derives the geometry for each viewport from the space between the hero CTA and the preview, plus the visible width:
 
 - card size `S` and radius `R = 6.42·S`, which is also the CSS perspective, so the camera sits at the ring centre
-- the visible arc: about ±38° on desktop, about ±30° on tablets (blended across 1080px so there's no jump), and ±14° on phones
+- the visible arc: about ±33° on desktop and tablet (blended across 1080px) and ±14° on phones
 - a horizon just below the cards
 
-The fit accounts for the outermost card's edge magnification, `cos δ / cos(A + δ)`, and cards fade over the last 6° of the arc rather than being clipped. `tests/ring-visibility.js` samples the rotating ring and checks that every visible card is square and lies inside the screen, below the CTA and above the preview.
+The fit accounts for the outermost card's edge magnification, `cos δ / cos(A + δ)`. No card ever rises under the CTA or is cut by the screen edge; cards fade over the last 6° of the arc instead. On tall tablets the ring and preview are lifted together, so the gap under the CTA stays comfortable.
+
+`tests/ring-visibility.js` checks every visible card: square, inside the screen, below the CTA, and tucked by no more than the target (or fully above the preview on phones).
 
 ## Event data (since Phase 4)
 
