@@ -11,28 +11,28 @@
   .burger {
     display: grid; place-content: center; gap: 4px;
     position: absolute; right: 12px; top: 11px; width: 42px; height: 42px;
-    padding: 0; border: 0; border-radius: 14px; background: transparent;
+    padding: 0; border: 0; border-radius: var(--radius-md); background: transparent;
     cursor: pointer; -webkit-tap-highlight-color: transparent;
   }
   .burger span {
     display: block; width: 19px; height: 1.6px; border-radius: 2px;
-    background: rgba(255,255,255,.92);
-    transition: transform .28s var(--ease-std), opacity .18s;
+    background: var(--c-ink-92);
+    transition: transform var(--dur-slow) var(--ease-std), opacity var(--dur-instant);
   }
-  .burger:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2px; }
+  .burger:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
   .nav.open .burger span:nth-child(1) { transform: translateY(5.6px) rotate(45deg); }
   .nav.open .burger span:nth-child(2) { opacity: 0; }
   .nav.open .burger span:nth-child(3) { transform: translateY(-5.6px) rotate(-45deg); }
 
   .navmenu {
     display: block; position: absolute; left: 0; right: 0; top: 74px; padding: 12px;
-    border-radius: 22px; border: 1px solid rgba(255,255,255,.10);
-    background: linear-gradient(180deg, rgba(11,15,22,.985), rgba(7,10,16,.99));
-    -webkit-backdrop-filter: blur(18px) saturate(140%);
-    backdrop-filter: blur(18px) saturate(140%);
-    box-shadow: 0 26px 60px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.05);
+    border-radius: var(--radius-lg); border: var(--border-hairline-soft);
+    background: var(--grad-panel);
+    -webkit-backdrop-filter: var(--glass-blur-xl);
+    backdrop-filter: var(--glass-blur-xl);
+    box-shadow: var(--shadow-panel);
     opacity: 0; visibility: hidden; transform: translateY(-8px);
-    transition: opacity .24s ease, transform .28s var(--ease-std), visibility .28s;
+    transition: opacity .24s ease, transform var(--dur-slow) var(--ease-std), visibility var(--dur-slow);
   }
   .nav.open .navmenu { opacity: 1; visibility: visible; transform: none; }
 
@@ -41,15 +41,15 @@
     height: auto; gap: 2px; transform: none !important;
   }
   .links a {
-    font-size: 15px; padding: 11px 14px; border-radius: 12px;
-    color: rgba(255,255,255,.9); transition: background .2s, color .2s;
+    font-size: 15px; padding: 11px 14px; border-radius: var(--radius-sm);
+    color: var(--c-ink-90); transition: background var(--dur-fast), color var(--dur-fast);
   }
   .nav .btn { position: static; width: 100%; height: 46px; margin-top: 10px; font-size: 15px; }
   .nav .btn span { margin-top: 3px; }
 }
 @media (hover: hover) and (max-width: 1080px) {
-  .burger:hover span { background: #fff; }
-  .links a:hover { background: rgba(255,255,255,.055); color: #fff; opacity: 1; }
+  .burger:hover span { background: var(--c-ink); }
+  .links a:hover { background: rgba(255,255,255,.055); color: var(--c-ink); opacity: 1; }
 }
 @media (prefers-reduced-motion: reduce) {
   .navmenu, .burger span { transition: none; }
@@ -71,7 +71,7 @@
   .canvas {
     position: relative; left: auto; top: auto; width: 100%; height: 100%;
     transform: none; display: flex; flex-direction: column; align-items: center;
-    padding: 0 20px;
+    padding: 0 var(--gutter-phone);
   }
   .canvas > * { position: static; }
 
@@ -93,9 +93,9 @@
     top: calc(50% - 9px); font-size: 18px;
     transform: scaleX(.88); transform-origin: left center;
   }
-  .burger { right: 8px; top: 7px; width: 44px; height: 44px; }   /* 44px touch target */
+  .burger { right: 8px; top: 7px; width: var(--touch-target); height: var(--touch-target); }   /* 44px touch target */
   .navmenu { top: 68px; padding: 12px; }
-  .links a { font-size: 16px; padding: 12px 15px; border-radius: 12px; }
+  .links a { font-size: 16px; padding: 12px 15px; border-radius: var(--radius-sm); }
   .nav .btn { height: 48px; margin-top: 10px; font-size: 16px; }
 
   /* Badge: auto width, tile pinned left, label padded to its RIGHT — never overlapping */

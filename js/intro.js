@@ -27,14 +27,14 @@
     settled: false,
     run: function () {
       var self = this;
-      var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      var reduced = Eventora.motion.reduced();
       if (!root.classList.contains('intro') || reduced || !Element.prototype.animate) {
         self.settled = true;
         settle();
         return;
       }
 
-      var D = window.innerWidth <= 700 ? 0.66 : 1;   // phones travel shorter distances
+      var D = Eventora.viewport.mode() === 'phone' ? 0.66 : 1;   // phones travel shorter distances
       var n = 0;
       var last = null, lastEnd = 0;
 

@@ -1,0 +1,141 @@
+/* =========================================================================
+   UTILITIES — reusable building blocks for every future section.
+   These recipes are extracted from the hero so new UI inherits the same
+   material language. The hero itself keeps its own pixel-contract classes;
+   nothing here is applied to it.
+   ========================================================================= */
+
+/* ---------- Layout ---------- */
+.container {
+  width: min(100% - 2 * var(--gutter), var(--container-max));
+  margin-inline: auto;
+}
+.section { padding-block: var(--section-gap); position: relative; }
+.stack-flow > * + * { margin-top: var(--flow-space, var(--space-4)); }
+.cluster { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cluster-gap, var(--space-3)); }
+
+/* ---------- Typography helpers ---------- */
+.display {
+  font-weight: var(--fw-black); font-size: var(--fs-display);
+  line-height: var(--lh-heading); letter-spacing: -.004em; word-spacing: .175em;
+  text-transform: uppercase; text-shadow: var(--shadow-headline);
+}
+.heading-1 { font-weight: var(--fw-extrabold); font-size: var(--fs-h1); line-height: var(--lh-heading); letter-spacing: var(--tracking-tight); }
+.heading-2 { font-weight: var(--fw-bold); font-size: var(--fs-h2); line-height: var(--lh-heading); letter-spacing: var(--tracking-tight); }
+.heading-3 { font-weight: var(--fw-semibold); font-size: var(--fs-h3); line-height: var(--lh-snug); }
+.serif-accent { font-family: var(--f-serif); font-weight: var(--fw-serif); letter-spacing: .01em; }
+.serif-accent--italic { font-style: italic; }
+.lead { font-size: var(--fs-body-lg); line-height: var(--lh-body); color: var(--c-muted); }
+.body-copy { font-size: var(--fs-body); line-height: var(--lh-body); color: var(--c-muted); }
+.text-muted { color: var(--c-muted); }
+.text-ink { color: var(--c-ink); }
+.eyebrow {
+  font-size: var(--fs-caption); font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-cyan);
+}
+.text-gradient {
+  background: linear-gradient(100deg, var(--c-cyan-ice), var(--c-cyan) 45%, var(--c-electric));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+
+/* ---------- Glass surfaces ----------
+   .glass         nav-pill material: near-invisible tint, hairline, strong blur
+   .glass--raised badge material: adds a faint bank of light along the foot
+   .glass--panel  dense dropdown/menu panel with deep shadow             */
+.glass {
+  background: var(--glass-tint);
+  border: var(--border-hairline);
+  -webkit-backdrop-filter: var(--glass-blur-lg);
+  backdrop-filter: var(--glass-blur-lg);
+  box-shadow: var(--shadow-inset-top);
+}
+.glass--raised {
+  background: var(--grad-glass-foot);
+  border: var(--border-hairline-badge);
+  -webkit-backdrop-filter: var(--glass-blur-md);
+  backdrop-filter: var(--glass-blur-md);
+  box-shadow: var(--shadow-inset-top-badge);
+}
+.glass--panel {
+  background: var(--grad-panel);
+  border: var(--border-hairline-soft);
+  -webkit-backdrop-filter: var(--glass-blur-xl);
+  backdrop-filter: var(--glass-blur-xl);
+  box-shadow: var(--shadow-panel);
+}
+/* Browsers without backdrop-filter get a denser tint so text stays legible. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass, .glass--raised { background: rgba(10, 14, 22, .86); }
+}
+
+.radius-sm { border-radius: var(--radius-sm); }
+.radius-md { border-radius: var(--radius-md); }
+.radius-lg { border-radius: var(--radius-lg); }
+.radius-xl { border-radius: var(--radius-xl); }
+.radius-pill { border-radius: var(--radius-pill); }
+
+/* ---------- Borders ---------- */
+.hairline { border: var(--border-hairline); }
+.hairline-top { border-top: var(--border-hairline); }
+.hairline-bottom { border-bottom: var(--border-hairline); }
+.ring-hairline { box-shadow: var(--ring-hairline); }
+
+/* ---------- Icon tile (badge recipe, reusable) ---------- */
+.icon-tile {
+  display: inline-grid; place-items: center;
+  width: 29px; height: 29px; border-radius: var(--radius-xs);
+  background: var(--grad-icon-tile);
+  box-shadow: var(--shadow-icon-tile);
+}
+
+/* ---------- Buttons in flow layouts ----------
+   `.btn` (components.css) is the glow-button material. Outside the hero it
+   needs a size: .btn--md / .btn--lg. .btn-ghost is the quiet secondary. */
+button.btn, button.btn-ghost { border: 0; cursor: pointer; }
+.btn--md {
+  display: inline-grid; height: 46px; padding: 0 22px; border-radius: var(--radius-md);
+  font-size: 15px; font-weight: var(--fw-medium); letter-spacing: -.005em;
+}
+.btn--lg {
+  display: inline-grid; height: 54px; padding: 0 28px; border-radius: 13px;
+  font-size: 17px; font-weight: var(--fw-medium); letter-spacing: var(--tracking-tight);
+  --hair: 0 0 0 transparent;
+}
+.btn--lg::before { display: none; }           /* large CTAs carry no top streak, like the hero CTA */
+.btn--block { display: grid; width: 100%; }
+.btn[aria-disabled="true"], .btn:disabled { opacity: .45; pointer-events: none; filter: saturate(.4); }
+
+.btn-ghost {
+  display: inline-grid; place-items: center;
+  height: 46px; padding: 0 22px; border-radius: var(--radius-md);
+  font-size: 15px; font-weight: var(--fw-medium); letter-spacing: -.005em;
+  color: var(--c-ink-92);
+  background: var(--glass-tint-raised);
+  border: 1px solid var(--c-line-15);   /* a touch stronger than nav glass: it must read as a control */
+  box-shadow: var(--shadow-inset-top);
+  transition: background var(--dur-base), border-color var(--dur-base),
+    color var(--dur-base), transform var(--dur-base);
+}
+.btn-ghost:hover {
+  background: rgba(255,255,255,.05); border-color: rgba(142,244,255,.35);
+  color: var(--c-ink); transform: translateY(-1px);
+}
+.btn-ghost:focus-visible { outline-offset: var(--focus-offset-btn); }
+
+/* ---------- Hover & transition helpers ---------- */
+.transition-base {
+  transition: transform var(--dur-base) var(--ease-std), opacity var(--dur-base) var(--ease-std),
+    box-shadow var(--dur-base) var(--ease-std), filter var(--dur-base) var(--ease-std),
+    background-color var(--dur-base) var(--ease-std), border-color var(--dur-base) var(--ease-std);
+}
+.hover-lift { transition: transform var(--dur-base) var(--ease-std), box-shadow var(--dur-base) var(--ease-std); }
+.hover-lift:hover { transform: translateY(-3px); box-shadow: var(--shadow-card); }
+.hover-fade { transition: opacity var(--dur-base); }
+.hover-fade:hover { opacity: .65; }
+.hover-glow { transition: box-shadow var(--dur-base) var(--ease-std), border-color var(--dur-base); }
+.hover-glow:hover { box-shadow: 0 0 0 1px rgba(142,244,255,.28), 0 10px 30px -12px rgba(53,216,255,.45); }
+
+/* Only devices that can truly hover get hover motion. */
+@media (hover: none) {
+  .hover-lift:hover, .btn-ghost:hover { transform: none; }
+}

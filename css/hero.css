@@ -1,14 +1,15 @@
 /* =========================================================================
    HERO TYPE — headline and sub-copy. Exact size, ink width and baseline are
-   set by the type fitter (js/fitter.js) on desktop and tablet.
+   set by the type fitter (js/fitter.js) on desktop and tablet; the `top`
+   values below are only the pre-fit fallback.
    ========================================================================= */
 .h1 {
   left: 586px; transform: translateX(-50%);
-  white-space: nowrap; line-height: 1;
-  font-family: var(--f-sans); font-weight: 900; font-size: 54px;
+  white-space: nowrap; line-height: var(--lh-tight);
+  font-family: var(--f-sans); font-weight: var(--fw-black); font-size: 54px;
   letter-spacing: -.004em; word-spacing: .175em;
   text-transform: uppercase; color: var(--c-ink);
-  text-shadow: 0 0 34px rgba(130,180,255,.22);
+  text-shadow: var(--shadow-headline);
   z-index: var(--z-hero);
 }
 #h1a { top: 160px; }
@@ -18,11 +19,11 @@
 
 .sub {
   position: absolute; left: 586px; transform: translateX(-50%);
-  white-space: nowrap; line-height: 1;
+  white-space: nowrap; line-height: var(--lh-tight);
   font-size: 13.2px; color: var(--c-muted);
   z-index: var(--z-hero);
 }
 #sub1 { top: 290px; }
 #sub2 { top: 306px; }
-.sub b { font-weight: 600; color: var(--c-ink); }
+.sub b { font-weight: var(--fw-semibold); color: var(--c-ink); }
 .nb { white-space: nowrap; }

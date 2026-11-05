@@ -21,7 +21,6 @@
   var cards = [];
   var phase = -2;           // running rotation, never reset
   var lastTime = null;
-  var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
   function esc(text) {
     return String(text).replace(/[&<>"']/g, function (c) {
@@ -141,7 +140,8 @@
   }
 
   function tick(t) {
-    if (lastTime !== null && !reducedMotion.matches) {
+    // Reduced motion freezes the spin but the ring still renders.
+    if (lastTime !== null && !Eventora.motion.reduced()) {
       var dt = Math.min((t - lastTime) / 1000, 0.1);
       phase -= SPEED_DEG_PER_S * dt;
       placeCards();

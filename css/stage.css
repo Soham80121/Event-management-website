@@ -1,0 +1,46 @@
+/* =========================================================================
+   STAGE — the background system and the scaled design canvas
+   Layers, back to front: #020204 base -> blue atmosphere -> starfield
+   (two layers) -> scaled canvas holding the composition.
+   ========================================================================= */
+
+/* overflow:clip (not just hidden): a hidden box can still be scrolled by focus
+   moving into the wider-than-viewport canvas, which would shove the whole
+   composition sideways. clip forbids all scrolling; hidden is the fallback. */
+.stage { position: fixed; inset: 0; overflow: hidden; overflow: clip; background: var(--c-bg); }
+
+/* ---------- Background (never animates — it IS the stage) ----------
+   A faint electric-blue haze pools through the lower half of the frame. */
+.bg {
+  position: absolute; inset: 0;
+  background: var(--grad-atmosphere), var(--c-bg);
+}
+
+/* ---------- Starfield ----------
+   Two 1x1px dots whose whole star field is one box-shadow list generated in
+   js/starfield.js — layer A: 150 crisp dust stars, layer B: 18 soft bright
+   ones. Positions are in vw/vh, so the field covers any viewport. */
+.stars {
+  position: absolute; left: 0; top: 0;
+  width: 1px; height: 1px; border-radius: var(--radius-full);
+  background: var(--c-ink);
+  pointer-events: none;
+}
+
+/* ---------- Scaled design canvas ----------
+   The desktop composition is authored on a fixed 1172 x 657 canvas. Every
+   element inside is absolutely positioned in design pixels; js/layout.js
+   scales the whole canvas with ONE transform (--k). */
+.canvas {
+  position: absolute; left: 50%; top: 0;
+  width: 1172px; height: 657px;
+  transform: translateX(-50%) scale(var(--k, 1));
+  transform-origin: 50% 0;
+}
+.canvas > * { position: absolute; }
+
+.stack { position: absolute; inset: 0; z-index: var(--z-hero); }
+.stack > * { position: absolute; }
+
+.navmenu { display: contents; }   /* invisible shell on desktop */
+.burger { display: none; }

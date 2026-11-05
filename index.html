@@ -12,11 +12,15 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,600;1,600&display=swap" rel="stylesheet">
 
+  <!-- Cascade order matters: tokens -> base -> stage -> components -> sections
+       -> utilities (reusable recipes) -> responsive overrides -> motion. -->
   <link rel="stylesheet" href="css/tokens.css">
   <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/stage.css">
   <link rel="stylesheet" href="css/components.css">
   <link rel="stylesheet" href="css/hero.css">
   <link rel="stylesheet" href="css/showcase.css">
+  <link rel="stylesheet" href="css/utilities.css">
   <link rel="stylesheet" href="css/responsive.css">
   <link rel="stylesheet" href="css/motion.css">
 
@@ -83,7 +87,7 @@
       </nav>
 
       <!-- ============ HERO MESSAGE ============ -->
-      <main class="stack" id="main">
+      <main class="stack" id="main" tabindex="-1">
         <div class="badge">
           <i aria-hidden="true">
             <svg viewBox="5 1 14 22" preserveAspectRatio="none">
@@ -168,6 +172,7 @@
     </a>
   </div>
 
+  <script src="js/core.js"></script>
   <script src="js/data.js"></script>
   <script src="js/starfield.js"></script>
   <script src="js/carousel.js"></script>

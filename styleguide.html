@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en-US" class="is-scrollable">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>EVENTORA — Design system</title>
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#020204">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='12' fill='%23020204'/%3E%3Cellipse cx='24' cy='24' rx='17' ry='8.5' fill='none' stroke='%2335d8ff' stroke-width='3' transform='rotate(-32 24 24)'/%3E%3Ccircle cx='24' cy='24' r='6.5' fill='%2335d8ff'/%3E%3Ccircle cx='24' cy='24' r='2.6' fill='%23fff'/%3E%3C/svg%3E">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,600;1,600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/stage.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/utilities.css">
+  <link rel="stylesheet" href="css/styleguide.css">
+</head>
+<body>
+  <a class="skip-link" href="#sg-main">Skip to content</a>
+
+  <!-- Same background system as the home page, fixed behind the document -->
+  <div class="stage" aria-hidden="true">
+    <div class="bg"></div>
+    <div class="stars" id="stA"></div>
+    <div class="stars" id="stB"></div>
+  </div>
+
+  <main class="sg container" id="sg-main" tabindex="-1">
+    <header class="sg-head">
+      <p class="eyebrow">Internal · Phase 2</p>
+      <h1 class="display">Design system</h1>
+      <p class="lead">Every value on this page is read live from <code>css/tokens.css</code>. Use these recipes for new sections; the hero keeps its own pixel-contract classes.</p>
+    </header>
+
+    <section class="sg-sec" aria-labelledby="sg-colour">
+      <h2 class="heading-2" id="sg-colour">Colour</h2>
+      <div class="sg-swatches" data-swatches="--c-bg --c-surface --c-surface-card --c-ink --c-ink-92 --c-muted --c-cyan-ice --c-cyan-pale --c-cyan --c-cyan-bright --c-electric --c-electric-deep --c-focus --c-line-105 --c-line-15"></div>
+      <div class="sg-atmos" aria-label="Atmosphere gradient over the stage colour"><span>--grad-atmosphere over --c-bg</span></div>
+    </section>
+
+    <section class="sg-sec" aria-labelledby="sg-type">
+      <h2 class="heading-2" id="sg-type">Typography</h2>
+      <div class="sg-type">
+        <p class="display">Where great events</p>
+        <p class="heading-1">Heading 1 · Poppins 800</p>
+        <p class="heading-2">Heading 2 · Poppins 700</p>
+        <p class="heading-3">Heading 3 · Poppins 600</p>
+        <p class="serif-accent sg-serif">An evening to remember</p>
+        <p class="serif-accent serif-accent--italic sg-serif">Curated with care</p>
+        <p class="lead">Lead copy — discover concerts, conferences and festivals with instant tickets and trusted hosts.</p>
+        <p class="body-copy">Body copy — 15px Poppins 400 at 1.6 line-height on the muted ink, for comfortable reading on the dark stage.</p>
+        <p class="eyebrow">Eyebrow · tracked caps</p>
+        <p class="heading-2 text-gradient">Gradient accent</p>
+      </div>
+      <ul class="sg-weights" id="sgWeights" aria-label="Loaded font faces"></ul>
+    </section>
+
+    <section class="sg-sec" aria-labelledby="sg-space">
+      <h2 class="heading-2" id="sg-space">Spacing &amp; radii</h2>
+      <div class="sg-spaces" data-spaces="--space-1 --space-2 --space-3 --space-4 --space-5 --space-6 --space-8 --space-10 --space-12 --space-16 --space-20 --space-24"></div>
+      <div class="sg-radii" data-radii="--radius-xs --radius-sm --radius-md --radius-lg --radius-xl --radius-2xl --radius-pill"></div>
+    </section>
+
+    <section class="sg-sec" aria-labelledby="sg-glass">
+      <h2 class="heading-2" id="sg-glass">Glass, borders &amp; shadows</h2>
+      <div class="sg-grid">
+        <div class="sg-tile glass radius-lg"><b>.glass</b><span>nav-pill material</span></div>
+        <div class="sg-tile glass--raised radius-sm"><span class="icon-tile" aria-hidden="true">✦</span><b>.glass--raised</b><span>badge material</span></div>
+        <div class="sg-tile glass--panel radius-lg"><b>.glass--panel</b><span>menu panel</span></div>
+        <div class="sg-tile hairline radius-lg"><b>.hairline</b><span>1px border token</span></div>
+        <div class="sg-tile ring-hairline radius-sm sg-card"><b>--shadow-card</b><span>poster elevation</span></div>
+        <div class="sg-tile glass radius-lg hover-lift" tabindex="0"><b>.hover-lift</b><span>hover or focus me</span></div>
+        <div class="sg-tile glass radius-lg hover-glow" tabindex="0"><b>.hover-glow</b><span>hover or focus me</span></div>
+      </div>
+    </section>
+
+    <section class="sg-sec" aria-labelledby="sg-buttons">
+      <h2 class="heading-2" id="sg-buttons">Buttons &amp; focus</h2>
+      <p class="body-copy">Press <kbd>Tab</kbd> to walk the controls — every one shows the cyan focus ring; mouse clicks do not.</p>
+      <div class="cluster sg-buttons">
+        <a class="btn btn--md" href="#sg-buttons"><span>Host an event</span></a>
+        <button class="btn btn--lg" type="button"><span>Find events</span></button>
+        <button class="btn-ghost" type="button">Browse venues</button>
+        <button class="btn btn--md" type="button" disabled><span>Sold out</span></button>
+        <a class="hover-fade text-ink" href="#sg-buttons">Text link</a>
+      </div>
+      <div class="sg-block">
+        <button class="btn btn--md btn--block" type="button"><span>Full-width button</span></button>
+      </div>
+    </section>
+
+    <section class="sg-sec" aria-labelledby="sg-motion">
+      <h2 class="heading-2" id="sg-motion">Motion</h2>
+      <dl class="sg-motion" id="sgMotion"></dl>
+    </section>
+  </main>
+
+  <script src="js/core.js"></script>
+  <script src="js/starfield.js"></script>
+  <script src="js/styleguide.js"></script>
+</body>
+</html>

@@ -6,10 +6,12 @@
 (function (Eventora) {
   'use strict';
 
-  var CANVAS_W = 1172;      // design canvas width
-  var CANVAS_H = 657;       // design canvas height
-  var FIT_H = 560;          // height divisor — see scale law below
-  var TAB_MAX = 1080, TAB_MIN = 701, DW_MIN = 920;
+  var CANVAS = Eventora.config.canvas;
+  var BP = Eventora.config.breakpoints;
+  var CANVAS_W = CANVAS.width;            // design canvas width (1172)
+  var CANVAS_H = CANVAS.height;           // design canvas height (657)
+  var FIT_H = CANVAS.fitHeight;           // height divisor — see scale law below
+  var TAB_MAX = BP.tabletMax, TAB_MIN = BP.tabletMin, DW_MIN = CANVAS.tabletMinWindow;
 
   /* Type targets in design px: ink width, cap height, baseline y.
      Ink widths are tuned to EVENTORA's copy so the fitted lines keep the same
@@ -30,13 +32,7 @@
   var state = { k: 1, mode: 'desktop', tboost: 1 };
   var els = {};
 
-  function $(id) { return document.getElementById(id); }
-
-  function modeFor(vw) {
-    if (vw <= 700) return 'phone';
-    if (vw <= TAB_MAX) return 'tablet';
-    return 'desktop';
-  }
+  var $ = Eventora.dom.byId;
 
   function setVars(vars) {
     Object.keys(vars).forEach(function (name) {
@@ -49,7 +45,7 @@
   function resize() {
     var vw = window.innerWidth;
     var vh = window.innerHeight;
-    var mode = modeFor(vw);
+    var mode = Eventora.viewport.mode(vw);
     state.mode = mode;
     document.documentElement.setAttribute('data-layout', mode);
 

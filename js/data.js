@@ -1,12 +1,11 @@
 /* =========================================================================
    EVENTORA — static content for the hero showcase.
-   Creates the single app namespace `window.Eventora`; every other module
-   attaches to it instead of adding globals.
+   Attaches to the namespace created in js/core.js.
    ========================================================================= */
 (function () {
   'use strict';
 
-  var Eventora = window.Eventora = window.Eventora || {};
+  var Eventora = window.Eventora;
 
   /** Builds a sized, compressed Unsplash photo URL. */
   function photo(id, w, h) {

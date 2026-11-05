@@ -1,42 +1,239 @@
 /* =========================================================================
    EVENTORA — DESIGN TOKENS
-   Single source of truth for colour, type and motion. Pixel-sampled gradient
-   stops inside individual components stay literal on purpose: they are
-   measured light falloffs, not reusable brand colours.
+   The single source of truth for colour, type, spacing, radii, borders,
+   shadows, glass, motion and layering. Components consume these; they do
+   not invent new raw values.
+
+   Pixel-contract recipes from DESIGN_REFERENCE (the glow button foot, the
+   badge tile, edge-light masks) are stored here VERBATIM as gradient tokens.
+   They are measured light falloffs — never "simplify" their stops.
+
+   NOTE: a token that itself uses var() is resolved where it is DECLARED
+   (here, on :root). Per-element hooks such as the button's --hair therefore
+   stay inside the component rule, not in a token.
    ========================================================================= */
 :root {
-  /* Surfaces */
-  --c-bg: #020204;
-  --c-card: #0d1117;
-  --c-btn-core: #0a111d;
+  color-scheme: dark;
+
+  /* ---------------------------------------------------------------------
+     COLOUR
+     --------------------------------------------------------------------- */
+  /* Surfaces, darkest to lightest */
+  --c-bg: #020204;                         /* the stage: near-black */
+  --c-surface: #0a111d;                    /* glow-button core, raised controls */
+  --c-surface-card: #0d1117;               /* poster card fallback */
+  --c-surface-window: rgba(20, 20, 26, .82);/* browser-mock body */
+  --c-panel-top: rgba(11, 15, 22, .985);   /* menu panel gradient */
+  --c-panel-bottom: rgba(7, 10, 16, .99);
 
   /* Ink */
   --c-ink: #fff;
-  --c-ink-soft: rgba(255, 255, 255, .92);
-  --c-muted: #a9aeb5;
+  --c-ink-94: rgba(255, 255, 255, .94);
+  --c-ink-92: rgba(255, 255, 255, .92);
+  --c-ink-90: rgba(255, 255, 255, .9);
+  --c-ink-72: rgba(255, 255, 255, .72);
+  --c-muted: #a9aeb5;                      /* body copy on the stage */
 
-  /* Accents */
-  --c-cyan: #35d8ff;
+  /* Brand accents — cyan to electric blue */
+  --c-cyan-ice: #bff6ff;
   --c-cyan-pale: #8ef4ff;
+  --c-cyan: #35d8ff;
+  --c-cyan-bright: #3fe3ff;
   --c-electric: #0a86d8;
+  --c-electric-deep: #0f9ae0;
+  --c-glow: rgba(60, 224, 255, .75);       /* logo-mark bloom */
   --c-focus: rgba(120, 225, 255, .7);
 
-  /* Hairlines */
-  --c-hairline: rgba(255, 255, 255, .105);
-  --c-hairline-strong: rgba(255, 255, 255, .15);
+  /* Atmosphere: the faint blue that pools in the lower half of the stage */
+  --c-atmos-rgb: 25, 127, 255;
 
-  /* Type */
+  /* Hairlines (1px borders on glass) */
+  --c-line-10: rgba(255, 255, 255, .10);
+  --c-line-105: rgba(255, 255, 255, .105);
+  --c-line-115: rgba(255, 255, 255, .115);
+  --c-line-15: rgba(255, 255, 255, .15);
+
+  /* Light-surface ink (inside the app preview) */
+  --c-paper: #fff;
+  --c-paper-ink: #17181c;
+  --c-paper-muted: #8a8a8a;
+
+  /* ---------------------------------------------------------------------
+     TYPOGRAPHY
+     Poppins carries the interface; Playfair Display is the editorial accent.
+     Loaded weights — Poppins: 400 500 600 700 800 900 · Playfair: 600, 600i.
+     Never request a weight that is not loaded (it would be faked or swapped).
+     --------------------------------------------------------------------- */
   --f-sans: Poppins, Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
   --f-serif: "Playfair Display", Georgia, serif;
 
-  /* Motion */
-  --ease-expo: cubic-bezier(.16, 1, .3, 1);
-  --ease-soft: cubic-bezier(.22, .61, .36, 1);
-  --ease-std: cubic-bezier(.4, 0, .2, 1);
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+  --fw-extrabold: 800;
+  --fw-black: 900;
+  --fw-serif: 600;                          /* the only Playfair weight loaded */
 
-  /* Layering (front to back) */
+  /* Fluid type scale for flow layouts (future sections). The hero does not
+     use these: its sizes are fitted to the design canvas by js/fitter.js. */
+  --fs-display: clamp(2.25rem, 1.4rem + 3.6vw, 3.75rem);
+  --fs-h1: clamp(1.875rem, 1.3rem + 2.4vw, 2.75rem);
+  --fs-h2: clamp(1.5rem, 1.15rem + 1.5vw, 2.125rem);
+  --fs-h3: clamp(1.1875rem, 1.05rem + .6vw, 1.4375rem);
+  --fs-body-lg: clamp(1rem, .96rem + .2vw, 1.125rem);
+  --fs-body: .9375rem;                      /* 15px */
+  --fs-small: .8125rem;                     /* 13px */
+  --fs-caption: .6875rem;                   /* 11px */
+
+  --lh-tight: 1;
+  --lh-heading: 1.08;
+  --lh-snug: 1.3;
+  --lh-body: 1.6;
+
+  --tracking-tight: -.01em;
+  --tracking-normal: 0;
+  --tracking-wide: .06em;
+  --tracking-caps: .14em;
+
+  /* ---------------------------------------------------------------------
+     SPACING — 4px base
+     --------------------------------------------------------------------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+
+  --gutter: clamp(16px, 4vw, 40px);         /* page side gutter for flow sections */
+  --gutter-phone: 20px;                     /* hero flow column on phones */
+  --container-max: 1180px;
+  --section-gap: clamp(64px, 9vw, 128px);
+  --touch-target: 44px;                     /* WCAG 2.5.5 minimum */
+
+  /* ---------------------------------------------------------------------
+     RADII
+     --------------------------------------------------------------------- */
+  --radius-xs: 8px;       /* icon tiles */
+  --radius-sm: 12px;      /* badge, cards, menu links */
+  --radius-md: 14px;      /* standard buttons, burger */
+  --radius-lg: 22px;      /* panels */
+  --radius-xl: 28px;      /* window chrome */
+  --radius-2xl: 32px;     /* the 64px nav pill */
+  --radius-full: 50%;     /* circles */
+  --radius-pill: 999px;
+
+  /* ---------------------------------------------------------------------
+     BORDERS
+     --------------------------------------------------------------------- */
+  --border-hairline: 1px solid var(--c-line-105);
+  --border-hairline-soft: 1px solid var(--c-line-10);
+  --border-hairline-badge: 1px solid var(--c-line-115);
+  --ring-hairline: inset 0 0 0 1px var(--c-line-15);   /* border drawn as a shadow */
+
+  /* ---------------------------------------------------------------------
+     SHADOWS & ELEVATION
+     --------------------------------------------------------------------- */
+  --shadow-inset-top: inset 0 1px 0 rgba(255,255,255,.03);
+  --shadow-inset-top-badge: inset 0 1px 0 rgba(255,255,255,.035);
+  --shadow-card: 0 24px 46px rgba(0,0,0,.6), 0 3px 8px rgba(0,0,0,.5);
+  --shadow-card-edge: inset 0 0 0 1px rgba(255,255,255,.15), inset 0 16px 30px rgba(255,255,255,.05);
+  --shadow-window: 0 -14px 44px rgba(0,0,0,.55);
+  --shadow-panel: 0 26px 60px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.05);
+  --shadow-fab: 0 8px 20px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.45);
+  --shadow-headline: 0 0 34px rgba(130,180,255,.22);
+  --shadow-label: 0 1px 2px rgba(0,20,30,.5);
+  /* glow-button hover (from the reference; replaces the resting list) */
+  --shadow-btn-hover: inset 0 1px 0 rgba(200,245,255,.6), inset 1px 0 0 rgba(170,225,255,.35),
+    inset -1px 0 0 rgba(170,225,255,.35), 0 6px 22px rgba(20,180,225,.55);
+
+  /* ---------------------------------------------------------------------
+     GLASS
+     --------------------------------------------------------------------- */
+  --glass-tint: rgba(255,255,255,.008);
+  --glass-tint-raised: rgba(255,255,255,.012);
+  --glass-blur-sm: blur(6px) saturate(112%);    /* window chrome */
+  --glass-blur-md: blur(12px);                  /* badge */
+  --glass-blur-lg: blur(16px) saturate(140%);   /* nav pill */
+  --glass-blur-xl: blur(18px) saturate(140%);   /* menu panel */
+
+  /* ---------------------------------------------------------------------
+     GRADIENTS (reference recipes — keep every stop)
+     --------------------------------------------------------------------- */
+  --grad-atmosphere:
+    linear-gradient(180deg, rgba(var(--c-atmos-rgb),0) 38%, rgba(var(--c-atmos-rgb),.042) 54%,
+      rgba(var(--c-atmos-rgb),.052) 68%, rgba(var(--c-atmos-rgb),.030) 100%);
+
+  /* The glow button: a ~18px bank of cyan light at the foot, sampled row by row */
+  --grad-btn-foot: linear-gradient(to top,
+    #9ad9ec 1px, #89dff0 2px, #79e0f1 3px, #61daef 4px, #3ec8e4 5px,
+    #14a8c6 6px, #0596b3 7px, #038aa8 8px, #047796 9px, #006180 10px,
+    #025066 12px, #0a4f5e 13px, #04465a 14px, #073746 16px,
+    #0a2a37 18px, #0d212e 20px, #0f1824 24px, #0a121e 30px,
+    #0a111d 34px, #0a111d 100%);
+  --grad-btn-streak: linear-gradient(90deg, rgba(120,225,255,0) 0%, rgba(120,225,255,.58) 34%,
+    rgba(160,240,255,.74) 50%, rgba(120,225,255,.58) 66%, rgba(120,225,255,0) 100%);
+  --grad-btn-edge:
+    linear-gradient(90deg, rgba(200,245,255,.70), rgba(200,245,255,0) 13px),
+    linear-gradient(270deg, rgba(200,245,255,.70), rgba(200,245,255,0) 13px);
+  --mask-btn-edge: linear-gradient(to top, #000 0, #000 6px, rgba(0,0,0,.40) 12px,
+    rgba(0,0,0,.15) 18px, rgba(0,0,0,.09) 24px, rgba(0,0,0,.02) 30px, rgba(0,0,0,.02) 100%);
+
+  /* Glass with a faint bank of light along its foot (badge) */
+  --grad-glass-foot: linear-gradient(to top,
+    rgba(190,225,255,.175) 0px, rgba(190,225,255,.128) 2px, rgba(190,225,255,.075) 4px,
+    rgba(190,225,255,.026) 6px, rgba(255,255,255,.012) 9px, rgba(255,255,255,.012) 100%);
+  --grad-icon-tile: linear-gradient(to top,
+    #46afc8 0px, #35abc7 2px, #0b859d 4px, #026c84 6px, #004e66 8px,
+    #053f58 10px, #012c3d 12px, #031a2a 14px, #061125 16px, #090f25 19px,
+    #090c1c 23px, #060d16 29px);
+  --shadow-icon-tile: inset 1px 0 0 rgba(150,220,250,.40), inset -1px 0 0 rgba(150,220,250,.52),
+    0 0 6px rgba(60,190,230,.20), 0 3px 8px -5px rgba(90,220,255,.6);
+
+  --grad-panel: linear-gradient(180deg, var(--c-panel-top), var(--c-panel-bottom));
+  --grad-window-bar: linear-gradient(180deg, rgba(20,24,48,.48), rgba(15,19,38,.58));
+  --grad-fab: linear-gradient(145deg, var(--c-cyan-pale) 0%, var(--c-cyan) 38%, var(--c-electric) 100%);
+
+  /* ---------------------------------------------------------------------
+     MOTION
+     --------------------------------------------------------------------- */
+  --ease-expo: cubic-bezier(.16, 1, .3, 1);     /* entrances */
+  --ease-soft: cubic-bezier(.22, .61, .36, 1);  /* small follow-throughs */
+  --ease-std: cubic-bezier(.4, 0, .2, 1);       /* state changes */
+
+  --dur-instant: .18s;
+  --dur-fast: .2s;
+  --dur-base: .25s;
+  --dur-slow: .28s;
+
+  /* ---------------------------------------------------------------------
+     FOCUS
+     --------------------------------------------------------------------- */
+  --focus-ring: 2px solid var(--c-focus);
+  --focus-offset: 2px;
+  --focus-offset-btn: 3px;
+
+  /* ---------------------------------------------------------------------
+     LAYERING (front to back)
+     --------------------------------------------------------------------- */
+  --z-skip: 1000;
   --z-nav: 400;
   --z-hero: 300;
   --z-mock: 100;
   --z-ring: 5;
+
+  /* ---------------------------------------------------------------------
+     BREAKPOINTS (documentation only — CSS cannot read variables inside
+     @media). Mirrored in js/core.js as Eventora.config.breakpoints.
+       desktop  > 1080px
+       tablet   701px – 1080px
+       phone    <= 700px
+     --------------------------------------------------------------------- */
 }
