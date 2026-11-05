@@ -24,7 +24,7 @@
     badgeTxt: { tw: 184,   tc: 9.4,  pre: 'translate(2px,-1px)' },
     wmName:   { tw: 70,    tc: 11.4, y: 38.5 },
     ctaLabel: { tw: 86,    tc: 8.9 },
-    vpLabel:  { tw: 72,    tc: 9.5 }
+    vpLabel:  { tw: 90,    tc: 9.5 }    // "Explore Events" at 0.95 of natural width
   };
   var LINK_CAP = 7.9;       // shared cap height of the nav links
   var LINK_ROW_W = 317;     // the whole link row is squeezed to this width
@@ -34,16 +34,45 @@
 
   var $ = Eventora.dom.byId;
 
+  /* Writes the layout variables on every scaled layer: the hero canvas and
+     the fixed nav layer share one coordinate system and must stay in step.
+     Inner pages have only the nav layer. */
   function setVars(vars) {
-    Object.keys(vars).forEach(function (name) {
-      if (vars[name] === null) els.canvas.style.removeProperty(name);
-      else els.canvas.style.setProperty(name, vars[name]);
+    [els.canvas, els.navlayer].forEach(function (layer) {
+      if (!layer) return;
+      Object.keys(vars).forEach(function (name) {
+        if (vars[name] === null) layer.style.removeProperty(name);
+        else layer.style.setProperty(name, vars[name]);
+      });
     });
+  }
+
+  /* In-page jumps must land below the fixed nav: publish its bottom edge
+     (plus breathing room) as --nav-offset for scroll-padding-top. */
+  function updateNavOffset() {
+    var nav = $('nav');
+    if (!nav) return;
+    // Layout geometry, not getBoundingClientRect: the entrance animation lifts
+    // the nav by a few px for its first second, which must not leak in here.
+    // Desktop/tablet: design px × k (the layer is scaled). Phone: k = 1.
+    var bottom = (nav.offsetTop + nav.offsetHeight) * state.k;
+    document.documentElement.style.setProperty('--nav-offset', Math.round(bottom + 16) + 'px');
+  }
+
+  function placeCards() {
+    if (Eventora.carousel && Eventora.carousel.place) Eventora.carousel.place();
   }
 
   /** Computes k and the tablet height split, then writes CSS variables. */
   function resize() {
+    // Two widths, on purpose. innerWidth includes a classic (Windows) scrollbar
+    // and is what CSS media queries see, so it decides the layout MODE and the
+    // tablet ramp (keeping 1080/1081 continuous). clientWidth is the width the
+    // page can actually paint into, so it drives the SCALE: otherwise, once the
+    // document scrolls, the canvas would be centred under the scrollbar and its
+    // right edge clipped. With overlay scrollbars the two are equal.
     var vw = window.innerWidth;
+    var avail = document.documentElement.clientWidth || vw;
     var vh = window.innerHeight;
     var mode = Eventora.viewport.mode(vw);
     state.mode = mode;
@@ -73,7 +102,7 @@
     // Scale law: k = min(vw/W, vh/560). Dividing by 560 (not 657) fills the
     // width and lets the browser mock bleed off the bottom edge instead of
     // letterboxing the composition.
-    var k = Math.min(vw / W, vh / FIT_H);
+    var k = Math.min(avail / W, vh / FIT_H);
     var fill = Math.max(0, vh / k - CANVAS_H);   // surplus height in design px
     var stshift = 0, sshift = 0, rs = 1;
 
@@ -114,7 +143,8 @@
       els.links.style.fontSize = '';
       els.links.style.transform = '';
       Array.prototype.forEach.call(els.links.children, function (a) { a.style.fontSize = ''; });
-      Eventora.carousel.place();
+      updateNavOffset();
+      placeCards();
       return;
     }
 
@@ -126,8 +156,8 @@
       F.fitBox(node, cfg.tw * T, cfg.tc * T, cfg.pre, k);
       if (cfg.y !== undefined) F.baseline(node, cfg.y);
     });
-    F.centreLabel(els.navBtn, $('ctaLabel'), TYPE.ctaLabel.tc * T, k);
-    F.centreLabel(els.heroBtn, $('vpLabel'), TYPE.vpLabel.tc * T, k);
+    if (els.navBtn) F.centreLabel(els.navBtn, $('ctaLabel'), TYPE.ctaLabel.tc * T, k);
+    if (els.heroBtn) F.centreLabel(els.heroBtn, $('vpLabel'), TYPE.vpLabel.tc * T, k);
 
     // Nav links: one shared size, then squeeze the whole row.
     els.links.style.transform = '';
@@ -142,23 +172,27 @@
       if (rowW > 0) els.links.style.transform = 'scaleX(' + (LINK_ROW_W / rowW) + ')';
     }
 
-    Eventora.carousel.place();
+    updateNavOffset();
+    placeCards();
   }
 
   Eventora.layout = {
     state: state,
     init: function () {
-      els.canvas = $('canvas');
+      els.canvas = $('canvas');          // hero canvas (home page only)
+      els.navlayer = $('navlayer');      // fixed nav layer (every page)
       els.links = $('links');
       els.navBtn = document.querySelector('.nav .btn');
       els.heroBtn = document.querySelector('.cta2');
 
       // Fallback for browsers without overflow:clip — never let focus or
       // find-in-page scroll the stage away from its authored position.
-      var stage = $('stage');
-      stage.addEventListener('scroll', function () {
-        if (stage.scrollLeft || stage.scrollTop) { stage.scrollLeft = 0; stage.scrollTop = 0; }
-      });
+      var stage = document.querySelector('.stage:not(.stage--fixed)');
+      if (stage) {
+        stage.addEventListener('scroll', function () {
+          if (stage.scrollLeft || stage.scrollTop) { stage.scrollLeft = 0; stage.scrollTop = 0; }
+        });
+      }
 
       window.addEventListener('resize', resize);
       if (window.visualViewport) window.visualViewport.addEventListener('resize', resize);

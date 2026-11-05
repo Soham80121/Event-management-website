@@ -1,0 +1,90 @@
+/* =========================================================================
+   SECTIONS — everything below the hero, plus inner-page shells.
+   Phase 3 ships navigation destinations only: each homepage section is a
+   labelled placeholder, built out in later phases.
+   ========================================================================= */
+
+/* ---------- Active navigation state ----------
+   aria-current is set by js/sections.js (scroll position) or by the page
+   itself (inner pages). Home is excluded from the indicator so the hero —
+   which IS home — looks exactly as approved at the top of the page. */
+.links a { position: relative; }
+.links a[aria-current]:not([data-nav="home"]) { color: var(--c-cyan-ice); opacity: 1; }
+.links a[aria-current]:not([data-nav="home"])::after {
+  content: ""; position: absolute; left: 50%; bottom: -7px;
+  width: 4px; height: 4px; margin-left: -2px; border-radius: var(--radius-full);
+  background: var(--c-cyan);
+  box-shadow: 0 0 6px rgba(53, 216, 255, .8);
+}
+@media (max-width: 1080px) {
+  .links a[aria-current]:not([data-nav="home"]) { background: rgba(53, 216, 255, .08); }
+  .links a[aria-current]:not([data-nav="home"])::after {
+    left: auto; right: 14px; bottom: 50%; margin: 0 0 -2px;
+  }
+}
+
+/* ---------- Homepage sections ---------- */
+/* Jump offset comes ONLY from html { scroll-padding-top } — adding
+   scroll-margin-top here as well would double it. */
+.section:focus { outline: none; }          /* jump targets: focus moves, no ring */
+
+/* Seam: continue the hero's faint atmosphere tint so the hero/section edge is invisible */
+.section--after-hero {
+  background: linear-gradient(180deg, rgba(var(--c-atmos-rgb), .030), rgba(var(--c-atmos-rgb), 0) 320px);
+}
+
+.section--placeholder {
+  min-height: 62vh;
+  display: flex; align-items: center;
+  border-top: var(--border-hairline);
+}
+.section--after-hero.section--placeholder { border-top: 0; }
+.section--placeholder .heading-2 { margin-top: var(--space-3); }
+
+.placeholder-note {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  margin-top: var(--space-5);
+  padding: 10px var(--space-4);
+  border: 1px dashed rgba(142, 244, 255, .28);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-small); color: var(--c-muted);
+  background: rgba(53, 216, 255, .03);
+}
+.placeholder-note::before {
+  content: ""; width: 6px; height: 6px; border-radius: var(--radius-full);
+  background: var(--c-cyan); box-shadow: 0 0 8px rgba(53, 216, 255, .7);
+}
+
+/* ---------- Footer (placeholder) ---------- */
+.site-footer {
+  border-top: var(--border-hairline);
+  padding-block: var(--space-12) calc(var(--space-12) + 56px);   /* clear the fixed concierge button */
+}
+.site-footer__inner {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: var(--space-4);
+}
+.site-footer__brand { font-weight: var(--fw-black); letter-spacing: .04em; font-size: 18px; }
+.site-footer .placeholder-note { margin-top: 0; }
+.site-footer__legal { font-size: var(--fs-small); color: var(--c-muted); }
+
+/* ---------- Inner page shell (host.html) ---------- */
+.page-shell {
+  position: relative; z-index: 1;
+  min-height: 100vh; min-height: 100svh;
+  display: flex; flex-direction: column;
+}
+/* Column, not row: as a row-flex item the hero would size to its text's
+   single-line max-content width and push the page wider than the screen. */
+.page-hero-wrap { flex: 1 0 auto; display: flex; flex-direction: column; }
+.page-hero-wrap:focus { outline: none; }
+.page-hero {
+  flex: 1 0 auto;
+  display: flex; align-items: center;
+  padding-block: calc(var(--nav-offset, 96px) + var(--space-12)) var(--space-20);
+}
+.page-hero__inner { max-width: 720px; }
+.page-hero .display { margin-top: var(--space-3); }
+.page-hero .lead { margin-top: var(--space-5); max-width: 560px; }
+.page-hero .cluster { margin-top: var(--space-8); --cluster-gap: var(--space-4); }
+.page-hero .placeholder-note { margin-top: var(--space-8); }

@@ -1,6 +1,7 @@
 /* =========================================================================
-   BOOTSTRAP — wires the modules together. Each step is isolated so one
-   failing module can never leave the page blank.
+   BOOTSTRAP — wires the modules a page includes. Each step is isolated so one
+   failing module can never leave the page blank, and modules a page does not
+   load (inner pages skip the ring, mock and intro) are simply skipped.
    ========================================================================= */
 (function (Eventora) {
   'use strict';
@@ -10,10 +11,16 @@
     catch (err) { console.warn('[Eventora] ' + name + ' failed to initialise:', err); }
   }
 
-  safely('starfield', function () { Eventora.starfield.init(); });
-  safely('carousel',  function () { Eventora.carousel.init(); });
-  safely('mock',      function () { Eventora.mock.init(); });
-  safely('nav',       function () { Eventora.nav.init(); });
-  safely('layout',    function () { Eventora.layout.init(); });
-  safely('intro',     function () { Eventora.intro.run(); });
+  function start(name, method) {
+    var mod = Eventora[name];
+    if (mod && typeof mod[method] === 'function') safely(name, function () { mod[method](); });
+  }
+
+  start('starfield', 'init');
+  start('carousel',  'init');
+  start('mock',      'init');
+  start('nav',       'init');
+  start('layout',    'init');
+  start('sections',  'init');
+  start('intro',     'run');
 })(window.Eventora);

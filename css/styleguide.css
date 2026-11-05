@@ -2,7 +2,6 @@
    STYLEGUIDE — layout for the internal design-system page only.
    Not loaded by index.html.
    ========================================================================= */
-.is-scrollable .stage { z-index: 0; }
 .sg { position: relative; z-index: 1; padding-block: var(--space-16) var(--space-24); }
 .sg code, .sg kbd {
   font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: .85em;

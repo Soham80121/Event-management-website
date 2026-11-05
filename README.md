@@ -18,26 +18,36 @@ You can also open `index.html` directly, because the scripts are plain (non-modu
 
 | Page | Purpose |
 |---|---|
-| `index.html` | The home page: a single composed hero viewport that never scrolls |
+| `index.html` | The scrolling home page: a full-screen hero, then Featured, Upcoming, Categories, About, Contact and the footer (placeholders until later phases) |
+| `host.html` | The "Host an Event" page (a branded shell for now) |
 | `styleguide.html` | Internal design-system reference that renders the live tokens and reusable recipes. It is `noindex` and not linked from the site |
+
+## Page architecture (since Phase 3)
+
+- **Hero.** `section.stage#top` is exactly one screen tall (`100vh`/`100svh`) and clips the scaled 1172×657 design canvas.
+- **Nav.** The nav lives in `header.navlayer`, a fixed layer that reproduces the canvas coordinate system (same width, origin and `--k` scale). At the top of the page it sits on exactly the pixels it had inside the hero, and it stays pinned while the page scrolls. On phones it becomes an unscaled bar, and the hero column keeps a spacer for it.
+- **In-page jumps.** Nav links use `#top`, `#featured`, `#categories`, `#about` and `#contact`. CSS handles smooth scrolling, which is instant under reduced motion. `html { scroll-padding-top: var(--nav-offset) }` keeps destinations below the fixed nav, and `js/layout.js` measures the offset. `js/sections.js` moves focus to the destination, sets `aria-current` on the matching link, and pauses the 3D ring while the hero is off-screen.
+- **Scale.** The scale uses `clientWidth`, the space actually available, so a classic Windows scrollbar can't push the hero off-centre. The layout mode uses `innerWidth`, which matches what CSS media queries see.
 
 ## Structure
 
 ```
-index.html              home page shell (semantic markup)
+index.html              home page (hero + section placeholders + footer)
+host.html               Host an Event page shell
 styleguide.html         internal design-system page
 css/
   tokens.css            ALL design tokens: colour, type, spacing, radii, borders,
                         shadows, glass, gradients, motion, focus, z-order
   base.css              reset, document typography, focus system, a11y helpers,
                         global reduced-motion safety net
-  stage.css             background system (#020204 + atmosphere), starfield,
-                        scaled 1172x657 design canvas
+  stage.css             hero section, background system, starfield,
+                        scaled 1172x657 canvas, fixed nav layer
   components.css        hero instances: nav pill, badge, glow button, concierge FAB
   hero.css              headline + sub-copy
   showcase.css          3D poster ring + app preview (browser mock)
   utilities.css         reusable recipes: .container, type helpers, .glass*,
                         .btn--md/--lg/--block, .btn-ghost, hairlines, hover helpers
+  sections.css          active-nav indicator, homepage sections, footer, page shells
   responsive.css        tablet (701–1080) and phone (<=700) architectures
   motion.css            entrance resting states + reduced-motion overrides
   styleguide.css        styleguide page layout only
@@ -50,7 +60,8 @@ js/                     each file attaches to the single `window.Eventora` names
   mock.js               renders the app preview from data
   fitter.js             type fitter (cap height, ink width, baseline)
   layout.js             canvas scale law, tablet height split, phone reset
-  nav.js                burger menu (aria-expanded, Escape, outside click)
+  nav.js                burger menu (aria-expanded, Escape, outside click, focus-out)
+  sections.js           in-page jumps, focus, scroll spy, ring pause
   intro.js              one-shot entrance timeline (Web Animations API)
   main.js               home page bootstrap
   styleguide.js         styleguide renderer
@@ -69,13 +80,13 @@ docs/screenshots/       verification screenshots per phase
 - **Breakpoints.** Phone is ≤700px, tablet is 701–1080px, and desktop is >1080px. CSS hard-codes them in `@media`, and `Eventora.config.breakpoints` mirrors them for JS.
 - **Motion.** Read `Eventora.motion.reduced()` before animating in JS. `base.css` also neutralises CSS transitions and animations under `prefers-reduced-motion`.
 - **Focus.** Every interactive element gets the cyan `:focus-visible` ring from `base.css`. Don't remove outlines without replacing them.
-- **Scrolling.** The home page never scrolls. A page that needs document scroll adds `class="is-scrollable"` to `<html>`.
+- **Scrolling.** The document scrolls and the hero stays the first full-screen section. Never apply `overflow:hidden` to `html` or `body`.
 
 ## Hero regression test
 
 `tests/hero-snapshot.js` records the geometry and computed styles of every hero element (about 80 nodes, including pseudo-elements and fitter output). Moving parts like ring rotation, random star positions and the pulse are excluded.
 
-To use it, open the page in Chrome, wait for the intro to finish (about 3s), keep the pointer off the hero, and run this in the console:
+To use it, open the page in Chrome, wait for the intro to finish (about 3s), keep the pointer off the hero, and run this in the console. On Windows, add `html{scrollbar-width:none}` first so the scrollbar doesn't change the scale:
 
 ```js
 await new Promise(r => { const s = document.createElement('script'); s.src = '/tests/hero-snapshot.js'; s.onload = r; document.head.appendChild(s); });

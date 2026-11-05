@@ -6,7 +6,7 @@
 
 /* ---------- NAV PILL ---------- */
 .nav {
-  left: 247px; top: 3px; width: 678px; height: 64px;
+  position: absolute; left: 247px; top: 3px; width: 678px; height: 64px;
   border-radius: var(--radius-2xl); z-index: var(--z-nav);
   background: var(--glass-tint);
   border: var(--border-hairline);
@@ -21,14 +21,19 @@
   filter: drop-shadow(0 0 6px var(--c-glow));
 }
 
-.wm { left: 50px; top: 0; height: 62px; white-space: nowrap; }
+/* The link box wraps the wordmark so its focus ring is visible (its children
+   are absolutely positioned, so without a width the link would be 0px wide).
+   Box starts 4px left of the reference x=50; children shift +4px inside it,
+   so every glyph stays on its reference coordinate. */
+.wm { left: 46px; top: 0; width: 78px; height: 62px; white-space: nowrap; border-radius: var(--radius-md); }
+.wm:focus-visible { outline-offset: -3px; }
 .wm .kick {
-  position: absolute; left: 3px; top: 20px;
+  position: absolute; left: 7px; top: 20px;
   font-size: 4.4px; font-weight: var(--fw-semibold); letter-spacing: .10em;
   color: var(--c-ink); opacity: .92; line-height: var(--lh-tight);
 }
 .wm .name {
-  position: absolute; left: 0; top: 26px;
+  position: absolute; left: 4px; top: 26px;
   transform-origin: 0 50%;
   font-family: var(--f-sans); font-weight: var(--fw-black); font-size: 22px;
   line-height: var(--lh-tight); letter-spacing: var(--tracking-tight); color: var(--c-ink);
@@ -124,9 +129,12 @@
 }
 .nav .btn span { margin-top: 0; }
 
-/* Instance B — hero CTA (no top streak, no hairline; 13px radius per reference) */
+/* Instance B — hero CTA (no top streak, no hairline; 13px radius per reference).
+   Reference: left 526 / width 121 for a 10-character label. "Explore Events"
+   needs 139px at the same 24.5px side padding and 0.95 label condensing, so the
+   button grows symmetrically: still centred on x = 586.5, same top and height. */
 .cta2 {
-  left: 526px; top: 349px; width: 121px; height: 54.5px;
+  left: 517px; top: 349px; width: 139px; height: 54.5px;
   --hair: 0 0 0 transparent;
   border-radius: 13px; font-size: 17px; font-weight: var(--fw-medium); letter-spacing: var(--tracking-tight);
   z-index: var(--z-hero);
@@ -136,7 +144,7 @@
 
 /* ---------- FLOATING CONCIERGE BUTTON (outside the canvas) ---------- */
 .wa {
-  position: absolute; right: 16px; bottom: 24px; width: 56px; height: 56px;
+  position: fixed; right: 16px; bottom: 24px; width: 56px; height: 56px;
   border-radius: var(--radius-full); display: grid; place-items: center; z-index: var(--z-hero);
   background: var(--grad-fab);
   box-shadow: var(--shadow-fab);

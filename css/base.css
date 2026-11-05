@@ -8,10 +8,22 @@ html {
   text-size-adjust: 100%;
 }
 
-/* The home page is a single composed viewport: it never scrolls.
-   Pages that need document scrolling opt in with <html class="is-scrollable">. */
-html, body { height: 100%; overflow: hidden; background: var(--c-bg); }
-html.is-scrollable, html.is-scrollable body { height: auto; min-height: 100%; overflow: visible; }
+/* The document scrolls. The hero is the first full-screen section; the nav
+   is fixed above everything, so in-page jumps stop below it (--nav-offset is
+   measured by js/layout.js). */
+html {
+  background: var(--c-bg);
+  scroll-padding-top: var(--nav-offset, 96px);
+  scrollbar-color: rgba(142, 244, 255, .22) var(--c-bg);   /* themed, full-width for usability */
+}
+body {
+  min-height: 100vh;
+  background: var(--c-bg);
+  overflow-x: clip;          /* nothing may ever cause sideways scrolling */
+}
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+}
 
 body {
   font-family: var(--f-sans);

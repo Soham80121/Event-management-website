@@ -39,6 +39,13 @@
         if (isOpen() && !nav.contains(e.target)) setOpen(false, false);
       });
 
+      // Tabbing out of the open panel closes it, so it never floats over the
+      // page while keyboard focus is elsewhere. (relatedTarget is null for
+      // pointer clicks on non-focusable panel areas — those keep it open.)
+      nav.addEventListener('focusout', function (e) {
+        if (isOpen() && e.relatedTarget && !nav.contains(e.relatedTarget)) setOpen(false, false);
+      });
+
       // Escape closes and returns focus to the burger.
       document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape' && isOpen()) setOpen(false, true);

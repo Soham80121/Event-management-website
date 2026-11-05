@@ -4,10 +4,21 @@
    (two layers) -> scaled canvas holding the composition.
    ========================================================================= */
 
-/* overflow:clip (not just hidden): a hidden box can still be scrolled by focus
-   moving into the wider-than-viewport canvas, which would shove the whole
-   composition sideways. clip forbids all scrolling; hidden is the fallback. */
-.stage { position: fixed; inset: 0; overflow: hidden; overflow: clip; background: var(--c-bg); }
+/* ---------- The hero section ----------
+   First full-screen section of the page. It clips the scaled canvas (which
+   is wider than small viewports). overflow:clip, not hidden: a hidden box can
+   still be scrolled by focus moving into the wider-than-viewport canvas,
+   which would shove the composition sideways. svh keeps the height stable
+   while mobile browser bars show and hide. */
+.stage {
+  position: relative;
+  height: 100vh;
+  height: 100svh;
+  overflow: hidden; overflow: clip;
+  background: var(--c-bg);
+}
+/* Full-page fixed backdrop variant (styleguide, inner pages). */
+.stage--fixed { position: fixed; inset: 0; height: auto; z-index: 0; }
 
 /* ---------- Background (never animates — it IS the stage) ----------
    A faint electric-blue haze pools through the lower half of the frame. */
@@ -41,6 +52,20 @@
 
 .stack { position: absolute; inset: 0; z-index: var(--z-hero); }
 .stack > * { position: absolute; }
+
+/* ---------- Fixed navigation layer ----------
+   Reproduces the canvas coordinate system (same 1172px width, same origin,
+   same --k scale), so the nav pill lands on exactly the pixels it occupied
+   inside the hero, then stays pinned while the document scrolls. The layer
+   itself is zero-height and click-through; only the nav takes input. */
+.navlayer {
+  position: fixed; left: 50%; top: 0; z-index: var(--z-nav);
+  width: 1172px; height: 0;
+  transform: translateX(-50%) scale(var(--k, 1));
+  transform-origin: 50% 0;
+  pointer-events: none;
+}
+.navlayer .nav { pointer-events: auto; }
 
 .navmenu { display: contents; }   /* invisible shell on desktop */
 .burger { display: none; }

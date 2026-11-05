@@ -21,6 +21,7 @@
   var cards = [];
   var phase = -2;           // running rotation, never reset
   var lastTime = null;
+  var active = true;        // false while the hero is scrolled off-screen
 
   function esc(text) {
     return String(text).replace(/[&<>"']/g, function (c) {
@@ -140,6 +141,9 @@
   }
 
   function tick(t) {
+    // Off-screen: skip the work and drop the timestamp so the ring resumes
+    // from where it was instead of jumping by the time spent away.
+    if (!active) { lastTime = null; requestAnimationFrame(tick); return; }
     // Reduced motion freezes the spin but the ring still renders.
     if (lastTime !== null && !Eventora.motion.reduced()) {
       var dt = Math.min((t - lastTime) / 1000, 0.1);
@@ -162,6 +166,8 @@
       requestAnimationFrame(tick);
     },
     place: placeCards,
-    getPhase: function () { return phase; }
+    getPhase: function () { return phase; },
+    setActive: function (isActive) { active = !!isActive; },
+    isActive: function () { return active; }
   };
 })(window.Eventora);

@@ -32,9 +32,17 @@
     backdrop-filter: var(--glass-blur-xl);
     box-shadow: var(--shadow-panel);
     opacity: 0; visibility: hidden; transform: translateY(-8px);
-    transition: opacity .24s ease, transform var(--dur-slow) var(--ease-std), visibility var(--dur-slow);
+    /* Closing: fade first, then drop visibility (delayed by the fade). */
+    transition: opacity .24s ease, transform var(--dur-slow) var(--ease-std),
+      visibility 0s linear var(--dur-slow);
   }
-  .nav.open .navmenu { opacity: 1; visibility: visible; transform: none; }
+  /* Opening: visibility flips INSTANTLY (no delay) so the links are focusable
+     on the very first frame — a Tab pressed right after Enter must land on
+     "Home", not skip the panel. Opacity/transform still animate. */
+  .nav.open .navmenu {
+    opacity: 1; visibility: visible; transform: none;
+    transition-delay: 0s;
+  }
 
   .links {
     position: static; display: flex; flex-direction: column; align-items: stretch;
@@ -68,12 +76,24 @@
 
 /* ---------- PHONE <= 700px : a genuine flow column ---------- */
 @media (max-width: 700px) {
+  :root { --phone-nav-h: 58px; --phone-nav-top: clamp(10px, 1.5vh, 15px); }
+
   .canvas {
     position: relative; left: auto; top: auto; width: 100%; height: 100%;
     transform: none; display: flex; flex-direction: column; align-items: center;
-    padding: 0 var(--gutter-phone);
+    /* top padding = the space the nav used to occupy in this column before
+       it moved to the fixed layer, so every hero element keeps its position */
+    padding: calc(var(--phone-nav-top) + var(--phone-nav-h)) var(--gutter-phone) 0;
   }
   .canvas > * { position: static; }
+
+  /* Fixed nav layer becomes an unscaled bar holding the full-width pill */
+  .navlayer {
+    left: 0; right: 0; width: auto; height: auto;
+    transform: none;
+    display: flex; justify-content: center;
+    padding: 0 var(--gutter-phone);
+  }
 
   /* The hero group becomes its own centred flow column (the landmark keeps its box). */
   .stack {
@@ -82,12 +102,12 @@
   }
 
   .nav {
-    position: relative; left: auto; top: auto; width: 100%; max-width: 500px; height: 58px;
-    margin-top: clamp(10px, 1.5vh, 15px); flex: 0 0 auto;
+    position: relative; left: auto; top: auto; width: 100%; max-width: 500px; height: var(--phone-nav-h);
+    margin-top: var(--phone-nav-top); flex: 0 0 auto;
   }
   /* mark centre and wordmark cap centre pinned to the pill's mid */
   .mark { left: 16px; top: calc(50% - 13px); width: 26px; height: 26px; }
-  .wm { left: 49px; top: 0; height: 100%; }
+  .wm { left: 45px; top: 0; width: 104px; height: 100%; }   /* +4px inner shift, see components.css */
   .wm .kick { top: calc(50% - 15px); font-size: 5px; letter-spacing: .2em; }
   .wm .name {
     top: calc(50% - 9px); font-size: 18px;
