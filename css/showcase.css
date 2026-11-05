@@ -1,0 +1,170 @@
+/* =========================================================================
+   SHOWCASE — 3D perspective poster ring + the app preview (browser mock)
+   ========================================================================= */
+.showcase { left: 0; top: 0; width: 1172px; height: 0; }
+
+/* The camera sits at the ring centre: perspective === radius (891), and the
+   perspective origin is the horizon point (586, 918). Cards are tangent to the
+   cylinder, so their slanted tops are pure perspective, not rotation. */
+.ring {
+  position: absolute; left: 0; top: 0; width: 1172px; height: 657px;
+  z-index: var(--z-ring);
+  perspective: 891px; perspective-origin: 586px 918px;
+  transform-style: preserve-3d;
+  pointer-events: none;
+}
+
+.card {
+  position: absolute; left: 586px; top: 616px; width: 130px; height: 300px;
+  margin: -150px 0 0 -65px;
+  border-radius: 12px; overflow: hidden; background: var(--c-card);
+  box-shadow: 0 24px 46px rgba(0,0,0,.6), 0 3px 8px rgba(0,0,0,.5);
+  backface-visibility: hidden; will-change: transform;
+  visibility: hidden;   /* JS reveals cards inside the cull window */
+}
+.card img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.card .edge {
+  position: absolute; inset: 0; border-radius: 12px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.15), inset 0 16px 30px rgba(255,255,255,.05);
+}
+.card.broken img { display: none; }
+
+/* ---------- Shared poster sub-classes ---------- */
+.cv   { position: absolute; left: 0; right: 0; padding: 0 10px; }
+.fill { position: absolute; inset: 0; }
+.ph {
+  position: absolute; left: 0; right: 0; overflow: hidden;
+  background: linear-gradient(155deg, #2b3b50, #131c28 60%, #1d1526);   /* image fallback */
+}
+.phf { top: 0; bottom: 0; }
+.ph img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.dot {
+  display: inline-block; width: 4.5px; height: 4.5px; background: #e5202f;
+  margin-right: 4px; transform: rotate(45deg) translateY(-1px);
+}
+.dot.sq { transform: none; width: 6.5px; height: 4.5px; border-radius: 1px; }
+.t-big {
+  font-family: var(--f-sans); font-weight: 900; text-transform: uppercase;
+  line-height: .96; letter-spacing: -.015em; white-space: nowrap;
+  transform: scaleX(.875); transform-origin: left center;
+}
+.t-serif {
+  font-family: var(--f-serif); line-height: 1.02; letter-spacing: .01em; white-space: nowrap;
+}
+
+/* =========================================================================
+   BROWSER MOCK — paints in FRONT of the ring and bleeds off the bottom
+   ========================================================================= */
+.browser {
+  position: absolute; left: 165px; top: 558px; width: 842px;
+  height: calc(99px + var(--fill, 0px));   /* --fill is set by js/layout.js */
+  border-radius: 28px 28px 0 0; overflow: hidden; z-index: var(--z-mock);
+  box-shadow: 0 -14px 44px rgba(0,0,0,.55);
+}
+.browser::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 42px; bottom: 0;
+  background: rgba(20,20,26,.82); z-index: 0;
+}
+
+/* Chrome bar */
+.bar {
+  position: absolute; left: 0; top: 0; width: 100%; height: 42px;
+  background: linear-gradient(180deg, rgba(20,24,48,.48), rgba(15,19,38,.58));
+  -webkit-backdrop-filter: blur(6px) saturate(112%);
+  backdrop-filter: blur(6px) saturate(112%);
+}
+.dots { position: absolute; left: 27px; top: 16px; display: flex; gap: 2.6px; }
+.dots i { width: 7.6px; height: 7.6px; border-radius: 50%; }
+.dots i:nth-child(1) { background: #ee5c62; }
+.dots i:nth-child(2) { background: #f6b719; }
+.dots i:nth-child(3) { background: #12c02f; }
+.omni {
+  position: absolute; left: 246px; top: 7px; width: 336px; height: 26px; border-radius: 5px;
+  background: rgba(9,13,26,.93); box-shadow: inset 0 0 0 1px rgba(255,255,255,.045);
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.omni svg { width: 9px; height: 9px; opacity: .72; }
+.omni span { font-size: 9.5px; color: rgba(255,255,255,.72); letter-spacing: .005em; white-space: nowrap; }
+.tools {
+  position: absolute; right: 27px; top: 14px;
+  display: flex; align-items: center; gap: 4px; opacity: .9;
+}
+.tools svg { width: 11px; height: 12px; }
+
+/* Page surface */
+.page {
+  position: absolute; left: 7px; right: 6px; top: 42px; bottom: 0;
+  background: #fff; color: #111; overflow: hidden; border-radius: 10px 10px 0 0;
+}
+.ann {
+  position: absolute; left: 0; top: 0; width: 100%; height: 16px; background: #0b0d14;
+  display: grid; place-items: center; border-radius: 10px 10px 0 0;
+}
+.ann span { font-size: 5px; letter-spacing: .06em; color: #cfcfcf; }
+.ann u { position: absolute; font-size: 6px; color: #9a9a9a; text-decoration: none; }
+.ann u:first-child { left: 20px; }
+.ann u:last-child { right: 20px; }
+
+.shoplogo { position: absolute; left: 50%; transform: translateX(-50%); top: 24px; text-align: center; }
+.shoplogo em {
+  display: block; font-family: var(--f-serif); font-style: normal; font-weight: 600;
+  font-size: 15px; letter-spacing: .14em; line-height: 1;
+}
+.shoplogo i {
+  display: block; font-style: normal; font-size: 5px; letter-spacing: .3em;
+  color: #3a3a3a; margin-top: 3px;
+}
+.shopicons { position: absolute; right: 100px; top: 33px; display: flex; gap: 5px; opacity: .85; }
+.shopicons svg { width: 7px; height: 7px; }
+
+/* App front — only design px ~57–344 are ever on screen, so order matters */
+.pagebody { position: absolute; left: 0; right: 0; top: 62px; bottom: 0; background: #fff; overflow: hidden; }
+.pghero {
+  position: relative; margin: 0 26px; height: 158px; border-radius: 7px; overflow: hidden;
+  background: linear-gradient(120deg, #1d2440, #3a1d4a);
+}
+.pghero img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.pghero .scrim {
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg, rgba(8,10,22,.78) 0%, rgba(8,10,22,.42) 46%, rgba(8,10,22,0) 72%);
+}
+.pghero .copy { position: absolute; left: 22px; top: 50%; transform: translateY(-50%); color: #fff; }
+.pghero .copy u {
+  display: block; font-size: 4.6px; letter-spacing: .26em; text-transform: uppercase;
+  opacity: .9; text-decoration: none;
+}
+.pghero .copy em {
+  display: block; font-family: var(--f-serif); font-style: normal; font-weight: 600;
+  font-size: 15px; line-height: 1.12; margin-top: 6px;
+}
+.pghero .copy i {
+  display: inline-block; margin-top: 10px; padding: 5px 13px; border-radius: 20px;
+  background: #fff; color: #17181c; font-style: normal;
+  font-size: 5.2px; font-weight: 600; letter-spacing: .06em;
+}
+
+.pgsec { display: flex; align-items: baseline; justify-content: space-between; margin: 16px 26px 9px; }
+.pgsec b { font-family: var(--f-serif); font-weight: 600; font-size: 9px; color: #17181c; }
+.pgsec u { font-size: 4.6px; letter-spacing: .14em; color: #8a8a8a; text-transform: uppercase; text-decoration: none; }
+
+.pggrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin: 0 26px; }
+.pgcard .ph {
+  position: relative; height: 0; padding-bottom: 104%; border-radius: 6px; overflow: hidden;
+  background: linear-gradient(150deg, #e4e7f0, #c9cede);
+}
+.pgcard .ph img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.pgcard .ph.broken img { display: none; }
+.pgcard .tag {
+  position: absolute; left: 6px; top: 6px; padding: 2px 5px; border-radius: 3px;
+  background: #17181c; color: #fff; font-size: 3.8px; font-weight: 600; letter-spacing: .1em;
+}
+.pgcard b { display: block; margin-top: 6px; font-size: 5.4px; font-weight: 600; color: #17181c; letter-spacing: .01em; }
+.pgcard i { display: block; font-style: normal; margin-top: 2px; font-size: 4.6px; color: #8a8a8a; }
+.pgcard s { display: block; margin-top: 3px; font-size: 5.6px; font-weight: 700; color: #17181c; text-decoration: none; }
+.pgcard s span { font-weight: 400; color: #8a8fa0; text-decoration: line-through; margin-left: 4px; font-size: 4.6px; }
+
+.pgstrip {
+  display: flex; justify-content: space-between; margin: 16px 26px 0; padding: 9px 0;
+  border-top: 1px solid #e8eaf0; border-bottom: 1px solid #e8eaf0;
+}
+.pgstrip span { font-size: 4.4px; letter-spacing: .12em; color: #6f7487; text-transform: uppercase; }

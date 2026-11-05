@@ -1,0 +1,30 @@
+/* =========================================================================
+   MOTION — entrance resting states
+   These use the INDIVIDUAL translate / scale / clip-path properties, never
+   `transform`, because transform is already owned by the type fitter and the
+   ring loop. Individual properties compose with transform instead of
+   overwriting it. The background never moves.
+   ========================================================================= */
+html.intro .nav { opacity: 0; translate: 0 -9px; }
+html.intro .mark,
+html.intro .wm,
+html.intro .links a,
+html.intro .nav .btn,
+html.intro .burger { opacity: 0; translate: 0 6px; }
+html.intro .badge { opacity: 0; translate: 0 11px; scale: .985; }
+html.intro .h1 { opacity: 0; translate: 0 15px; clip-path: inset(100% 0 -30% 0); }
+html.intro .sub { opacity: 0; translate: 0 10px; }
+html.intro .cta2 { opacity: 0; translate: 0 13px; scale: .985; }
+html.intro .ring { opacity: 0; translate: 0 18px; scale: .99; }
+html.intro .browser { opacity: 0; translate: 0 26px; }
+html.intro .wa { opacity: 0; scale: .88; }
+
+@media (prefers-reduced-motion: reduce) {
+  html.intro .nav, html.intro .mark, html.intro .wm, html.intro .links a,
+  html.intro .nav .btn, html.intro .burger, html.intro .badge, html.intro .h1,
+  html.intro .sub, html.intro .cta2, html.intro .ring, html.intro .browser, html.intro .wa {
+    opacity: 1; translate: none; scale: none; clip-path: none;
+  }
+  .wa::after { animation: none; display: none; }
+  .btn, .wa { transition: none; }
+}

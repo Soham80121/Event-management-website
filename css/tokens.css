@@ -1,0 +1,42 @@
+/* =========================================================================
+   EVENTORA — DESIGN TOKENS
+   Single source of truth for colour, type and motion. Pixel-sampled gradient
+   stops inside individual components stay literal on purpose: they are
+   measured light falloffs, not reusable brand colours.
+   ========================================================================= */
+:root {
+  /* Surfaces */
+  --c-bg: #020204;
+  --c-card: #0d1117;
+  --c-btn-core: #0a111d;
+
+  /* Ink */
+  --c-ink: #fff;
+  --c-ink-soft: rgba(255, 255, 255, .92);
+  --c-muted: #a9aeb5;
+
+  /* Accents */
+  --c-cyan: #35d8ff;
+  --c-cyan-pale: #8ef4ff;
+  --c-electric: #0a86d8;
+  --c-focus: rgba(120, 225, 255, .7);
+
+  /* Hairlines */
+  --c-hairline: rgba(255, 255, 255, .105);
+  --c-hairline-strong: rgba(255, 255, 255, .15);
+
+  /* Type */
+  --f-sans: Poppins, Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-serif: "Playfair Display", Georgia, serif;
+
+  /* Motion */
+  --ease-expo: cubic-bezier(.16, 1, .3, 1);
+  --ease-soft: cubic-bezier(.22, .61, .36, 1);
+  --ease-std: cubic-bezier(.4, 0, .2, 1);
+
+  /* Layering (front to back) */
+  --z-nav: 400;
+  --z-hero: 300;
+  --z-mock: 100;
+  --z-ring: 5;
+}

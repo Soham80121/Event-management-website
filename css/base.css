@@ -1,0 +1,78 @@
+/* =========================================================================
+   BASE — reset, stage, fixed design canvas, background and starfield
+   ========================================================================= */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+/* The hero owns the viewport: the page never scrolls. */
+html, body { height: 100%; overflow: hidden; background: var(--c-bg); }
+
+body {
+  font-family: var(--f-sans);
+  color: var(--c-ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Button labels and links must never underline. */
+a { text-decoration: none; color: inherit; }
+
+img { display: block; }
+
+:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2px; }
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%);
+  white-space: nowrap; border: 0;
+}
+
+.skip-link {
+  position: fixed; left: 12px; top: -60px; z-index: 1000;
+  padding: 10px 16px; border-radius: 12px;
+  background: var(--c-btn-core); color: var(--c-ink);
+  border: 1px solid var(--c-hairline-strong);
+  font-size: 14px; transition: top .2s;
+}
+.skip-link:focus { top: 12px; }
+
+/* ---------- Stage + scaled canvas ----------
+   The desktop composition is authored on a fixed 1172 x 657 design canvas.
+   Every element inside is absolutely positioned in design pixels; JS then
+   scales the whole canvas with ONE transform (--k). */
+/* overflow:clip (not just hidden): a hidden box can still be scrolled by focus
+   moving into the wider-than-viewport canvas, which would shove the whole
+   composition sideways. clip forbids all scrolling; hidden is the fallback. */
+.stage { position: fixed; inset: 0; overflow: hidden; overflow: clip; background: var(--c-bg); }
+
+.canvas {
+  position: absolute; left: 50%; top: 0;
+  width: 1172px; height: 657px;
+  transform: translateX(-50%) scale(var(--k, 1));
+  transform-origin: 50% 0;
+}
+.canvas > * { position: absolute; }
+
+.stack { position: absolute; inset: 0; z-index: var(--z-hero); }
+.stack > * { position: absolute; }
+
+.navmenu { display: contents; }   /* invisible shell on desktop */
+.burger { display: none; }
+
+/* ---------- Background (never animates — it IS the stage) ---------- */
+.bg {
+  position: absolute; inset: 0;
+  background:
+    linear-gradient(180deg, rgba(25,127,255,0) 38%, rgba(25,127,255,.042) 54%,
+      rgba(25,127,255,.052) 68%, rgba(25,127,255,.030) 100%),
+    var(--c-bg);
+}
+
+/* ---------- Starfield: two 1px divs, each star is one box-shadow entry ---------- */
+.stars {
+  position: absolute; left: 0; top: 0;
+  width: 1px; height: 1px; border-radius: 50%;
+  background: #fff;
+  pointer-events: none;
+}

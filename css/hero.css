@@ -1,0 +1,28 @@
+/* =========================================================================
+   HERO TYPE — headline and sub-copy. Exact size, ink width and baseline are
+   set by the type fitter (js/fitter.js) on desktop and tablet.
+   ========================================================================= */
+.h1 {
+  left: 586px; transform: translateX(-50%);
+  white-space: nowrap; line-height: 1;
+  font-family: var(--f-sans); font-weight: 900; font-size: 54px;
+  letter-spacing: -.004em; word-spacing: .175em;
+  text-transform: uppercase; color: var(--c-ink);
+  text-shadow: 0 0 34px rgba(130,180,255,.22);
+  z-index: var(--z-hero);
+}
+#h1a { top: 160px; }
+#h1b { top: 214px; }
+
+.subcopy { display: contents; }
+
+.sub {
+  position: absolute; left: 586px; transform: translateX(-50%);
+  white-space: nowrap; line-height: 1;
+  font-size: 13.2px; color: var(--c-muted);
+  z-index: var(--z-hero);
+}
+#sub1 { top: 290px; }
+#sub2 { top: 306px; }
+.sub b { font-weight: 600; color: var(--c-ink); }
+.nb { white-space: nowrap; }
