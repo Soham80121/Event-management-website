@@ -69,7 +69,7 @@
   .badge { left: 448px; width: 277px; }        /* label stays at left:45px */
   .stack { transform: translateY(var(--stshift, 0px)); }
   .showcase { transform: translateY(var(--sshift, 0px)); }
-  .ring { transform: scale(var(--rs, 1)); transform-origin: 586px 595px; }
+  /* ring size and position are fitted in JS (js/carousel.js fit()) */
   .wa { width: 58px; height: 58px; right: 22px; bottom: 26px; }
   .wa svg { width: 32px; height: 32px; }
 }
@@ -161,10 +161,11 @@
     position: relative; left: auto; top: auto; flex: 1 1 auto;
     width: 100%; height: auto; min-height: 224px;
   }
-  /* the ring keeps its full 1172x657 3D geometry, just repositioned and clipped */
+  /* the ring keeps its 1172px-wide 3D coordinate system, centred on the
+     column; its cards are fitted (in JS) into the gap above the browser mock */
   .ring {
-    position: absolute; left: 50%; margin-left: -586px; top: -446px; bottom: auto;
-    width: 1172px; height: 657px; transform-origin: 586px 466px; transform: scale(1.02);
+    position: absolute; left: 50%; margin-left: -586px; top: 0; bottom: auto;
+    width: 1172px; height: 657px;
   }
   .browser {
     position: absolute; left: 50%; transform: translateX(-50%); top: 212px; bottom: 0;

@@ -17,25 +17,26 @@
   }
 
   /* Posters on the 3D ring cycle through these ten creatives (card i uses
-     POSTERS[i % 10]). `v` selects the layout in js/carousel.js. Card faces are
-     130x300 design px, rendered up to ~2x, so 300x690 source is plenty.
+     POSTERS[i % 10]). `v` selects the layout in js/carousel.js. Cards are
+     square: artwork is authored at 130×130 and shown at up to ~150 design px
+     × k × device pixel ratio, so a 360×360 crop stays sharp.
      Posters that advertise a catalogue event take its photo from the
-     catalogue (same Unsplash image and size, so they render identically);
-     the rest are pure mood artwork. */
-  var POSTER_W = 300, POSTER_H = 690;
-  function eventPhoto(id, h) { return catalogue.imageUrl(catalogue.byId(id), POSTER_W, h); }
+     catalogue; the rest are pure mood artwork. */
+  var POSTER = 360;
+  function eventPhoto(id) { return catalogue.imageUrl(catalogue.byId(id), POSTER, POSTER); }
+  function moodPhoto(id) { return photo(id, POSTER, POSTER); }
 
   var POSTERS = [
-    { v: 'ticket',   url: photo('1464375117522-1311d6a5b81f', POSTER_W, 420) },
-    { v: 'gala',     url: eventPhoto('winter-gala-2026', 460) },
-    { v: 'workshop', url: eventPhoto('design-sprint-workshop', 340) },
-    { v: 'summit',   url: photo('1540575467063-178a50c2df87', POSTER_W, 480) },
-    { v: 'fest',     url: photo('1496024840928-4c417adf211d', POSTER_W, 360) },
-    { v: 'plain', t: 'JAZZ NIGHTS',  url: eventPhoto('jazz-nights', POSTER_H) },
-    { v: 'stage',    url: eventPhoto('night-of-pure-soul', POSTER_H) },
-    { v: 'plain', t: 'FOOD & WINE',  url: photo('1517457373958-b7bdd4587205', POSTER_W, POSTER_H) },
-    { v: 'early',    url: photo('1514525253161-7a46d19cd819', POSTER_W, POSTER_H) },
-    { v: 'plain', t: 'TECH SUMMIT',  url: photo('1531058020387-3be344556be6', POSTER_W, POSTER_H) }
+    { v: 'ticket',   url: moodPhoto('1464375117522-1311d6a5b81f') },
+    { v: 'gala',     url: eventPhoto('winter-gala-2026') },
+    { v: 'workshop', url: eventPhoto('design-sprint-workshop') },
+    { v: 'summit',   url: moodPhoto('1540575467063-178a50c2df87') },
+    { v: 'fest',     url: moodPhoto('1496024840928-4c417adf211d') },
+    { v: 'plain', t: 'JAZZ NIGHTS',  url: eventPhoto('jazz-nights') },
+    { v: 'stage',    url: eventPhoto('night-of-pure-soul') },
+    { v: 'plain', t: 'FOOD & WINE',  url: moodPhoto('1517457373958-b7bdd4587205') },
+    { v: 'early',    url: moodPhoto('1514525253161-7a46d19cd819') },
+    { v: 'plain', t: 'TECH SUMMIT',  url: moodPhoto('1531058020387-3be344556be6') }
   ];
 
   /* The app preview's "Trending near you" cards are built from catalogue

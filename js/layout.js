@@ -26,6 +26,8 @@
     ctaLabel: { tw: 86,    tc: 8.9 },
     vpLabel:  { tw: 90,    tc: 9.5 }    // "Explore Events" at 0.95 of natural width
   };
+  var CTA_BOTTOM = 349 + 54.5;   // hero CTA: top + height (components.css .cta2)
+  var MOCK_TOP = 558;            // browser mock top (showcase.css .browser)
   var LINK_CAP = 7.9;       // shared cap height of the nav links
   var LINK_ROW_W = 317;     // the whole link row is squeezed to this width
 
@@ -85,6 +87,15 @@
       state.k = 1;
       state.tboost = 1;
       setVars({ '--k': null, '--fill': null, '--stshift': null, '--sshift': null, '--rs': null });
+      // Phone: the ring sits at the top of the showcase column, above the
+      // browser mock (CSS top), and spans the viewport width.
+      var mock = document.querySelector('.browser');
+      fitRing({
+        mode: 'phone',
+        halfWidth: avail / 2 - 10,
+        bandTop: 0,
+        bandBottom: mock ? parseFloat(getComputedStyle(mock).top) || 212 : 212
+      });
       layout();
       return;
     }
@@ -109,7 +120,7 @@
     if (mode === 'tablet' && fill > 0) {
       // Share surplus height THREE ways on tall tablets:
       sshift = Math.min(fill * 0.55, 420) * ramp;          // wheel + mock travel down
-      rs = 1 + Math.min(fill / 1100, 0.75) * ramp;          // wheel grows (closer camera)
+      rs = 1 + Math.min(fill / 1100, 0.75) * ramp;          // reference wheel growth: kept only so the hero text lands where approved (the ring itself is now fitted by fitRing)
       var slack = 219.5 - 125 * rs + sshift;
       stshift = Math.max(0, slack / 2 - 28) * ramp;         // hero drops to optical centre
       fill -= sshift;                                       // mock keeps the rest
@@ -124,7 +135,24 @@
       '--sshift': sshift.toFixed(2) + 'px',
       '--rs': rs.toFixed(4)
     });
+    // The poster ring is fitted into the free band between the hero CTA and
+    // the browser mock, in showcase coordinates (the showcase itself is moved
+    // by --sshift, the hero text by --stshift), and to the visible width.
+    fitRing({
+      mode: mode,
+      // tablet preferences blend in with the same ramp as the scale law, so
+      // the ring is identical at 1080 and 1081px
+      arc: mode === 'tablet' ? 38 - 8 * ramp : 38,
+      maxS: mode === 'tablet' ? 130 + 20 * ramp : 130,
+      halfWidth: avail / (2 * k) - 12,
+      bandTop: CTA_BOTTOM + stshift - sshift,
+      bandBottom: MOCK_TOP
+    });
     layout();
+  }
+
+  function fitRing(box) {
+    if (Eventora.carousel && Eventora.carousel.fit) Eventora.carousel.fit(box);
   }
 
   function fitterTargets() {

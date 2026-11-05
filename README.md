@@ -30,6 +30,16 @@ You can also open `index.html` directly, because the scripts are plain (non-modu
 - **In-page jumps.** Nav links use `#top`, `#featured`, `#categories`, `#about` and `#contact`. CSS handles smooth scrolling, which is instant under reduced motion. `html { scroll-padding-top: var(--nav-offset) }` keeps destinations below the fixed nav, and `js/layout.js` measures the offset. `js/sections.js` moves focus to the destination, sets `aria-current` on the matching link, and pauses the 3D ring while the hero is off-screen.
 - **Scale.** The scale uses `clientWidth`, the space actually available, so a classic Windows scrollbar can't push the hero off-centre. The layout mode uses `innerWidth`, which matches what CSS media queries see.
 
+## Hero poster ring
+
+The ring holds 37 square posters, authored at 130×130 and scaled to fit. `Eventora.carousel.fit()` sizes the ring for each viewport so every card is shown complete. It takes the free band between the hero CTA and the app preview, plus the visible half-width, and works out:
+
+- card size `S` and radius `R = 6.42·S`, which is also the CSS perspective, so the camera sits at the ring centre
+- the visible arc: about ±38° on desktop, about ±30° on tablets (blended across 1080px so there's no jump), and ±14° on phones
+- a horizon just below the cards
+
+The fit accounts for the outermost card's edge magnification, `cos δ / cos(A + δ)`, and cards fade over the last 6° of the arc rather than being clipped. `tests/ring-visibility.js` samples the rotating ring and checks that every visible card is square and lies inside the screen, below the CTA and above the preview.
+
 ## Event data (since Phase 4)
 
 - **Catalogue.** `js/events.js` is the **single source of truth** for event data. It holds 8 fictional demo events, marked as sample content in the code and on the page. Each event has `id`, `title`, `category`, `date` (local `YYYY-MM-DD`), `time` (`HH:MM`), `venue {name, city}`, `image {src, alt}`, `description`, `featured`, and `registration {status, spotsLeft?}`, plus optional `price` and `promo`.
@@ -69,7 +79,8 @@ js/                     each file attaches to the single `window.Eventora` names
   events.js             event catalogue (single source of truth) + formatters
   data.js               ring posters + app preview (derives events from catalogue)
   starfield.js          two-layer box-shadow starfield (reference §1)
-  carousel.js           37-card perspective ring (R = 891, cull ±42°)
+  carousel.js           37 square posters on a perspective ring, fitted to the
+                        free band between hero CTA and app preview (see below)
   mock.js               renders the app preview from data
   event-cards.js        reusable event card renderer (feature / row variants)
   fitter.js             type fitter (cap height, ink width, baseline)
@@ -81,6 +92,7 @@ js/                     each file attaches to the single `window.Eventora` names
   styleguide.js         styleguide renderer
 tests/
   hero-snapshot.js      hero regression snapshot (dev tool, see below)
+  ring-visibility.js    checks every visible ring card is square and unclipped
 tools/
   dev_server.py         no-cache local server
 docs/screenshots/       verification screenshots per phase
