@@ -17,14 +17,14 @@
   }
 
   /* Posters on the 3D ring cycle through these ten creatives (card i uses
-     POSTERS[i % 10]). `v` selects the layout in js/carousel.js. Cards are
-     square: artwork is authored at 130×130 and shown at up to ~150 design px
-     × k × device pixel ratio, so a 360×360 crop stays sharp.
+     POSTERS[i % 10]). `v` selects the layout in js/carousel.js. Posters are
+     portrait 2:3: artwork is authored on a 130×195 board and shown up to
+     ~180 design px tall × k × device pixel ratio, so a 360×540 crop stays sharp.
      Posters that advertise a catalogue event take its photo from the
      catalogue; the rest are pure mood artwork. */
-  var POSTER = 360;
-  function eventPhoto(id) { return catalogue.imageUrl(catalogue.byId(id), POSTER, POSTER); }
-  function moodPhoto(id) { return photo(id, POSTER, POSTER); }
+  var POSTER_W = 360, POSTER_H = 540;
+  function eventPhoto(id) { return catalogue.imageUrl(catalogue.byId(id), POSTER_W, POSTER_H); }
+  function moodPhoto(id) { return photo(id, POSTER_W, POSTER_H); }
 
   var POSTERS = [
     { v: 'ticket',   url: moodPhoto('1464375117522-1311d6a5b81f') },

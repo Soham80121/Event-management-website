@@ -3,7 +3,7 @@
 
    Samples the rotating poster ring and asserts that every card that is
    visible at all (opacity > 0.02) is:
-     · square (layout box width === height)
+     · portrait 2:3 (layout box height = 1.5 × width)
      · fully inside the visible width
      · fully below the hero CTA
      · and, against the browser mock: in tuck mode (desktop/tablet) hidden
@@ -39,7 +39,8 @@
         if (op <= 0.02) return;
         visible++;
         if (op >= 0.999) opaque++;
-        if (c.offsetWidth !== c.offsetHeight) problems.push('card ' + i + ' not square: ' + c.offsetWidth + 'x' + c.offsetHeight);
+        var ratio = c.offsetHeight / c.offsetWidth;
+        if (Math.abs(ratio - 1.5) > 0.03) problems.push('card ' + i + ' not 2:3 portrait: ' + c.offsetWidth + 'x' + c.offsetHeight);
         var r = c.getBoundingClientRect();
         minSize = Math.min(minSize, r.height); maxSize = Math.max(maxSize, r.height);
         if (r.left < -tol || r.right > width + tol) problems.push('sample ' + s + ' card ' + i + ' cut at side: ' + r.left.toFixed(1) + '..' + r.right.toFixed(1) + ' (width ' + width + ')');

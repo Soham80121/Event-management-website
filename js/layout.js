@@ -135,7 +135,7 @@
       // tablet preferences blend in with the same ramp as the scale law, so
       // the ring is identical at 1080 and 1081px
       arc: mode === 'tablet' ? 33 - 3 * ramp : 33,
-      maxS: mode === 'tablet' ? 150 + 10 * ramp : 150,
+      maxS: mode === 'tablet' ? 120 + 10 * ramp : 120,
       halfWidth: avail / (2 * k) - 12,
       bandTop: CTA_BOTTOM + stshift - sshift,
       bandBottom: MOCK_TOP

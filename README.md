@@ -32,20 +32,20 @@ You can also open `index.html` directly, because the scripts are plain (non-modu
 
 ## Hero poster ring
 
-The ring holds 37 square posters, authored at 130×130 and scaled to fit. As in the design reference, the browser mock sits in front of the ring.
+The ring holds 37 vertical event posters in a 2:3 portrait ratio. Each one is authored on a 130×195 board and scaled as a whole, so every poster keeps its complete design at any size. As in the design reference, the browser mock sits in front of the ring.
 
-- **Desktop and tablet.** The centre card's lower 35% tucks behind the preview. Edge cards ride higher on the arc and show more. All poster text sits in the top ~60% of each card, so it's never hidden.
-- **Phones.** Cards are limited by screen width, not height, so they stay fully visible above the preview.
+- **Desktop and tablet.** The centre poster's lower 35% tucks behind the preview. Edge posters ride higher on the arc and show more. Every title and detail sits in the top ~60% of each poster, so only photography runs into the tucked part.
+- **Phones.** Posters are limited by screen width, so they stay fully visible above the preview.
 
 `Eventora.carousel.fit()` derives the geometry for each viewport from the space between the hero CTA and the preview, plus the visible width:
 
-- card size `S` and radius `R = 6.42·S`, which is also the CSS perspective, so the camera sits at the ring centre
+- poster width `W` (height `1.5·W`) and radius `R = 6.54·W`, which is also the CSS perspective, so the camera sits at the ring centre
 - the visible arc: about ±33° on desktop and tablet (blended across 1080px) and ±14° on phones
-- a horizon just below the cards
+- a horizon `0.6·H` below the posters
 
-The fit accounts for the outermost card's edge magnification, `cos δ / cos(A + δ)`. No card ever rises under the CTA or is cut by the screen edge; cards fade over the last 6° of the arc instead. On tall tablets the ring and preview are lifted together, so the gap under the CTA stays comfortable.
+The fit accounts for the outermost poster's edge magnification, `cos δ / cos(A + δ)`. No poster rises under the CTA or is cut by the screen edge; posters fade over the last 6° of the arc instead. On tall tablets the ring and preview are lifted together, so the gap under the CTA stays comfortable.
 
-`tests/ring-visibility.js` checks every visible card: square, inside the screen, below the CTA, and tucked by no more than the target (or fully above the preview on phones).
+`tests/ring-visibility.js` checks every visible poster: 2:3 portrait, inside the screen, below the CTA, and tucked by no more than the target (or fully above the preview on phones).
 
 ## Event data (since Phase 4)
 
@@ -86,8 +86,8 @@ js/                     each file attaches to the single `window.Eventora` names
   events.js             event catalogue (single source of truth) + formatters
   data.js               ring posters + app preview (derives events from catalogue)
   starfield.js          two-layer box-shadow starfield (reference §1)
-  carousel.js           37 square posters on a perspective ring, fitted to the
-                        free band between hero CTA and app preview (see below)
+  carousel.js           37 portrait (2:3) posters on a perspective ring, fitted
+                        between hero CTA and app preview (see below)
   mock.js               renders the app preview from data
   event-cards.js        reusable event card renderer (feature / row variants)
   fitter.js             type fitter (cap height, ink width, baseline)
@@ -99,7 +99,7 @@ js/                     each file attaches to the single `window.Eventora` names
   styleguide.js         styleguide renderer
 tests/
   hero-snapshot.js      hero regression snapshot (dev tool, see below)
-  ring-visibility.js    checks every visible ring card is square and unclipped
+  ring-visibility.js    checks every visible ring poster is 2:3 and placed correctly
 tools/
   dev_server.py         no-cache local server
 docs/screenshots/       verification screenshots per phase
