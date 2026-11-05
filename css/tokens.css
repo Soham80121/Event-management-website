@@ -46,6 +46,9 @@
 
   /* Atmosphere: the faint blue that pools in the lower half of the stage */
   --c-atmos-rgb: 25, 127, 255;
+  /* Section glows (radial light behind sections, used at very low alpha) */
+  --glow-cyan: 53, 216, 255;
+  --glow-electric: 10, 134, 216;
 
   /* Hairlines (1px borders on glass) */
   --c-line-10: rgba(255, 255, 255, .10);
@@ -61,7 +64,9 @@
   --c-status-closed: #9aa0a8;
 
   /* Card surface */
-  --c-card-surface: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.012));
+  /* Card surface: a sheen over a dense near-black base, so the starfield
+     behind never competes with card text. */
+  --c-card-surface: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.012)), rgba(6, 8, 12, .88);
   --c-card-hover-line: rgba(142, 244, 255, .30);
   --shadow-card-hover: 0 22px 44px -22px rgba(53, 216, 255, .38), 0 2px 0 rgba(255,255,255,.02) inset;
 

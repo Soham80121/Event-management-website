@@ -60,7 +60,7 @@
   }
 
   function watchHero() {
-    var hero = dom.one('.stage:not(.stage--fixed)');
+    var hero = dom.one('.stage');
     if (!hero || !Eventora.carousel || !('IntersectionObserver' in window)) return;
     new IntersectionObserver(function (entries) {
       Eventora.carousel.setActive(entries[0].isIntersecting);

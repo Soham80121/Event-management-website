@@ -1,7 +1,7 @@
 /* =========================================================================
-   STAGE — the background system and the scaled design canvas
-   Layers, back to front: #020204 base -> blue atmosphere -> starfield
-   (two layers) -> scaled canvas holding the composition.
+   STAGE — the shared background system, the hero section and the scaled
+   design canvas. Back to front: .site-bg (#020204 base -> blue atmosphere ->
+   two-layer starfield, fixed) -> page content (hero canvas, sections).
    ========================================================================= */
 
 /* ---------- The hero section ----------
@@ -15,13 +15,30 @@
   height: 100vh;
   height: 100svh;
   overflow: hidden; overflow: clip;
-  background: var(--c-bg);
+  background: transparent;   /* the shared .site-bg layer shows through */
 }
-/* Full-page fixed backdrop variant (styleguide, inner pages). */
-.stage--fixed { position: fixed; inset: 0; height: auto; z-index: 0; }
 
-/* ---------- Background (never animates — it IS the stage) ----------
-   A faint electric-blue haze pools through the lower half of the frame. */
+/* ---------- Shared page background ----------
+   One fixed layer behind the whole document: base colour, atmosphere and
+   starfield. Because it is fixed to the viewport, the hero looks exactly as
+   it did when these layers lived inside it (stars are positioned in vw/vh),
+   and every later section scrolls over the same, uninterrupted sky.
+   Height uses lvh (large viewport): it does not resize when a mobile address
+   bar shows or hides, so the sky never jumps mid-scroll. translateZ(0) gives
+   it its own compositing layer, so scrolling never repaints the stars. */
+.site-bg {
+  position: fixed; left: 0; top: 0; z-index: 0;
+  width: 100%; height: 100vh; height: 100lvh;
+  overflow: hidden;
+  background: var(--c-bg);
+  pointer-events: none;
+  transform: translateZ(0);
+}
+/* Page content stacks above the shared background. */
+#main, .site-footer, .page-shell { position: relative; z-index: 1; }
+
+/* ---------- Atmosphere (never animates) ----------
+   A faint electric-blue haze pools through the lower half of the viewport. */
 .bg {
   position: absolute; inset: 0;
   background: var(--grad-atmosphere), var(--c-bg);

@@ -36,6 +36,15 @@
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
 
+  <!-- Shared page background: ONE fixed layer behind every section (base
+       #020204, blue atmosphere, two-layer starfield). Content scrolls over it,
+       so stars never restart, duplicate or jump between sections. -->
+  <div class="site-bg" aria-hidden="true">
+    <div class="bg"></div>
+    <div class="stars" id="stA"></div>
+    <div class="stars" id="stB"></div>
+  </div>
+
   <!-- Fixed navigation layer: reproduces the hero canvas coordinate system
        (same 1172px width and --k scale) so the nav sits on identical pixels at
        the top of the page and stays pinned while the document scrolls. -->
@@ -89,9 +98,6 @@
 
   <!-- ============ 1. HERO (first full-screen section) ============ -->
   <section class="stage" id="top" tabindex="-1" aria-label="Introduction" data-nav-key="home">
-    <div class="bg" aria-hidden="true"></div>
-    <div class="stars" id="stA" aria-hidden="true"></div>
-    <div class="stars" id="stB" aria-hidden="true"></div>
 
     <div class="canvas" id="canvas">
 
@@ -176,7 +182,7 @@
        ids and order are final: featured, upcoming, categories, about, contact.
        Categories, About and Contact are placeholders until later phases. -->
   <!-- ============ 2. FEATURED EVENTS ============ -->
-  <section class="section section--events section--after-hero" id="featured" tabindex="-1" aria-labelledby="featured-title" data-nav-key="explore">
+  <section class="section section--events section--glow-tl" id="featured" tabindex="-1" aria-labelledby="featured-title" data-nav-key="explore">
     <div class="container">
       <header class="section-head">
         <div class="section-head__text">
@@ -192,7 +198,7 @@
   </section>
 
   <!-- ============ 3. UPCOMING EVENTS ============ -->
-  <section class="section section--events" id="upcoming" tabindex="-1" aria-labelledby="upcoming-title" data-nav-key="explore">
+  <section class="section section--events section--glow-tr" id="upcoming" tabindex="-1" aria-labelledby="upcoming-title" data-nav-key="explore">
     <div class="container">
       <header class="section-head">
         <div class="section-head__text">
@@ -207,7 +213,7 @@
     </div>
   </section>
 
-  <section class="section section--placeholder" id="categories" tabindex="-1" aria-labelledby="categories-title" data-nav-key="categories">
+  <section class="section section--placeholder section--glow-bl" id="categories" tabindex="-1" aria-labelledby="categories-title" data-nav-key="categories">
     <div class="container">
       <p class="eyebrow">04 · Event categories</p>
       <h2 class="heading-2" id="categories-title">Event categories</h2>
@@ -215,7 +221,7 @@
     </div>
   </section>
 
-  <section class="section section--placeholder" id="about" tabindex="-1" aria-labelledby="about-title" data-nav-key="about">
+  <section class="section section--placeholder section--glow-tr" id="about" tabindex="-1" aria-labelledby="about-title" data-nav-key="about">
     <div class="container">
       <p class="eyebrow">05 · About</p>
       <h2 class="heading-2" id="about-title">About EVENTORA</h2>
@@ -223,7 +229,7 @@
     </div>
   </section>
 
-  <section class="section section--placeholder" id="contact" tabindex="-1" aria-labelledby="contact-title" data-nav-key="contact">
+  <section class="section section--placeholder section--glow-bottom" id="contact" tabindex="-1" aria-labelledby="contact-title" data-nav-key="contact">
     <div class="container">
       <p class="eyebrow">06 · Contact</p>
       <h2 class="heading-2" id="contact-title">Contact</h2>

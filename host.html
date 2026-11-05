@@ -23,8 +23,10 @@
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
 
-  <!-- Same background system as the home hero, fixed behind the page -->
-  <div class="stage stage--fixed" aria-hidden="true">
+  <!-- Shared page background: ONE fixed layer behind every section (base
+       #020204, blue atmosphere, two-layer starfield). Content scrolls over it,
+       so stars never restart, duplicate or jump between sections. -->
+  <div class="site-bg" aria-hidden="true">
     <div class="bg"></div>
     <div class="stars" id="stA"></div>
     <div class="stars" id="stB"></div>

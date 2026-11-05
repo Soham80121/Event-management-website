@@ -187,7 +187,7 @@
 
       // Fallback for browsers without overflow:clip — never let focus or
       // find-in-page scroll the stage away from its authored position.
-      var stage = document.querySelector('.stage:not(.stage--fixed)');
+      var stage = document.querySelector('.stage');
       if (stage) {
         stage.addEventListener('scroll', function () {
           if (stage.scrollLeft || stage.scrollTop) { stage.scrollLeft = 0; stage.scrollTop = 0; }

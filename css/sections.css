@@ -28,17 +28,20 @@
    scroll-margin-top here as well would double it. */
 .section:focus { outline: none; }          /* jump targets: focus moves, no ring */
 
-/* Seam: continue the hero's faint atmosphere tint so the hero/section edge is invisible */
-.section--after-hero {
-  background: linear-gradient(180deg, rgba(var(--c-atmos-rgb), .030), rgba(var(--c-atmos-rgb), 0) 320px);
-}
+/* ---------- Section glows ----------
+   Soft, low-alpha radial light that scrolls WITH its section over the fixed
+   starfield, adding depth without hiding the stars. Transparent everywhere
+   else, so the shared background stays continuous from hero to footer. */
+.section--glow-tl { background: radial-gradient(55% 60% at 8% 0%, rgba(var(--glow-cyan), .065), transparent 72%); }
+.section--glow-tr { background: radial-gradient(50% 60% at 96% 18%, rgba(var(--glow-electric), .085), transparent 72%); }
+.section--glow-bl { background: radial-gradient(55% 65% at 6% 92%, rgba(var(--glow-cyan), .055), transparent 72%); }
+.section--glow-bottom { background: radial-gradient(70% 70% at 50% 110%, rgba(var(--glow-electric), .09), transparent 70%); }
 
 .section--placeholder {
   min-height: 62vh;
   display: flex; align-items: center;
   border-top: var(--border-hairline);
 }
-.section--after-hero.section--placeholder { border-top: 0; }
 .section--placeholder .heading-2 { margin-top: var(--space-3); }
 
 .placeholder-note {
@@ -58,6 +61,7 @@
 /* ---------- Footer (placeholder) ---------- */
 .site-footer {
   border-top: var(--border-hairline);
+  background: linear-gradient(180deg, rgba(2, 2, 4, 0), rgba(2, 2, 4, .55));   /* settles the sky at the very end */
   padding-block: var(--space-12) calc(var(--space-12) + 56px);   /* clear the fixed concierge button */
 }
 .site-footer__inner {

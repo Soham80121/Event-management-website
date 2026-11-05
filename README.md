@@ -24,7 +24,8 @@ You can also open `index.html` directly, because the scripts are plain (non-modu
 
 ## Page architecture (since Phase 3)
 
-- **Hero.** `section.stage#top` is exactly one screen tall (`100vh`/`100svh`) and clips the scaled 1172×657 design canvas.
+- **Shared background.** `div.site-bg` is one fixed layer behind every page. It holds the `#020204` base, the blue atmosphere and the two-layer starfield. Content scrolls over it, so the stars never restart, duplicate or jump. It's sized with `100lvh`, so a mobile address bar collapsing doesn't resize it. Sections add depth with low-alpha radial glows (`.section--glow-tl/-tr/-bl/-bottom`) that scroll with them. Event cards use a dense glass base so no star sits behind their text.
+- **Hero.** `section.stage#top` is exactly one screen tall (`100vh`/`100svh`) and transparent, so the shared sky shows through. It clips the scaled 1172×657 design canvas.
 - **Nav.** The nav lives in `header.navlayer`, a fixed layer that reproduces the canvas coordinate system (same width, origin and `--k` scale). At the top of the page it sits on exactly the pixels it had inside the hero, and it stays pinned while the page scrolls. On phones it becomes an unscaled bar, and the hero column keeps a spacer for it.
 - **In-page jumps.** Nav links use `#top`, `#featured`, `#categories`, `#about` and `#contact`. CSS handles smooth scrolling, which is instant under reduced motion. `html { scroll-padding-top: var(--nav-offset) }` keeps destinations below the fixed nav, and `js/layout.js` measures the offset. `js/sections.js` moves focus to the destination, sets `aria-current` on the matching link, and pauses the 3D ring while the hero is off-screen.
 - **Scale.** The scale uses `clientWidth`, the space actually available, so a classic Windows scrollbar can't push the hero off-centre. The layout mode uses `innerWidth`, which matches what CSS media queries see.
@@ -50,7 +51,7 @@ css/
                         shadows, glass, gradients, motion, focus, z-order
   base.css              reset, document typography, focus system, a11y helpers,
                         global reduced-motion safety net
-  stage.css             hero section, background system, starfield,
+  stage.css             shared fixed background (.site-bg), hero section,
                         scaled 1172x657 canvas, fixed nav layer
   components.css        hero instances: nav pill, badge, glow button, concierge FAB
   hero.css              headline + sub-copy
