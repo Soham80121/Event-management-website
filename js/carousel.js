@@ -47,7 +47,7 @@
           '<div class="cv t-big" style="top:32px;font-size:14px;color:#16171b">Electric</div>' +
           '<div class="cv t-big" style="top:47px;font-size:14px;color:#e5202f">Live on stage</div>' +
           '<div class="cv" style="top:76px;font-size:5.2px;font-weight:700;color:#16171b;line-height:1.7">' +
-            '<div><b class="dot"></b>FRI 14 NOV · <b>ARENA 9</b></div>' +
+            '<div><b class="dot"></b>SAT 14 NOV · <b>ARENA 9</b></div>' +   // 14 Nov 2026 is a Saturday
             '<div style="margin-top:8px"><b class="dot sq"></b>DOORS AT <b>7 PM</b><br>' +
             '<span style="margin-left:11px">ALL AGES</span></div></div>';
 

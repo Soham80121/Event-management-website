@@ -53,6 +53,18 @@
   --c-line-115: rgba(255, 255, 255, .115);
   --c-line-15: rgba(255, 255, 255, .15);
 
+  /* Registration status (event cards). Muted, high-contrast on the dark
+     stage; colour is never the only signal — every chip also has a label. */
+  --c-status-open: #8ef4ff;
+  --c-status-limited: #ffc46b;
+  --c-status-waitlist: #c3b1ff;
+  --c-status-closed: #9aa0a8;
+
+  /* Card surface */
+  --c-card-surface: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.012));
+  --c-card-hover-line: rgba(142, 244, 255, .30);
+  --shadow-card-hover: 0 22px 44px -22px rgba(53, 216, 255, .38), 0 2px 0 rgba(255,255,255,.02) inset;
+
   /* Light-surface ink (inside the app preview) */
   --c-paper: #fff;
   --c-paper-ink: #17181c;

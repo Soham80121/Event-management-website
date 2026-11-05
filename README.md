@@ -18,7 +18,7 @@ You can also open `index.html` directly, because the scripts are plain (non-modu
 
 | Page | Purpose |
 |---|---|
-| `index.html` | The scrolling home page: a full-screen hero, then Featured, Upcoming, Categories, About, Contact and the footer (placeholders until later phases) |
+| `index.html` | The scrolling home page: a full-screen hero, Featured events and Upcoming events (built from the catalogue), then Categories, About, Contact and the footer (placeholders until later phases) |
 | `host.html` | The "Host an Event" page (a branded shell for now) |
 | `styleguide.html` | Internal design-system reference that renders the live tokens and reusable recipes. It is `noindex` and not linked from the site |
 
@@ -28,6 +28,16 @@ You can also open `index.html` directly, because the scripts are plain (non-modu
 - **Nav.** The nav lives in `header.navlayer`, a fixed layer that reproduces the canvas coordinate system (same width, origin and `--k` scale). At the top of the page it sits on exactly the pixels it had inside the hero, and it stays pinned while the page scrolls. On phones it becomes an unscaled bar, and the hero column keeps a spacer for it.
 - **In-page jumps.** Nav links use `#top`, `#featured`, `#categories`, `#about` and `#contact`. CSS handles smooth scrolling, which is instant under reduced motion. `html { scroll-padding-top: var(--nav-offset) }` keeps destinations below the fixed nav, and `js/layout.js` measures the offset. `js/sections.js` moves focus to the destination, sets `aria-current` on the matching link, and pauses the 3D ring while the hero is off-screen.
 - **Scale.** The scale uses `clientWidth`, the space actually available, so a classic Windows scrollbar can't push the hero off-centre. The layout mode uses `innerWidth`, which matches what CSS media queries see.
+
+## Event data (since Phase 4)
+
+- **Catalogue.** `js/events.js` is the **single source of truth** for event data. It holds 8 fictional demo events, marked as sample content in the code and on the page. Each event has `id`, `title`, `category`, `date` (local `YYYY-MM-DD`), `time` (`HH:MM`), `venue {name, city}`, `image {src, alt}`, `description`, `featured`, and `registration {status, spotsLeft?}`, plus optional `price` and `promo`.
+- **Validation.** The catalogue is validated on load (any problems are logged to the console) and deep-frozen, so nothing can modify it at runtime.
+- **API.** `Eventora.events` provides `all()`, `byId()`, `featured()`, `upcoming()` (non-featured, soonest first), and formatters for date, time, status, price and image URL.
+- **Dates.** Dates are built in local time, never by parsing an ISO string as UTC, so weekdays are always correct.
+- **Derived content.** Hero content reads from the catalogue instead of copying it. The ring posters that advertise an event use its photo, and the app preview's four cards are built from catalogue events.
+- **localStorage.** The catalogue is **not** stored in localStorage. That's reserved for per-user state such as registrations and favourites, keyed by event `id`.
+- **Cards.** `js/event-cards.js` builds the reusable card with DOM APIs. It has two variants: `feature` (with `lead` for the first featured event) and `row` (an agenda row with a date tile).
 
 ## Structure
 
@@ -48,16 +58,19 @@ css/
   utilities.css         reusable recipes: .container, type helpers, .glass*,
                         .btn--md/--lg/--block, .btn-ghost, hairlines, hover helpers
   sections.css          active-nav indicator, homepage sections, footer, page shells
+  events.css            event card component, Featured grid, Upcoming agenda
   responsive.css        tablet (701–1080) and phone (<=700) architectures
   motion.css            entrance resting states + reduced-motion overrides
   styleguide.css        styleguide page layout only
 js/                     each file attaches to the single `window.Eventora` namespace
   core.js               namespace, config (breakpoints, canvas), viewport mode,
                         live reduced-motion service, DOM helpers
-  data.js               poster + app-preview content
+  events.js             event catalogue (single source of truth) + formatters
+  data.js               ring posters + app preview (derives events from catalogue)
   starfield.js          two-layer box-shadow starfield (reference §1)
   carousel.js           37-card perspective ring (R = 891, cull ±42°)
   mock.js               renders the app preview from data
+  event-cards.js        reusable event card renderer (feature / row variants)
   fitter.js             type fitter (cap height, ink width, baseline)
   layout.js             canvas scale law, tablet height split, phone reset
   nav.js                burger menu (aria-expanded, Escape, outside click, focus-out)

@@ -22,6 +22,7 @@
   <link rel="stylesheet" href="css/showcase.css">
   <link rel="stylesheet" href="css/utilities.css">
   <link rel="stylesheet" href="css/sections.css">
+  <link rel="stylesheet" href="css/events.css">
   <link rel="stylesheet" href="css/responsive.css">
   <link rel="stylesheet" href="css/motion.css">
 
@@ -171,22 +172,38 @@
 
   </section>
 
-  <!-- ============ SECTION PLACEHOLDERS ============
-       Navigation destinations only. Each section is built in a later phase;
-       ids and order are final: featured, upcoming, categories, about, contact. -->
-  <section class="section section--placeholder section--after-hero" id="featured" tabindex="-1" aria-labelledby="featured-title" data-nav-key="explore">
+  <!-- ============ SECTIONS 2–6 ============
+       ids and order are final: featured, upcoming, categories, about, contact.
+       Categories, About and Contact are placeholders until later phases. -->
+  <!-- ============ 2. FEATURED EVENTS ============ -->
+  <section class="section section--events section--after-hero" id="featured" tabindex="-1" aria-labelledby="featured-title" data-nav-key="explore">
     <div class="container">
-      <p class="eyebrow">02 · Featured events</p>
-      <h2 class="heading-2" id="featured-title">Featured events</h2>
-      <p class="placeholder-note">Section placeholder — built in a later phase.</p>
+      <header class="section-head">
+        <div class="section-head__text">
+          <p class="eyebrow">02 · Featured events</p>
+          <h2 class="heading-2" id="featured-title">Handpicked for this season</h2>
+          <p class="lead">The nights our team is most excited about — big stages, rare line-ups and evenings worth planning around.</p>
+        </div>
+        <p class="demo-note">Sample events · demo data</p>
+      </header>
+      <ul class="event-grid event-grid--featured" id="featuredEvents" role="list" aria-busy="true"></ul>
+      <noscript><p class="body-copy">Turn on JavaScript to see the event line-up.</p></noscript>
     </div>
   </section>
 
-  <section class="section section--placeholder" id="upcoming" tabindex="-1" aria-labelledby="upcoming-title" data-nav-key="explore">
+  <!-- ============ 3. UPCOMING EVENTS ============ -->
+  <section class="section section--events" id="upcoming" tabindex="-1" aria-labelledby="upcoming-title" data-nav-key="explore">
     <div class="container">
-      <p class="eyebrow">03 · Upcoming events</p>
-      <h2 class="heading-2" id="upcoming-title">Upcoming events</h2>
-      <p class="placeholder-note">Section placeholder — built in a later phase.</p>
+      <header class="section-head">
+        <div class="section-head__text">
+          <p class="eyebrow">03 · Upcoming events</p>
+          <h2 class="heading-2" id="upcoming-title">Coming up next</h2>
+          <p class="lead">The rest of the programme, soonest first.</p>
+        </div>
+        <p class="demo-note">Sample events · demo data</p>
+      </header>
+      <ul class="event-list" id="upcomingEvents" role="list" aria-busy="true"></ul>
+      <noscript><p class="body-copy">Turn on JavaScript to see the event line-up.</p></noscript>
     </div>
   </section>
 
@@ -237,10 +254,12 @@
   </a>
 
   <script src="js/core.js"></script>
+  <script src="js/events.js"></script>
   <script src="js/data.js"></script>
   <script src="js/starfield.js"></script>
   <script src="js/carousel.js"></script>
   <script src="js/mock.js"></script>
+  <script src="js/event-cards.js"></script>
   <script src="js/fitter.js"></script>
   <script src="js/layout.js"></script>
   <script src="js/nav.js"></script>
