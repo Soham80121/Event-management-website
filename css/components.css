@@ -163,3 +163,36 @@
   70%  { transform: scale(1.4); opacity: 0; }
   100% { opacity: 0; }
 }
+
+/* ---------- Account entry (Phase 8, js/account-nav.js) ----------
+   Sits in the empty gap between the link row (ends x≈473) and the nav CTA
+   (starts x≈531), centred on x≈502 and on the CTA's mid-line — nothing else
+   in the pill moves. */
+.acct {
+  position: absolute; left: 486px; top: 14px; width: 32px; height: 32px;
+  display: grid; place-items: center;
+  border-radius: var(--radius-full);
+  color: var(--c-ink-92);
+  transition: transform var(--dur-base) var(--ease-std), filter var(--dur-base);
+}
+.acct__badge {
+  display: grid; place-items: center; width: 32px; height: 32px; overflow: hidden;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, .045);
+  border: 1px solid var(--c-line-15);
+  box-shadow: var(--shadow-inset-top);
+  font-size: 13px; font-weight: var(--fw-bold); line-height: 1;
+}
+.acct__badge svg { width: 17px; height: 17px; }
+.acct__badge img { width: 100%; height: 100%; object-fit: cover; }
+.acct.is-signed-in .acct__badge {
+  background: radial-gradient(circle at 50% 30%, rgba(142, 244, 255, .42), rgba(10, 134, 216, .3));
+  border-color: rgba(142, 244, 255, .55);
+  box-shadow: 0 0 12px rgba(53, 216, 255, .35);
+  color: var(--c-ink);
+}
+.acct__label {          /* visible in the narrow-screen menu only */
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+}
+.acct:hover { transform: translateY(-1px); filter: brightness(1.15); }
+.acct:focus-visible { outline: var(--focus-ring); outline-offset: 3px; }

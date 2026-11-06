@@ -76,6 +76,7 @@
           <a href="index.html#about" data-nav="about">About</a>
           <a href="index.html#contact" data-nav="contact">Contact</a>
         </div>
+        <a class="acct" id="acctLink" href="login.html" aria-label="Sign in"><span class="acct__badge" aria-hidden="true"></span><span class="acct__label">Sign in</span></a>
         <a class="btn" href="host.html"><span id="ctaLabel">Host an Event</span></a>
       </div>
     </nav>
@@ -97,27 +98,22 @@
         <div class="mr-who" id="mrWho" hidden>
           <span class="mr-who__avatar" aria-hidden="true" data-who="initial"></span>
           <span class="mr-who__text">
-            <span class="mr-who__label">Guest bookings for</span>
+            <span class="mr-who__label">Signed in as</span>
             <strong data-who="email"></strong>
           </span>
-          <button class="mr-who__switch" type="button" id="mrSwitch">Not you?</button>
+          <button class="mr-who__switch" type="button" id="mrSwitch">Sign out</button>
         </div>
       </header>
 
-      <!-- No guest identity yet: look bookings up by email (js/identity.js) -->
+      <!-- Signed out: registrations belong to accounts (js/auth.js) -->
       <section class="mr-find" id="mrFind" aria-labelledby="mrFindTitle" hidden>
         <div class="mr-find__card">
-          <h2 class="heading-3" id="mrFindTitle">Find your registrations</h2>
-          <p class="mr-find__intro">Enter the email address you registered with. Bookings are stored in this browser only, so use the same device you booked on.</p>
-          <form class="mr-find__form" id="mrFindForm" novalidate>
-            <div class="field">
-              <label class="field__label" for="mrEmail">Email address</label>
-              <input class="field__input" id="mrEmail" name="email" type="email" autocomplete="email"
-                     inputmode="email" spellcheck="false" maxlength="254" required aria-describedby="mrEmailError">
-              <p class="field__error" id="mrEmailError" hidden></p>
-            </div>
-            <button class="btn btn--lg" type="submit"><span>Show my registrations</span></button>
-          </form>
+          <h2 class="heading-3" id="mrFindTitle">Sign in to see your registrations</h2>
+          <p class="mr-find__intro">Your bookings belong to your EVENTORA account. Sign in to view them, show their QR codes, print them or cancel them.</p>
+          <div class="cluster">
+            <a class="btn btn--lg" data-auth="login.html" href="login.html"><span>Sign in</span></a>
+            <a class="btn-ghost" data-auth="signup.html" href="signup.html">Create an account</a>
+          </div>
         </div>
       </section>
 
@@ -221,11 +217,15 @@
 
   <script src="js/core.js"></script>
   <script src="js/events.js"></script>
+  <script src="js/validate.js"></script>
   <script src="js/starfield.js"></script>
   <script src="js/fitter.js"></script>
   <script src="js/layout.js"></script>
   <script src="js/nav.js"></script>
+  <script src="js/account-nav.js"></script>
   <script src="js/registrations.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/hosting.js"></script>
   <script src="js/identity.js"></script>
   <script src="js/qr.js"></script>
   <script src="js/my-registrations.js"></script>

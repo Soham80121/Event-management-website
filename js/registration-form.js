@@ -35,35 +35,18 @@
     return n;
   }
 
-  /* ---------- validation rules (messages say how to fix it) ---------- */
+  /* ---------- validation rules: shared with sign-up/profile (js/validate.js) ---------- */
   var RULES = {
-    name: function (v) {
-      var s = store.normName(v);
-      if (!s) return 'Enter your full name.';
-      if (s.length < 2) return 'Your name needs at least 2 characters.';
-      if (!/^[\p{L}\p{M}' .\-’]+$/u.test(s) || !/\p{L}/u.test(s)) {
-        return 'Use letters, spaces, hyphens and apostrophes only.';
-      }
-      return '';
-    },
-    email: function (v) {
-      var s = String(v || '').trim();
-      if (!s) return 'Enter your email address.';
-      if (s.length > 254 || !/^[^\s@]+@(?:[^\s@.]+\.)+[^\s@.]{2,}$/.test(s)) {
-        return 'Enter an email address like name@example.com.';
-      }
-      return '';
-    },
-    phone: function (v) {
-      var s = String(v || '').trim();
-      if (!s) return 'Enter your phone number.';
-      var digits = s.replace(/\D/g, '').length;
-      if (!/^\+?[\d\s().\-]+$/.test(s) || digits < 7 || digits > 15) {
-        return 'Enter a valid phone number with 7 to 15 digits, e.g. +44 20 7946 0958.';
-      }
-      return '';
-    }
+    name: function (v) { return Eventora.validate.name(v); },
+    email: function (v) { return Eventora.validate.email(v); },
+    phone: function (v) { return Eventora.validate.phone(v); }
   };
+
+  /* ---------- accounts (Phase 8) ---------- */
+  function me() { return Eventora.auth ? Eventora.auth.current() : null; }
+  function canRegister() { return !!Eventora.auth && Eventora.auth.can('register'); }
+  function here() { return location.pathname.split('/').pop() + location.search + '#register'; }
+  function authLink(page) { return page + '?next=' + encodeURIComponent(here()); }
 
   function showError(name, msg) {
     var f = fields[name];
@@ -104,6 +87,19 @@
       cta.appendChild(closed);
       return;
     }
+    if (!canRegister()) {
+      var signIn = el('a', 'btn btn--lg register-cta__btn');
+      signIn.href = authLink('login.html');
+      signIn.appendChild(el('span', '', kind === 'waitlist' ? 'Sign in to join the waitlist' : 'Sign in to register'));
+      cta.appendChild(signIn);
+      var join = el('p', 'register-cta__mine');
+      join.appendChild(document.createTextNode('New to EVENTORA? '));
+      var a = el('a', 'register-cta__manage', 'Create an account');
+      a.href = authLink('signup.html');
+      join.appendChild(a);
+      cta.appendChild(join);
+      return;
+    }
     ctaBtn = el('button', 'btn btn--lg register-cta__btn');
     ctaBtn.type = 'button';
     ctaBtn.setAttribute('aria-controls', 'register');
@@ -120,7 +116,8 @@
   /** "You're registered" note under the CTA — proves persistence on reload. */
   function renderMine() {
     if (!mine) return;
-    var list = store.forEvent(event.id).filter(function (r) { return r.status !== 'cancelled'; });
+    var u = me();
+    var list = u ? store.forUser(u.id).filter(function (r) { return r.eventId === event.id && r.status !== 'cancelled'; }) : [];
     mine.textContent = '';
     mine.hidden = list.length === 0;
     if (!list.length) return;
@@ -129,8 +126,8 @@
     mine.appendChild(tick);
     var waitOnly = list.every(function (r) { return r.type === 'waitlist'; });
     var lead = list.length === 1
-      ? (waitOnly ? 'On the waitlist from this device · ' : 'Registered on this device · ')
-      : list.length + ' registrations on this device · ';
+      ? (waitOnly ? 'You’re on the waitlist · ' : 'You’re registered · ')
+      : 'You have ' + list.length + ' registrations · ';
     mine.appendChild(document.createTextNode(lead));
     mine.appendChild(el('code', '', list.map(function (r) { return r.id; }).join(', ')));
     var manage = el('a', 'register-cta__manage', 'My registrations');
@@ -171,6 +168,12 @@
       return;
     }
 
+    var u = me();
+    if (!u || !canRegister()) {                          // session ended in another tab
+      location.href = authLink('login.html');
+      return;
+    }
+
     busy = true;
     submitBtn.setAttribute('aria-disabled', 'true');
     submitBtn.classList.add('is-busy');
@@ -184,7 +187,8 @@
         type: kind,
         name: fields.name.input.value,
         email: fields.email.input.value,
-        phone: fields.phone.input.value
+        phone: fields.phone.input.value,
+        userId: u.id
       });
     } catch (err) {
       busy = false;
@@ -214,12 +218,17 @@
     var back = result.status === 'reinstated';
     var wait = r.type === 'waitlist';
 
-    // Temporary guest identity (js/identity.js): the first booker on this
-    // browser becomes the guest whose registrations My Registrations shows.
-    // Booking for someone else later doesn't switch it.
-    var who = Eventora.identity;
-    if (who && !who.current()) who.signInGuest(r.email, r.name);
     var d = function (k) { return $(views.done, '[data-d="' + k + '"]'); };
+    var u = me();
+    if (dup && r.userId && (!u || r.userId !== u.id)) {
+      // Someone else's account already booked this email for this event:
+      // say so, but never show their booking details or QR code.
+      busy = false;
+      status.textContent = 'This email is already registered for this event by another account.';
+      showError('email', 'This email is already registered for this event by another account.');
+      fields.email.input.focus();
+      return;
+    }
 
     views.done.classList.toggle('is-duplicate', dup);
     d('kicker').textContent = dup ? 'Already booked' : back ? 'Reinstated' : (wait ? 'Waitlist' : 'Confirmed');
@@ -311,6 +320,12 @@
     $(section, '[data-r="when"]').textContent = cat.dateLabel(event, true) + ' · ' + cat.timeLabel(event) +
       ' · ' + event.venue.name + ', ' + event.venue.city;
     fields.event.value = event.title;
+    var u = me();
+    if (u) {                                              // prefill from the profile
+      fields.name.input.value = u.name;
+      fields.email.input.value = u.email;
+      fields.phone.input.value = u.phone;
+    }
 
     form.addEventListener('submit', onSubmit);
     $(views.done, '[data-d="again"]').addEventListener('click', again);
@@ -324,7 +339,7 @@
       if (!event) return;
       kind = event.registration.status === 'waitlist' ? 'waitlist' : 'registration';
       renderCta();
-      if (event.registration.status === 'sold-out') return;
+      if (event.registration.status === 'sold-out' || !canRegister()) return;
       if (!mount()) return;
       if (location.hash === '#register') openForm(false);
     }

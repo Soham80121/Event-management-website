@@ -1,8 +1,8 @@
 /* =========================================================================
    MY REGISTRATIONS — my-registrations.html
 
-   Shows the current guest's registrations (js/identity.js decides who that
-   is; js/registrations.js holds the records; event details always come from
+   Shows the signed-in user's registrations (js/identity.js → js/auth.js
+   decides who that is; ownership is by user id; js/registrations.js holds the records; event details always come from
    the catalogue in js/events.js by eventId).
 
    - Upcoming / Past tabs. "Past" = the event's date is before today.
@@ -310,27 +310,6 @@
     if (!reduced() && st.animate) st.animate([{ transform: 'scale(.92)', opacity: .4 }, { transform: 'none', opacity: 1 }], { duration: 360, easing: 'cubic-bezier(.16,1,.3,1)' });
   }
 
-  /* ---------- lookup ---------- */
-  function lookup(ev) {
-    ev.preventDefault();
-    var input = els.email, err = els.emailError;
-    var v = input.value.trim();
-    var msg = '';
-    if (!v) msg = 'Enter the email address you registered with.';
-    else if (v.length > 254 || !/^[^\s@]+@(?:[^\s@.]+\.)+[^\s@.]{2,}$/.test(v)) msg = 'Enter an email address like name@example.com.';
-    else if (!store.forEmail(v).length) msg = 'We couldn’t find any registrations for ' + v + ' in this browser.';
-    err.textContent = msg;
-    err.hidden = !msg;
-    input.closest('.field').classList.toggle('is-invalid', !!msg);
-    if (msg) { input.setAttribute('aria-invalid', 'true'); input.focus(); return; }
-    input.removeAttribute('aria-invalid');
-    var latest = store.forEmail(v).sort(function (a, b) { return a.createdAt < b.createdAt ? 1 : -1; })[0];
-    identity.signInGuest(v, latest.name);
-    selectTab('upcoming');
-    els.status.textContent = 'Showing registrations for ' + identity.current().email + '.';
-    els.board.querySelector('.mr-tab[aria-selected="true"]').focus();
-  }
-
   /* ---------- wiring ---------- */
   function bind() {
     els.board.addEventListener('click', function (e) {
@@ -349,12 +328,11 @@
         }
       });
     });
-    els.findForm.addEventListener('submit', lookup);
     els.switchBtn.addEventListener('click', function () {
       identity.signOut();
-      els.email.value = '';
-      els.status.textContent = 'Signed out of guest bookings.';
-      els.email.focus();
+      els.status.textContent = 'You’re signed out.';
+      var link = els.find.querySelector('a');
+      if (link) link.focus();
     });
     identity.onChange(render);
 
@@ -390,15 +368,16 @@
       els.who = document.getElementById('mrWho');
       els.find = document.getElementById('mrFind');
       els.board = document.getElementById('mrBoard');
-      els.findForm = document.getElementById('mrFindForm');
-      els.email = document.getElementById('mrEmail');
-      els.emailError = document.getElementById('mrEmailError');
       els.switchBtn = document.getElementById('mrSwitch');
       els.status = document.getElementById('mrStatus');
       els.upcomingTab = document.getElementById('mrTabUpcoming');
       els.pastTab = document.getElementById('mrTabPast');
       els.upcomingPanel = document.getElementById('mrPanelUpcoming');
       els.pastPanel = document.getElementById('mrPanelPast');
+      var next = encodeURIComponent('my-registrations.html' + location.hash);
+      Array.prototype.forEach.call(els.find.querySelectorAll('[data-auth]'), function (a) {
+        a.href = a.getAttribute('data-auth') + '?next=' + next;
+      });
       bind();
       render();
       openFromHash();

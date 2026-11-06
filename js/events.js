@@ -184,6 +184,28 @@
 
   function byDate(a, b) { return startOf(a) - startOf(b); }
 
+  /* ---------- Extra sources (Phase 8) ----------
+     Approved events created by Event Hosts (js/hosting.js) join the public
+     programme through addSource(). The built-in catalogue above stays frozen
+     and its ids never change; a source's events are validated here and any
+     that clash with a catalogue id or fail validation are skipped. */
+  var sources = [];
+  function extra() {
+    var out = [], seen = {};
+    EVENTS.forEach(function (e) { seen[e.id] = true; });
+    sources.forEach(function (fn) {
+      var list;
+      try { list = fn() || []; } catch (err) { list = []; }
+      list.forEach(function (e) {
+        if (!e || seen[e.id] || validate([e]).length) return;
+        seen[e.id] = true;
+        out.push(e);
+      });
+    });
+    return out;
+  }
+  function list() { return sources.length ? EVENTS.concat(extra()) : EVENTS.slice(); }
+
   var problems = validate(EVENTS);
   if (problems.length) console.warn('[Eventora] event catalogue problems:\n' + problems.join('\n'));
 
@@ -200,16 +222,23 @@
     statuses: STATUSES,
 
     /** Every event, in catalogue order. */
-    all: function () { return EVENTS.slice(); },
-    byId: function (id) { return EVENTS.filter(function (e) { return e.id === id; })[0] || null; },
+    all: function () { return list(); },
+    byId: function (id) { return list().filter(function (e) { return e.id === id; })[0] || null; },
     /** Featured events, soonest first. */
-    featured: function () { return EVENTS.filter(function (e) { return e.featured; }).sort(byDate); },
+    featured: function () { return list().filter(function (e) { return e.featured; }).sort(byDate); },
     /** Every event, soonest first — the searchable Upcoming programme. */
-    programme: function () { return EVENTS.slice().sort(byDate); },
+    programme: function () { return list().sort(byDate); },
     /** The rest of the programme (non-featured), soonest first. */
-    upcoming: function () { return EVENTS.filter(function (e) { return !e.featured; }).sort(byDate); },
+    upcoming: function () { return list().filter(function (e) { return !e.featured; }).sort(byDate); },
 
     validate: function () { return validate(EVENTS); },
+    /** Schema problems for any event object (used for host-created events). */
+    check: function (e) { return validate([e]); },
+    /** Built-in catalogue only (never includes host-created events). */
+    catalogue: function () { return EVENTS.slice(); },
+    isCatalogue: function (id) { return EVENTS.some(function (e) { return e.id === id; }); },
+    /** Register a function returning extra public events (see above). */
+    addSource: function (fn) { if (typeof fn === 'function') sources.push(fn); },
     startOf: startOf,
 
     /** 'Sat 14 Nov' (withYear: 'Sat 14 Nov 2026'). Built from parts so the

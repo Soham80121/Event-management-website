@@ -6,3 +6,6 @@ node_modules/
 .vscode/
 .idea/
 .claude/settings.local.json
+
+# Local server configuration (never commit, never served)
+.env

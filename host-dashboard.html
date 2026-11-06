@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Host dashboard — EVENTORA</title>
+  <meta name="description" content="Create and manage your EVENTORA events.">
+  <meta name="theme-color" content="#020204">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='12' fill='%23020204'/%3E%3Cellipse cx='24' cy='24' rx='17' ry='8.5' fill='none' stroke='%2335d8ff' stroke-width='3' transform='rotate(-32 24 24)'/%3E%3Ccircle cx='24' cy='24' r='6.5' fill='%2335d8ff'/%3E%3Ccircle cx='24' cy='24' r='2.6' fill='%23fff'/%3E%3C/svg%3E">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,600;1,600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/stage.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/utilities.css">
+  <link rel="stylesheet" href="css/sections.css">
+  <link rel="stylesheet" href="css/events.css">
+  <link rel="stylesheet" href="css/registration.css">
+  <link rel="stylesheet" href="css/auth.css">
+  <link rel="stylesheet" href="css/my-registrations.css">
+  <link rel="stylesheet" href="css/responsive.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <!-- Shared page background: ONE fixed layer behind every section (base
+       #020204, blue atmosphere, two-layer starfield). Content scrolls over it,
+       so stars never restart, duplicate or jump between sections. -->
+  <div class="site-bg" aria-hidden="true">
+    <div class="bg"></div>
+    <div class="stars" id="stA"></div>
+    <div class="stars" id="stB"></div>
+  </div>
+
+  <header class="navlayer" id="navlayer">
+    <nav class="nav" id="nav" aria-label="Primary">
+      <svg class="mark" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+        <defs>
+          <linearGradient id="sw" x1="8" y1="8" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#8ef4ff"/>
+            <stop offset=".5" stop-color="#35d8ff"/>
+            <stop offset="1" stop-color="#0a86d8"/>
+          </linearGradient>
+          <linearGradient id="sw2" x1="40" y1="10" x2="10" y2="40" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#a6f7ff"/>
+            <stop offset="1" stop-color="#0f9ae0" stop-opacity=".25"/>
+          </linearGradient>
+        </defs>
+        <g transform="rotate(-32 24 24)">
+          <ellipse cx="24" cy="24" rx="18.5" ry="9.6" stroke="url(#sw2)" stroke-width="3.1"
+                   stroke-linecap="round" stroke-dasharray="58 30" stroke-dashoffset="14"/>
+          <circle cx="41.4" cy="20.6" r="3.1" fill="#bff6ff"/>
+        </g>
+        <circle cx="24" cy="24" r="6.6" fill="url(#sw)"/>
+        <circle cx="24" cy="24" r="2.6" fill="#fff"/>
+      </svg>
+
+      <a class="wm" href="index.html" aria-label="Eventora home">
+        <span class="kick" aria-hidden="true">EVENTS</span>
+        <span class="name" id="wmName" aria-hidden="true">EVENTORA</span>
+      </a>
+
+      <button class="burger" id="burger" type="button" aria-label="Opens menu"
+              aria-expanded="false" aria-controls="navmenu">
+        <span></span><span></span><span></span>
+      </button>
+
+      <div class="navmenu" id="navmenu">
+        <div class="links" id="links">
+          <a href="index.html" data-nav="home">Home</a>
+          <a href="index.html#featured" data-nav="explore">Explore Events</a>
+          <a href="index.html#categories" data-nav="categories">Categories</a>
+          <a href="index.html#about" data-nav="about">About</a>
+          <a href="index.html#contact" data-nav="contact">Contact</a>
+        </div>
+        <a class="acct" id="acctLink" href="login.html" aria-label="Sign in"><span class="acct__badge" aria-hidden="true"></span><span class="acct__label">Sign in</span></a>
+        <a class="btn" href="host.html"><span id="ctaLabel">Host an Event</span></a>
+      </div>
+    </nav>
+  </header>
+
+  <div class="page-shell">
+  <main id="main" tabindex="-1" class="acct-wrap">
+    <div class="container">
+      <a class="back-link" href="profile.html"><span aria-hidden="true">←</span> Your profile</a>
+      <header class="dash-head">
+        <p class="eyebrow">Event Host</p>
+        <h1 class="heading-1">Host dashboard</h1>
+        <p class="lead">Hi <span id="hdWho">there</span>. Create events, follow their approval and see who registered.</p>
+      </header>
+
+      <section class="panel dash-denied" id="dashDenied" hidden>
+        <h2 class="heading-3">This dashboard is for Event Hosts</h2>
+        <p>Apply to become an Event Host from your profile. Once an admin approves you, your dashboard opens here.</p>
+        <a class="btn btn--md" href="profile.html#host-application"><span>Become an Event Host</span></a>
+      </section>
+
+      <div id="dashBody" hidden>
+        <dl class="stats">
+          <div class="stat"><dt>My events</dt><dd id="hdTotal">0</dd></div>
+          <div class="stat"><dt>Pending approval</dt><dd id="hdPending">0</dd></div>
+          <div class="stat"><dt>Live</dt><dd id="hdLive">0</dd></div>
+          <div class="stat"><dt>Registrations</dt><dd id="hdRegs">0</dd></div>
+        </dl>
+        <p class="form-alert" id="hdAlert" role="status" hidden></p>
+
+        <section class="dash-section" aria-labelledby="hdListTitle">
+          <h2 class="heading-3" id="hdListTitle">My hosted events</h2>
+          <ul class="host-events" id="hdList" role="list"></ul>
+        </section>
+
+        <section class="panel dash-section" id="create" aria-labelledby="formTitle">
+          <h2 class="heading-3" id="formTitle">Create a new event</h2>
+          <p class="field__hint">New and edited events stay private until an admin approves them.</p>
+          <form class="panel-form event-form" id="eventForm" novalidate>
+            <p class="form-alert" id="formAlert" role="alert" hidden></p>
+            <div class="field">
+              <label class="field__label" for="evTitle">Event title</label>
+              <input class="field__input" id="evTitle" name="title" type="text" maxlength="80" required>
+            </div>
+            <div class="event-form__grid">
+              <div class="field">
+                <label class="field__label" for="evCategory">Category</label>
+                <select class="field__input" id="evCategory" name="category" required><option value="">Choose…</option></select>
+              </div>
+            <div class="field">
+              <label class="field__label" for="evDate">Date</label>
+              <input class="field__input" id="evDate" name="date" type="date" required>
+            </div>
+            <div class="field">
+              <label class="field__label" for="evTime">Start time</label>
+              <input class="field__input" id="evTime" name="time" type="time" required>
+            </div>
+            <div class="field">
+              <label class="field__label" for="evPrice">Price in USD (0 = free)</label>
+              <input class="field__input" id="evPrice" name="price" type="number" min="0" max="10000" step="1" inputmode="numeric">
+            </div>
+            </div>
+            <div class="event-form__grid event-form__grid--2">
+            <div class="field">
+              <label class="field__label" for="evVenue">Venue</label>
+              <input class="field__input" id="evVenue" name="venue" type="text" maxlength="60" required>
+            </div>
+            <div class="field">
+              <label class="field__label" for="evCity">City</label>
+              <input class="field__input" id="evCity" name="city" type="text" autocomplete="address-level2" maxlength="60" required>
+            </div>
+            </div>
+            <div class="field">
+              <label class="field__label" for="evDescription">Description</label>
+              <textarea class="field__input field__input--area" id="evDescription" name="description" rows="3" maxlength="400" required></textarea>
+            </div>
+            <fieldset class="cover-field">
+              <legend class="field__label">Cover image</legend>
+              <div class="cover-gallery" id="coverGallery"></div>
+              <p class="field__error" id="coverError" hidden></p>
+            </fieldset>
+            <div class="cluster">
+              <button class="btn btn--md" type="submit" id="formSubmit"><span>Submit for approval</span></button>
+              <button class="btn-ghost" type="button" id="formCancel" hidden>Cancel editing</button>
+            </div>
+          </form>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <dialog class="mr-dialog regs-dialog" id="regsDialog" aria-labelledby="regsTitle">
+    <div class="mr-dialog__sheet">
+      <button class="btn-ghost mr-dialog__close" type="button" data-close>Close</button>
+      <p class="eyebrow">Registrations</p>
+      <h2 class="heading-3" id="regsTitle"></h2>
+      <p class="field__hint" id="regsMeta"></p>
+      <p class="dash-empty__text" id="regsEmpty" hidden>No one has registered yet.</p>
+      <div class="table-wrap">
+        <table class="data-table" id="regsTable">
+          <thead><tr><th scope="col">Name</th><th scope="col">Email</th><th scope="col">Phone</th><th scope="col">Status</th><th scope="col">Registration ID</th></tr></thead>
+          <tbody id="regsBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </dialog>
+    <footer class="site-footer">
+      <div class="container site-footer__inner">
+        <p class="site-footer__brand">EVENTORA</p>
+        <p class="placeholder-note">Footer placeholder — built in a later phase.</p>
+        <p class="site-footer__legal">&copy; 2026 EVENTORA</p>
+      </div>
+    </footer>
+  </div>
+
+  <script src="js/core.js"></script>
+  <script src="js/events.js"></script>
+  <script src="js/starfield.js"></script>
+  <script src="js/fitter.js"></script>
+  <script src="js/layout.js"></script>
+  <script src="js/nav.js"></script>
+  <script src="js/validate.js"></script>
+  <script src="js/registrations.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/hosting.js"></script>
+  <script src="js/identity.js"></script>
+  <script src="js/forms.js"></script>
+  <script src="js/account-nav.js"></script>
+  <script src="js/host-dashboard.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

@@ -73,6 +73,7 @@
           <a href="index.html#about" data-nav="about">About</a>
           <a href="index.html#contact" data-nav="contact">Contact</a>
         </div>
+        <a class="acct" id="acctLink" href="login.html" aria-label="Sign in"><span class="acct__badge" aria-hidden="true"></span><span class="acct__label">Sign in</span></a>
         <a class="btn" href="host.html" aria-current="page"><span id="ctaLabel">Host an Event</span></a>
       </div>
     </nav>
@@ -88,10 +89,10 @@
           <h1 class="display" id="host-title">Host an event</h1>
           <p class="lead">Bring your concert, conference or festival to an audience across 120+ cities, with instant ticketing and tools built for organizers.</p>
           <div class="cluster">
-            <a class="btn btn--lg" href="index.html#featured"><span>Explore Events</span></a>
-            <a class="btn-ghost" href="index.html#contact">Contact the team</a>
+            <a class="btn btn--lg" href="profile.html#host-application"><span>Apply to become a host</span></a>
+            <a class="btn-ghost" href="host-dashboard.html">Host dashboard</a>
           </div>
-          <p class="placeholder-note">Page shell — organizer tools are built in a later phase.</p>
+          <p class="body-copy host-steps">Create a free account, apply from your profile, and once an admin approves you, create events from your host dashboard. Every new event is reviewed before it goes live.</p>
         </div>
       </div>
     </section>
@@ -107,6 +108,12 @@
   </div>
 
   <script src="js/core.js"></script>
+  <script src="js/events.js"></script>
+  <script src="js/validate.js"></script>
+  <script src="js/registrations.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/hosting.js"></script>
+  <script src="js/account-nav.js"></script>
   <script src="js/starfield.js"></script>
   <script src="js/fitter.js"></script>
   <script src="js/layout.js"></script>

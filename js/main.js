@@ -23,10 +23,15 @@
   start('eventFilters', 'init');
   start('exploreCarousel', 'init');
   start('nav',       'init');
+  start('accountNav', 'init');
   start('layout',    'init');
   start('sections',  'init');
   start('eventPage', 'init');
   start('registrationForm', 'init');   // after eventPage: mounts under the rendered event
   start('myRegistrations', 'init');
+  start('authPages', 'init');
+  start('profile', 'init');
+  start('hostDashboard', 'init');
+  start('admin', 'init');
   start('intro',     'run');
 })(window.Eventora);

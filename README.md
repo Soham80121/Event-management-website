@@ -10,17 +10,25 @@ python tools/dev_server.py
 
 Then open http://localhost:5500.
 
-`tools/dev_server.py` uses only the Python standard library. It works like `python -m http.server`, but it sends `Cache-Control: no-store`. The stock server lets browsers reuse stale CSS and JS after you edit a file, which mixes old and new code.
+`tools/dev_server.py` uses only the Python standard library. It works like `python -m http.server`, but with three differences:
 
-You can also open `index.html` directly, because the scripts are plain (non-module) files.
+- It sends `Cache-Control: no-store`. The stock server lets browsers reuse stale CSS and JS after you edit a file, which mixes old and new code.
+- It refuses to serve dotfiles and dot-folders (`.env`, `.git`).
+- It answers the Admin check (see *Admin setup* below).
+
+Use it for anything involving accounts. Opening `index.html` directly still works for browsing, but without the server nobody can be an Admin.
 
 ## Pages
 
 | Page | Purpose |
 |---|---|
-| `my-registrations.html` | My Registrations: the current guest's bookings (Upcoming / Past), details with the QR code, print, cancel |
+| `my-registrations.html` | My Registrations: the signed-in user's bookings (Upcoming / Past), details with the QR code, print, cancel |
+| `signup.html` · `login.html` · `forgot-password.html` | Create an account, sign in (with remember-me), and a password-reset screen (prototype) |
+| `profile.html` | Profile: details, photo, password, role, links to dashboards, *Become an Event Host* |
+| `host-dashboard.html` | Event Host dashboard: create, edit and track your events; see their registrations |
+| `admin.html` | Admin dashboard: users and roles, host applications, event approvals |
 | `index.html` | The scrolling home page: a full-screen hero, Explore events (curved poster carousel), Upcoming events (the full programme, searchable, filterable and sortable), Event categories, then About, Contact and the footer (placeholders until later phases) |
-| `host.html` | The "Host an Event" page (a branded shell for now) |
+| `host.html` | The "Host an Event" page, which explains how to become a host |
 | `event.html?id=<event id>` | Event details page: one template that renders any catalogue event, with a friendly "not found" state for unknown ids |
 | `styleguide.html` | Internal design-system reference that renders the live tokens and reusable recipes. It is `noindex` and not linked from the site |
 
@@ -118,13 +126,8 @@ The Featured grid is replaced by a curved 3D carousel (`js/explore-carousel.js`,
 
 ## My Registrations (since Phase 7)
 
-- **Page.** `my-registrations.html` (`js/my-registrations.js`, `css/my-registrations.css`). You reach it from the registration confirmation (*View my registrations*) and from the *Registered on this device · … My registrations* note under an event's Register button. The homepage nav is unchanged; a nav or account entry comes with Phase 8 sign-in.
-- **Who "you" are: a temporary guest identity** (`js/identity.js`).
-  - Registrations already store the booker's email, so the email is the owner key. The page shows only registrations whose email matches the current guest, never everything in the browser, because one device can hold bookings for several people (*Register someone else*).
-  - The guest is set when someone completes a registration and no guest is active yet. Booking for someone else afterwards doesn't switch it. It is also set when someone enters their email in *Find your registrations*, which only accepts an email that has bookings here. *Not you?* signs out.
-  - It is stored separately as `eventora:session = { version: 1, user: { kind: 'guest', email, name, since } }`.
-  - It is **not authentication**. Anyone using the browser can enter an email. That's acceptable only because the data never leaves the browser.
-  - *Phase 8:* swap the module's internals for real sign-in and keep its API (`current()`, `owns(record)`, `signInGuest()`, `signOut()`, `onChange()`). `owns()` would match a `userId` on new records and fall back to email for older guest bookings. A backend would serve the same record shape.
+- **Page.** `my-registrations.html` (`js/my-registrations.js`, `css/my-registrations.css`). You reach it from the registration confirmation, the *You're registered · … My registrations* note, and your profile.
+- **Who "you" are** (since Phase 8). You're the signed-in account (`js/identity.js` → `js/auth.js`), and a booking is yours when `record.userId` is your user ID. Signed-out visitors see a *Sign in* prompt. Phase 7's temporary guest-by-email identity is retired, and its `eventora:session` key is removed on load.
 - **Dashboard.**
   - Upcoming and Past tabs follow the WAI-ARIA tabs pattern (arrow keys, Home and End). *Past* means the event's date is before today.
   - Cards show the poster, title, date and time, venue, registration ID, a status chip and a *Waitlist* tag when relevant. The whole card opens the details.
@@ -133,7 +136,7 @@ The Featured grid is replaced by a curved 3D carousel (`js/explore-carousel.js`,
 - **Status.** *Confirmed*, *Cancelled*, or *Completed*. Completed means confirmed with the event date passed. It's derived when displayed, never stored.
 - **Details** open in a modal `<dialog>` (focus stays inside; Escape, the backdrop or *Close* closes it, and focus returns to the card).
   - They show the poster, category, title and status, date, time, venue, price and description. Below that: registration ID, QR code, name, email, phone, type, booked time and cancelled time.
-  - `my-registrations.html#EVR-…` opens a booking directly, but only one the current guest owns.
+  - `my-registrations.html#EVR-…` opens a booking directly, but only one the signed-in user owns.
 - **Print / Save as PDF** uses `window.print()`. A print stylesheet prints only the open booking: white page, poster, details and QR code, with no buttons.
 - **Cancellation.**
   - Only confirmed upcoming bookings can be cancelled.
@@ -143,7 +146,107 @@ The Featured grid is replaced by a curved 3D carousel (`js/explore-carousel.js`,
 - **Data.**
   - Records gained `status` and an optional `cancelledAt`. Older records without a status read as confirmed.
   - Event details always come from the catalogue by `eventId`. A booking for an event that's no longer listed still shows, with a fallback poster, a note and its booking details.
-  - Corrupt session data means signed out. Corrupt registration data means an empty list (Phase 6 rules). Other tabs' changes are picked up through the `storage` event.
+  - Corrupt account or session data means signed out. Corrupt registration data means an empty list (Phase 6 rules). Other tabs' changes are picked up through the `storage` event.
+
+## Authentication, profiles & roles (since Phase 8)
+
+> **Prototype, not secure.** Accounts, sessions, roles, host applications and host events live in this browser's localStorage. Anyone with access to the browser can read or edit that data in DevTools. Every role check in the browser decides what the pages *show*; none of it is real authorization. Real security needs the backend planned for Phase 11 (see the end of this section).
+
+### What's built
+- **Sign up** (`signup.html`). Fields: full name, email, phone, password and confirmation, with *show/hide* on both password fields and a live checklist (8+ characters, a letter, a number).
+  - Inline validation uses the same rules as the registration form (`js/validate.js`).
+  - Duplicate emails are refused (case and spaces ignored).
+  - *Keep me signed in* is on by default.
+  - Bookings made before accounts with the same email are linked to the new account. The success screen says how many.
+- **Sign in** (`login.html`). Email and password, with show/hide and *Remember me*.
+  - With *Remember me*, the session lasts 30 days in localStorage. Without it, it lasts for the browser session (sessionStorage, 12 h max).
+  - Wrong credentials get one generic message, so it never reveals whether the email exists. Suspended accounts are told so.
+  - `?next=` returns you to where you were. It accepts only same-site page names.
+- **Sign out.** From the profile or *My registrations*.
+- **Forgot password** (`forgot-password.html`). A prototype screen: no email is sent, and the reply is identical whether or not the account exists.
+- **Profile** (`profile.html`). Shows user ID, name, email, phone, *Member since*, role badge and an optional photo (resized in the browser to 160 px JPEG). You can:
+  - edit your name, email and phone (emails stay unique);
+  - change your password (current password required; the new one must differ);
+  - open My registrations;
+  - open the Host or Admin dashboard when your role allows;
+  - apply to become an Event Host.
+- **Nav.** An account entry sits in the gap between the link row and *Host an Event*: a person icon when signed out, your initial or photo when signed in. Nothing else in the nav moves. On tablet and phone it becomes a row in the menu.
+- **Registering for events now needs an account.** Visitors see *Sign in to register* / *Create an account*. The form is prefilled from the profile and the booking is saved with your `userId`.
+  - If someone types an email that another account has already booked for that event, they get a plain error and never see that booking.
+  - The "You're registered" note and My Registrations show only your own bookings.
+
+### Roles
+| Role | Who | Can |
+|---|---|---|
+| Visitor | signed out | browse and explore events |
+| User | every new account | register for events, manage own registrations, apply to host |
+| Event Host | approved by an admin | the above, plus create and manage **their own** events |
+| Admin | the account matching server-side `ADMIN_EMAIL` | manage users, host roles, applications and events |
+
+- New accounts are always **User**. No page or setting lets anyone give themselves Host or Admin.
+- **Host** is granted only by an admin action: approving an application, or *Make host* in the admin users table. *Revoke host* takes it away; that host's events are kept.
+- **Admin is never stored.** On every page load the browser asks the dev server whether the signed-in email is the configured admin (`POST /api/auth/admin-check`). Setting `"role": "admin"` in localStorage grants nothing; it makes the record invalid. Change or remove `ADMIN_EMAIL` and that account goes back to User on its next page load.
+
+### Admin setup (make your own account the Admin)
+1. Sign up normally on the site with your email, or use an account you already have.
+2. Tell the dev server that email. Pick one option:
+   - **`.env` file (simplest).** Copy `.env.example` to `.env` in the project root and set `ADMIN_EMAIL=you@example.com`. `.env` is git-ignored, and the dev server refuses to serve dotfiles.
+   - **Environment variable.** In bash: `ADMIN_EMAIL=you@example.com python tools/dev_server.py`. In PowerShell: `$env:ADMIN_EMAIL="you@example.com"; python tools/dev_server.py`. The environment variable wins over `.env`.
+3. Restart the dev server. Its first line says `admin configured`.
+4. Reload any page while signed in. Your role badge reads **Admin** and the profile shows an *Admin dashboard* link. *About this prototype* on the profile reports the result of the server check.
+
+The email is read only by the server. The browser never receives it; it only gets a yes or no for the signed-in email. There is no admin sign-up and no admin password anywhere in the frontend.
+
+### Become an Event Host
+1. A **User** opens *Profile → Become an Event Host*. Name, email and phone are prefilled from the profile and read-only. They add an organization (optional), why they want to host (30–1000 characters) and extra information (optional).
+2. The application gets an ID like `APP-XXXX-XXXX` and status **Pending**. A second application is blocked while one is pending.
+3. An Admin reviews it under *Admin → Host applications*. They see the applicant's details and current role, and can add an optional note.
+4. **Approve** changes the user's role from User to **Event Host**. **Reject** leaves them a User; they see the note and can apply again.
+5. The profile shows the latest status (Pending, Approved or Rejected) and the application history. Processed applications stay listed for admins.
+
+### Host dashboard
+- **Your events.** Stats show events, pending, live and registrations. Each event card shows its status: Pending, Approved, Rejected (with the admin's note) or Unpublished.
+- **Creating an event.** Fields: title, category, date (today or later), time, venue, city, whole-dollar price (0 means free), a description of 20–400 characters, and a cover chosen from the catalogue's photography. New events are **Pending** and private.
+- **Editing and deleting.** Only while an event is Pending or Rejected; an edit resubmits it. Approved events are locked until an admin unpublishes them.
+- **Registrations.** You can see who registered for **your** events only. Another host's events, edits, deletes and attendee lists are refused.
+- **Going public.** An approved event joins the public programme through `Eventora.events.addSource()`: the homepage carousel, Upcoming, categories and `event.html?id=h-…`. Host event IDs start with `h-` and never collide with catalogue IDs; the built-in catalogue is unchanged.
+
+### Admin dashboard
+- **Users.** Name, email, role, status, join date and booking count. Actions: *Make host* / *Revoke host*, *Suspend* / *Reactivate*. You can't suspend yourself. The Admin row is marked *Server-configured*.
+- **Host applications.** A pending queue with the full details, Approve / Reject (with a note), and a processed history.
+- **Events.** Every host-submitted event with its host, status and bookings. Actions: Approve, Reject, Unpublish, Publish. Built-in catalogue events are listed read-only with their booking counts.
+- **Confirmations.** Destructive actions need a second click within 4 seconds.
+
+### Data (localStorage, all versioned)
+```
+eventora:users              { version, users: [{ id: 'usr_…', name, email, phone, createdAt, updatedAt,
+                              role: 'user'|'host', status: 'active'|'suspended', avatar?,
+                              password: { algo: 'PBKDF2-SHA256', iterations: 600000, salt, hash } }] }
+eventora:auth               { version, userId, createdAt, expiresAt }   (localStorage or sessionStorage)
+eventora:host-applications  { version, applications: [{ id: 'APP-…', userId, name, email, phone,
+                              organization?, reason, info?, status, createdAt, decidedAt?, decidedBy?, note? }] }
+eventora:hosted-events      { version, events: [{ …catalogue fields, id: 'h-…', hostId, status, … }] }
+eventora:registrations      records gained userId (Phase 6/7 IDs and event IDs unchanged)
+```
+
+### What's secured and what's a prototype
+| Feature | Status |
+|---|---|
+| Password storage | **Done properly:** PBKDF2-SHA256, 600,000 iterations, random 16-byte salt (Web Crypto). No plaintext anywhere. The hashes still sit in readable browser storage, though, so weak passwords could be cracked offline. |
+| Admin email (`ADMIN_EMAIL`) | **Server-side:** never sent to the browser. The check endpoint only answers yes or no. `.env` is git-ignored and never served. |
+| Admin role assignment | **Partly secured.** It can't be granted by editing stored roles. But the session is a localStorage record, so someone with access to the browser can forge a session for the admin's account ID (tested). Only server sessions fix that. |
+| Host and user roles, permissions, approvals | **Prototype.** Stored in localStorage and checked in browser code only. Anyone with DevTools can change them. |
+| Registration privacy between users | **Prototype.** The UI shows only your own bookings, but all bookings are in the same browser storage. |
+| Sessions and remember-me | **Prototype.** Not HttpOnly cookies, no CSRF protection, no rate limiting or lockout. |
+| Email ownership | **Not verified.** Signing up with an email links that email's older bookings, and there is no email confirmation yet. |
+| Forgot password | **UI only.** Nothing is sent. |
+
+### Phase 11 backend (the architecture this is shaped for)
+- The server owns the users, applications, events and registrations tables. Passwords are hashed with Argon2id or bcrypt on the server.
+- Sessions are HttpOnly, Secure, SameSite cookies, with CSRF tokens on state-changing requests and rate limits on sign-in.
+- Roles are checked **on the server for every request**. The browser modules (`Eventora.auth`, `Eventora.hosting`, `Eventora.registrations`) keep their function shapes and call the API instead of localStorage, so the pages don't change.
+- `ADMIN_EMAIL` seeds the first admin on the server (`/api/auth/admin-check` becomes part of sign-in). Further admin grants become audited admin-API operations.
+- New features: email verification before older bookings are claimed, real password-reset emails, and audit logs for role and approval changes.
 
 ## Structure
 
@@ -151,7 +254,14 @@ The Featured grid is replaced by a curved 3D carousel (`js/explore-carousel.js`,
 index.html              home page (hero + section placeholders + footer)
 host.html               Host an Event page shell
 event.html              event details template (?id=<event id>)
-my-registrations.html   My Registrations (guest bookings, details, print, cancel)
+my-registrations.html   My Registrations (your bookings, details, print, cancel)
+signup.html             create an account
+login.html              sign in (remember me)
+forgot-password.html    password reset (prototype screen)
+profile.html            profile, password, role, Become an Event Host
+host-dashboard.html     Event Host dashboard
+admin.html              Admin dashboard
+.env.example            template for the git-ignored .env (ADMIN_EMAIL)
 styleguide.html         internal design-system page
 css/
   tokens.css            ALL design tokens: colour, type, spacing, radii, borders,
@@ -171,6 +281,7 @@ css/
   explore.css           curved Explore carousel, timeline, expanding details panel
   registration.css      Register CTA, registration form, validation states, confirmation
   my-registrations.css  My Registrations dashboard, cards, tabs, details dialog, print layout
+  auth.css              sign-up/in, profile, host + admin dashboards, tables, badges
   responsive.css        tablet (701–1080) and phone (<=700) architectures
   motion.css            entrance resting states + reduced-motion overrides
   styleguide.css        styleguide page layout only
@@ -187,7 +298,16 @@ js/                     each file attaches to the single `window.Eventora` names
   event-page.js         renders event.html from the catalogue
   registrations.js      registration store (localStorage, validation of stored data, ids,
                         status, cancel, reinstate)
-  identity.js           temporary guest identity (email) — replaced by auth in Phase 8
+  identity.js           "current user" adapter for registrations (backed by auth.js)
+  validate.js           shared field rules (name, email, phone, password, …)
+  auth.js               accounts, PBKDF2 passwords, sessions, roles, server admin check
+  hosting.js            host applications, host events, admin review, public event source
+  forms.js              inline-validation, show/hide password, checklist, alerts, ?next=
+  account-nav.js        account entry in the nav (every page)
+  auth-pages.js         sign up / sign in / forgot password pages
+  profile.js            profile page
+  host-dashboard.js     host dashboard
+  admin.js              admin dashboard
   my-registrations.js   My Registrations page: tabs, cards, details dialog, print, cancel
   registration-form.js  Register CTA, form validation, submission, confirmation
   qr.js                 dependency-free QR code encoder (SVG output)
@@ -204,7 +324,7 @@ tests/
   hero-snapshot.js      hero regression snapshot (dev tool, see below)
   ring-visibility.js    checks every visible ring poster is 2:3 and placed correctly
 tools/
-  dev_server.py         no-cache local server
+  dev_server.py         no-cache local server; blocks dotfiles; POST /api/auth/admin-check
 docs/screenshots/       verification screenshots per phase
 ```
 

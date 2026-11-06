@@ -17,7 +17,11 @@
          createdAt: '2026-11-06T18:04:11.000Z',
          status:    'confirmed' | 'cancelled',   (since Phase 7; missing = confirmed)
          cancelledAt?: ISO date                  set while cancelled
+         userId?:   'usr_…'                      owning account (since Phase 8)
        }]
+   Phase 8 migration: records made before accounts have no userId. When
+   someone signs up or signs in, claim() links the records booked with that
+   account's email to the account. IDs and event ids never change.
      }
    Only what a booking needs is kept: no event titles, dates or prices (they
    are looked up from the catalogue), no free-text notes, no tracking data.
@@ -77,7 +81,8 @@
       isString(r.phone, 16) &&
       isString(r.createdAt, 40) && !isNaN(Date.parse(r.createdAt)) &&
       (r.status === undefined || STATUSES[r.status] === true) &&
-      (r.cancelledAt === undefined || (isString(r.cancelledAt, 40) && !isNaN(Date.parse(r.cancelledAt))));
+      (r.cancelledAt === undefined || (isString(r.cancelledAt, 40) && !isNaN(Date.parse(r.cancelledAt)))) &&
+      (r.userId === undefined || (typeof r.userId === 'string' && /^usr_[0-9A-Z]{12}$/.test(r.userId)));
   }
 
   /** Records written before Phase 7 have no status: they are confirmed. */
@@ -172,7 +177,25 @@
       return read().filter(function (r) { return r.id === id; })[0] || null;
     },
 
-    /** Registrations made with this email (the guest identity key). */
+    /** Registrations owned by this account. */
+    forUser: function (userId) {
+      return read().filter(function (r) { return r.userId === userId; });
+    },
+
+    /**
+     * Link unowned records booked with `email` to `userId` (sign-up/sign-in).
+     * Records already owned by an account are never reassigned.
+     * Returns the number of records claimed.
+     */
+    claim: function (email, userId) {
+      var e = normEmail(email);
+      var list = read(), n = 0;
+      list.forEach(function (r) { if (!r.userId && r.email === e) { r.userId = userId; n++; } });
+      if (n) write(list);
+      return n;
+    },
+
+    /** Registrations made with this email. */
     forEmail: function (email) {
       var e = normEmail(email);
       return read().filter(function (r) { return r.email === e; });
@@ -217,6 +240,7 @@
         createdAt: new Date().toISOString(),
         status: 'confirmed'
       };
+      if (input.userId) rec.userId = String(input.userId);
       var existing = list.filter(function (r) {
         return r.eventId === rec.eventId && r.email === rec.email;
       })[0];
@@ -225,6 +249,7 @@
         delete existing.cancelledAt;
         existing.name = rec.name;               // the latest details win
         existing.phone = rec.phone;
+        if (rec.userId && !existing.userId) existing.userId = rec.userId;
         return { status: 'reinstated', record: existing, saved: write(list) };
       }
       if (existing) return { status: 'duplicate', record: existing, saved: true };
