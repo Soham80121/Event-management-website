@@ -22,12 +22,11 @@
   start('eventCards', 'mount');   // before sections: deep links need the final page height
   start('eventFilters', 'init');
   start('exploreCarousel', 'init');
+  start('eventDetail', 'init');     // after the carousel: it grows from its posters
   start('nav',       'init');
   start('accountNav', 'init');
   start('layout',    'init');
   start('sections',  'init');
-  start('eventPage', 'init');
-  start('registrationForm', 'init');   // after eventPage: mounts under the rendered event
   start('myRegistrations', 'init');
   start('authPages', 'init');
   start('profile', 'init');

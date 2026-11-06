@@ -1,6 +1,7 @@
 /* =========================================================================
-   EXPLORE CAROUSEL — the interactive curved poster arc in Explore Events,
-   plus the expanding event-details panel.
+   EXPLORE CAROUSEL — the interactive curved poster arc in Explore Events.
+   Selecting the front poster opens the event-details panel
+   (js/event-detail.js), which grows out of that poster.
 
    Interaction ideas adapted (not copied) from the "curved archive" motion
    reference, translated into EVENTORA's design language:
@@ -469,7 +470,7 @@
 
     // horizontal trackpad swipes move the arc; vertical wheel keeps scrolling the page
     stage.addEventListener('wheel', function (ev) {
-      if (Math.abs(ev.deltaX) <= Math.abs(ev.deltaY) || detailOpen) return;
+      if (Math.abs(ev.deltaX) <= Math.abs(ev.deltaY) || detailOpen()) return;
       ev.preventDefault();
       if (wheelFrom === null) wheelFrom = Math.round(T);
       T += ev.deltaX / stepPx() * 0.5;
@@ -505,7 +506,7 @@
     var r = els.stage.getBoundingClientRect();
     var cx = r.left + r.width / 2, cy = r.top + r.height / 2;
     var onFront = Math.abs(ev.clientX - cx) < 0.55 * G.W && Math.abs(ev.clientY - cy) < 0.55 * G.H &&
-      Math.abs(T - s) < 0.3 && !detailOpen;
+      Math.abs(T - s) < 0.3 && !detailOpen();
     tiltYT = onFront ? (ev.clientX - cx) / (0.55 * G.W) * 8 : (ev.clientX - cx) / r.width * 4;
     tiltXT = onFront ? -(ev.clientY - cy) / (G.H / 2) * 5 : 0;
     els.stage.classList.toggle('is-over-front', onFront);
@@ -513,149 +514,36 @@
   }
 
   /* =========================================================================
-     DETAILS PANEL — grows out of the front poster, shrinks back on close
+     DETAILS — the cinematic panel itself lives in js/event-detail.js (one
+     component for every entry point). The carousel opens it from the front
+     poster and tells it which poster to grow from / shrink back into.
      ========================================================================= */
-  var detailOpen = false, detailEvent = null, pushedState = false, closing = false, returnFocus = null;
-  var EXPAND = { duration: 1050, easing: 'cubic-bezier(.76,0,.18,1)' };
-  var COLLAPSE = { duration: 850, easing: 'cubic-bezier(.76,0,.18,1)' };
+  function detailOpen() { return !!(Eventora.eventDetail && Eventora.eventDetail.isOpen()); }
 
-  function posterRectInset(p) {
-    var r = p.el.getBoundingClientRect();
-    var vw = document.documentElement.clientWidth, vh = window.innerHeight;
-    return 'inset(' + Math.max(0, r.top).toFixed(1) + 'px ' + Math.max(0, vw - r.right).toFixed(1) + 'px ' +
-      Math.max(0, vh - r.bottom).toFixed(1) + 'px ' + Math.max(0, r.left).toFixed(1) + 'px round 10px)';
-  }
-
-  function fillDetail(e) {
-    var d = els.detail;
-    d.querySelector('[data-x="cat"]').textContent = e.category;
-    d.querySelector('[data-x="title"]').textContent = e.title;
-    var st = d.querySelector('[data-x="status"]');
-    st.className = 'xd-line status status--' + e.registration.status;   // keep the rise-in line class
-    st.lastChild.textContent = cat.statusLabel(e);
-    d.querySelector('[data-x="date"]').textContent = cat.dateLabel(e, true);
-    d.querySelector('[data-x="date"]').setAttribute('datetime', e.date);
-    d.querySelector('[data-x="time"]').textContent = cat.timeLabel(e);
-    d.querySelector('[data-x="time"]').setAttribute('datetime', cat.datetime(e));
-    d.querySelector('[data-x="venue"]').textContent = e.venue.name + ', ' + e.venue.city;
-    var price = d.querySelector('[data-x="price"]');
-    price.textContent = e.price ? cat.priceLabel(e) : 'Free';
-    d.querySelector('[data-x="desc"]').textContent = e.description;
-    d.querySelector('[data-x="link"]').href = cat.detailUrl(e);
-    // Register shortcut → the form on the event page (none when sold out)
-    var reg = d.querySelector('[data-x="register"]');
-    var regStatus = e.registration.status;
-    reg.hidden = regStatus === 'sold-out';
-    reg.href = cat.detailUrl(e) + '#register';
-    reg.querySelector('span').textContent = regStatus === 'waitlist' ? 'Join the waitlist' : 'Register now';
-    var fig = d.querySelector('[data-x="media"]');
-    fig.classList.remove('is-broken');
-    fig.setAttribute('data-fallback', e.category);
-    var img = fig.querySelector('img');
-    img.alt = e.image.alt;
-    img.srcset = cat.imageUrl(e, 600, 900) + ' 600w, ' + cat.imageUrl(e, 1000, 1500) + ' 1000w';
-    img.src = cat.imageUrl(e, 600, 900);
-    d.querySelector('[data-x="tag"]').hidden = !e.featured;
-  }
-
-  function lockPage(on) {
-    document.documentElement.classList.toggle('is-locked', on);
-    // everything except the dialog becomes inert (focus can't leave it)
-    ['main', '.navlayer', '.site-footer', '.wa', '.skip-link'].forEach(function (sel) {
-      var node = document.querySelector(sel);
-      if (node) { if (on) node.setAttribute('inert', ''); else node.removeAttribute('inert'); }
-    });
-  }
-
-  function openDetail(p, opts) {
-    opts = opts || {};
-    if (!p || detailOpen) return;
-    detailOpen = true;
-    detailEvent = p.e;
-    returnFocus = p.el;
+  function openDetail(p) {
+    if (!p || !Eventora.eventDetail || detailOpen()) return;
     tiltXT = tiltYT = 0;
     T = Math.round(T);
-    fillDetail(p.e);
-
-    var panel = els.detail, sheet = els.sheet;
-    panel.hidden = false;
-    lockPage(true);
-    if (!opts.fromHistory) {
-      history.pushState({ exploreEvent: p.e.id }, '', '#event=' + encodeURIComponent(p.e.id));
-      pushedState = true;
-    }
-
-    var reduced = reducedMotion() || !sheet.animate;
-    var lines = Array.prototype.slice.call(panel.querySelectorAll('.xd-line'));
-    var media = panel.querySelector('[data-x="media"]');
-    if (!reduced) {
-      sheet.animate([{ clipPath: posterRectInset(p) }, { clipPath: 'inset(0px 0px 0px 0px round 0px)' }],
-        { duration: EXPAND.duration, easing: EXPAND.easing, fill: 'both' });
-      lines.forEach(function (line, i) {
-        line.animate([{ transform: 'translateY(110%)' }, { transform: 'translateY(0)' }],
-          { duration: 900, delay: 620 + i * 75, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'both' });
-      });
-      media.animate([{ clipPath: 'circle(0% at 50% 55%)' }, { clipPath: 'circle(75% at 50% 55%)' }],
-        { duration: 1150, delay: 520, easing: 'cubic-bezier(.22,.61,.36,1)', fill: 'both' });
-    }
-    els.closeBtn.focus({ preventScroll: true });
     els.stage.classList.remove('is-over-front');
+    Eventora.eventDetail.open(p.e.id, { origin: p.el, returnFocus: p.el });
   }
 
-  function closeDetail(opts) {
-    opts = opts || {};
-    if (!detailOpen || closing) return;
-    // a close we caused ourselves first unwinds the history entry we added
-    if (!opts.fromHistory && pushedState) { history.back(); return; }
-    // arrived via a shared #event= link: drop the hash so a refresh doesn't reopen it
-    if (!opts.fromHistory && hashEventId()) history.replaceState(null, '', location.pathname + location.search);
-    closing = true;
-    pushedState = false;
-    var panel = els.detail, sheet = els.sheet;
-    var p = posters[targetVirtual()] || returnFocus;
-
-    var finish = function () {
-      panel.getAnimations({ subtree: true }).forEach(function (a) { a.cancel(); });
-      panel.hidden = true;
-      lockPage(false);
-      detailOpen = false;
-      closing = false;
-      var f = posters[targetVirtual()];
-      if (f) f.el.focus({ preventScroll: true });
-    };
-    if (reducedMotion() || !sheet.animate) { finish(); return; }
-    panel.getAnimations({ subtree: true }).forEach(function (a) { a.cancel(); });
-    var a = sheet.animate([{ clipPath: 'inset(0px 0px 0px 0px round 0px)' }, { clipPath: posterRectInset(p) }],
-      { duration: COLLAPSE.duration, easing: COLLAPSE.easing, fill: 'both' });
-    a.onfinish = finish;
-    a.oncancel = finish;
-  }
-
-  function onPopState() {
-    var id = (history.state && history.state.exploreEvent) || hashEventId();
-    if (id && !detailOpen) {
-      var i = eventIndex(id);
-      if (i >= 0) { goToEvent(i); s = T; place(); openDetail(posters[targetVirtual()], { fromHistory: true }); }
-    } else if (!id && detailOpen) {
-      closeDetail({ fromHistory: true });
+  /** Origin provider: glide (instantly) to the event and return its poster. */
+  function posterFor(id, closing) {
+    var i = eventIndex(id);
+    if (i < 0) return null;
+    if (!closing) {
+      goToEvent(i); s = T; place(); updateActive();
+      var top = els.section.getBoundingClientRect().top;
+      if (top > window.innerHeight * 0.5 || top < -els.section.offsetHeight * 0.5) els.section.scrollIntoView({ block: 'start' });
     }
+    var p = posters[targetVirtual()];
+    return p && p.e.id === id ? p.el : null;
   }
 
-  function hashEventId() {
-    var m = /^#event=([a-z0-9-]+)$/.exec(location.hash);
-    return m ? decodeURIComponent(m[1]) : null;
-  }
   function eventIndex(id) {
     for (var i = 0; i < n; i++) if (events[i].id === id) return i;
     return -1;
-  }
-
-  function bindDetail() {
-    els.closeBtn.addEventListener('click', function () { closeDetail(); });
-    els.detail.addEventListener('keydown', function (ev) {
-      if (ev.key === 'Escape') { ev.preventDefault(); closeDetail(); }
-    });
-    window.addEventListener('popstate', onPopState);
   }
 
   /* ---------- public ---------- */
@@ -673,9 +561,6 @@
       els.next = document.getElementById('exploreNext');
       els.timeline = document.getElementById('exploreTimeline');
       els.live = document.getElementById('exploreLive');
-      els.detail = document.getElementById('exploreDetail');
-      els.sheet = document.getElementById('exploreSheet');
-      els.closeBtn = document.getElementById('exploreClose');
       if (!cat || !els.stage || !els.ring) return;
       els.stage.tabIndex = -1;   // can hold focus briefly during long jumps (no ring: [tabindex=-1])
 
@@ -695,7 +580,7 @@
       updateRoving();
 
       bindInput();
-      bindDetail();
+      if (Eventora.eventDetail) Eventora.eventDetail.addOriginProvider(posterFor);
       window.addEventListener('resize', function () { measure(); place(); });
 
       if ('IntersectionObserver' in window) {
@@ -705,24 +590,15 @@
         }).observe(els.stage);
       }
 
-      // deep link: index.html#event=<id> opens that event's panel
-      var id = hashEventId();
-      if (id && eventIndex(id) >= 0) {
-        goToEvent(eventIndex(id)); s = T; place(); updateActive();
-        history.replaceState({ exploreEvent: id }, '', location.href);
-        requestAnimationFrame(function () {
-          els.section.scrollIntoView({ block: 'start' });
-          openDetail(posters[targetVirtual()], { fromHistory: true });
-          pushedState = false;
-        });
-      }
+      // deep links (index.html#event=<id>) are handled by js/event-detail.js,
+      // which asks posterFor() to bring that event to the front first
     },
     // exposed for tests
-    state: function () { return { s: s, T: T, active: activeIndex, open: detailOpen, event: events[activeIndex] && events[activeIndex].id }; },
+    state: function () { return { s: s, T: T, active: activeIndex, open: detailOpen(), event: events[activeIndex] && events[activeIndex].id }; },
     next: function () { go(1); },
     prev: function () { go(-1); },
     goTo: goToEvent,
     open: function () { openDetail(posters[targetVirtual()]); },
-    close: function () { closeDetail(); }
+    close: function () { if (Eventora.eventDetail) Eventora.eventDetail.close(); }
   };
 })(window.Eventora);

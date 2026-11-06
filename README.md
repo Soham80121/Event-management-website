@@ -29,7 +29,7 @@ Use it for anything involving accounts. Opening `index.html` directly still work
 | `admin.html` | Admin dashboard: users and roles, host applications, event approvals |
 | `index.html` | The scrolling home page: a full-screen hero, Explore events (curved poster carousel), Upcoming events (the full programme, searchable, filterable and sortable), Event categories, then About, Contact and the footer (placeholders until later phases) |
 | `host.html` | The "Host an Event" page, which explains how to become a host |
-| `event.html?id=<event id>` | Event details page: one template that renders any catalogue event, with a friendly "not found" state for unknown ids |
+| `event.html?id=<event id>` | Redirect only: old links open the event-details panel (`index.html#event=<id>`) |
 | `styleguide.html` | Internal design-system reference that renders the live tokens and reusable recipes. It is `noindex` and not linked from the site |
 
 ## Page architecture (since Phase 3)
@@ -69,7 +69,7 @@ The fit accounts for the outermost poster's edge magnification, `cos δ / cos(A 
 - **Card interaction:**
   - *Default:* photo, category, title and description, plus the status and price footer.
   - *Hover or keyboard focus:* a glass panel slides up over the photo with the date, time and venue. It overlays the photo, so nothing on the page moves.
-  - *Click:* the title is a real link whose `::after` covers the whole card, so a click anywhere opens `event.html?id=…`. Each card is a single Tab stop named by its title, with a cyan focus ring around the whole card.
+  - *Click:* the title is a real link whose `::after` covers the whole card, so a click anywhere opens the event-details panel, growing out of the card's photo. Each card is a single Tab stop named by its title, with a cyan focus ring around the whole card.
   - *Touch screens* (`hover: none`): the date and venue panel is always shown, and a tap opens the event.
   - *Screen readers:* they get the date and venue as hidden text after the title (the visual panel is `aria-hidden`).
 
@@ -98,12 +98,32 @@ The Featured grid is replaced by a curved 3D carousel (`js/explore-carousel.js`,
   - Horizontal wheel or trackpad swipe. One notch moves at least one poster.
   - Clicking a side poster glides it to the front; clicking the front poster opens it.
   - The timeline under the caption jumps to a date.
-- **Details panel.** It grows out of the front poster with a clip-path expansion. The lines rise in, then the photo reveals. Close, Escape or the browser Back button collapse it back into the poster, and focus returns there. While it is open, the page is scroll-locked and inert. `index.html#event=<id>` deep-links straight to it, and *Open event page* goes to `event.html?id=…`. On phones it is a single scrolling column.
+- **Details panel.** Selecting the front poster opens the event-details panel, described below.
+
+## Event details: one cinematic panel
+
+There is a single event-details experience: the panel that grows out of the poster or card you selected (`js/event-detail.js`). The separate details page was removed; `event.html?id=…` now only redirects here, so old links, bookmarks and dashboard links keep working.
+
+- **Animation.** This is the Explore panel's original animation, unchanged and simply moved into its own module: a clip-path expansion from the selected element's rectangle (1050 ms), text lines rising in, the photo revealing in a circle, and the same collapse back into that element on close (850 ms). Reduced motion opens and closes instantly.
+- **Content.** Category (and "Hosted by …" for host events), title, status, date, time, venue, price, availability (spots left, available, waitlist or sold out), description and poster. There's no *Open event page* button any more.
+- **Entry points.** All of them open this same panel:
+  - the Explore carousel's front poster;
+  - Upcoming cards, including search results and category-filtered results (category chips and cards). Card links are `index.html#event=<id>`; on the homepage a click opens the panel in place, growing from the card's photo;
+  - links from other pages: My registrations (*View event*), the host dashboard (*View public page*) and the admin events table (*View*). These load the homepage and open the panel there.
+- **Registration happens inside the panel** (`js/registration-form.js` attaches to it):
+  - *Register now* (or *Join the waitlist*). Visitors go to sign in, or create an account, and come straight back to this panel with the form open (`index.html#event=<id>&register`).
+  - Signed-in users get the form in the panel, prefilled from their profile. The confirmation, registration ID and QR code appear in the panel too.
+  - Sold-out events show a closed notice instead.
+  - Duplicate, reinstate and privacy rules are unchanged.
+- **History.** Opening adds a history entry (`#event=<id>`), so Back closes the panel and Forward reopens it. Close and Escape behave the same.
+  - Back and Forward grow the panel from a matching card if one is on screen, otherwise from the carousel poster.
+  - A shared link opens the panel on load. Closing it drops the hash so a refresh doesn't reopen it.
+  - Focus returns to the poster or card you came from. While the panel is open the page behind it is inert and scroll-locked.
 - **Reduced motion.** Steps are instant, and the panel opens and closes without animation.
 
 ## Event registration (since Phase 6)
 
-- **Where.** Each event page (`event.html?id=…`) has a **Register now** button under the details. Waitlist events show *Join the waitlist* instead, and sold-out events show a "registration closed" notice with no form. The button reveals the form below the details, scrolls to it and focuses *Full name*. `event.html?id=…#register` opens it directly, and the Explore carousel's details panel links there.
+- **Where.** Inside the event-details panel (see *Event details: one cinematic panel*). **Register now** reveals the form under the details, scrolls to it and focuses *Full name*. Waitlist events show *Join the waitlist* instead; sold-out events show a "registration closed" notice with no form. `index.html#event=<id>&register` opens the panel with the form already open.
 - **Form** (`js/registration-form.js`). It has *Selected event* (filled in and read-only), *Full name*, *Email address* and *Phone number*. All fields are required.
   - *Name:* 2–80 characters; letters, spaces, hyphens, apostrophes and periods.
   - *Email:* `name@domain.tld`, at most 254 characters.
@@ -244,7 +264,7 @@ Setting `$env:ADMIN_EMAIL` is optional once `.env` exists. The environment varia
 - **Creating an event.** Fields: title, category, date (today or later), time, venue, city, whole-dollar price (0 means free), a description of 20–400 characters, and a cover chosen from the catalogue's photography. New events are **Pending** and private.
 - **Editing and deleting.** Only while an event is Pending or Rejected; an edit resubmits it. Approved events are locked until an admin unpublishes them.
 - **Registrations.** You can see who registered for **your** events only. Another host's events, edits, deletes and attendee lists are refused.
-- **Going public.** An approved event joins the public programme through `Eventora.events.addSource()`: the homepage carousel, Upcoming, categories and `event.html?id=h-…`. Host event IDs start with `h-` and never collide with catalogue IDs; the built-in catalogue is unchanged.
+- **Going public.** An approved event joins the public programme through `Eventora.events.addSource()`: the homepage carousel, Upcoming, categories and the event-details panel (`index.html#event=h-…`). Host event IDs start with `h-` and never collide with catalogue IDs; the built-in catalogue is unchanged.
 
 ### Admin dashboard
 - **Users.** Name, email, role, status, join date and booking count. Actions: *Make host* / *Revoke host*, *Suspend* / *Reactivate*. You can't suspend yourself. The Admin row is marked *Server-configured*.
@@ -289,7 +309,7 @@ eventora:registrations      records gained userId (Phase 6/7 IDs and event IDs u
 ```
 index.html              home page (hero + section placeholders + footer)
 host.html               Host an Event page shell
-event.html              event details template (?id=<event id>)
+event.html              redirect stub: old event.html?id=… links → index.html#event=<id>
 my-registrations.html   My Registrations (your bookings, details, print, cancel)
 signup.html             create an account
 login.html              sign in (remember me)
@@ -331,7 +351,8 @@ js/                     each file attaches to the single `window.Eventora` names
                         between hero CTA and app preview (see below)
   mock.js               renders the app preview from data
   event-cards.js        reusable event card renderer (feature / row variants)
-  event-page.js         renders event.html from the catalogue
+  event-detail.js       THE event-details panel: cinematic open/close from any poster or card,
+                        full details, registration inside, history and deep links
   registrations.js      registration store (localStorage, validation of stored data, ids,
                         status, cancel, reinstate)
   identity.js           "current user" adapter for registrations (backed by auth.js)
@@ -345,7 +366,7 @@ js/                     each file attaches to the single `window.Eventora` names
   host-dashboard.js     host dashboard
   admin.js              admin dashboard
   my-registrations.js   My Registrations page: tabs, cards, details dialog, print, cancel
-  registration-form.js  Register CTA, form validation, submission, confirmation
+  registration-form.js  Register CTA, form validation, submission, confirmation (attaches to the panel)
   qr.js                 dependency-free QR code encoder (SVG output)
   event-filters.js      live search, category filter, sorting, category cards
   explore-carousel.js   curved Explore carousel + expanding details panel

@@ -189,7 +189,7 @@
         act.appendChild(armed('Reject', 'Confirm reject', 'btn-ghost btn-sm btn-danger', function () { done(hosting.admin.setEventStatus(e.id, 'rejected', noteFor()), '“' + e.title + '” was rejected.'); }));
       } else if (e.status === 'approved') {
         var view = el('a', 'btn-ghost btn-sm', 'View');
-        view.href = 'event.html?id=' + encodeURIComponent(e.id);
+        view.href = cat.detailUrl(e);
         act.appendChild(view);
         act.appendChild(armed('Unpublish', 'Confirm unpublish', 'btn-ghost btn-sm btn-danger', function () { done(hosting.admin.setEventStatus(e.id, 'unpublished', noteFor()), '“' + e.title + '” is no longer public.'); }));
       } else {

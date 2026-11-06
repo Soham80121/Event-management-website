@@ -74,7 +74,7 @@
       actions.appendChild(view);
       if (e.status === 'approved') {
         var pub = el('a', 'btn-ghost', 'View public page');
-        pub.href = 'event.html?id=' + encodeURIComponent(e.id);
+        pub.href = cat.detailUrl(e);
         actions.appendChild(pub);
       }
       if (e.status === 'pending' || e.status === 'rejected') {

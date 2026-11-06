@@ -1,10 +1,15 @@
 /* =========================================================================
-   REGISTRATION FORM — event.html
+   REGISTRATION FORM — inside the event-details panel (js/event-detail.js).
 
-   - "Register now" CTA in the event details (or "Join the waitlist"; sold-out
-     events show a closed notice and no form).
-   - The CTA reveals the form below the details, scrolls to it and focuses
-     the first field. event.html?id=<id>#register opens it directly.
+   attach({ event, cta, host, returnTo }) renders the call to action into
+   `cta` and the form + confirmation into `host`; start() acts as if
+   "Register now" was pressed. One instance, re-attached for each event.
+
+   - "Register now" (or "Join the waitlist"; sold-out events show a closed
+     notice and no form). Visitors who press it go to sign in and come back
+     to `returnTo` (index.html#event=<id>&register), which reopens this panel
+     with the form open. Signed-in users get the form right here, prefilled
+     from their profile; it scrolls into view and focuses the first field.
    - Inline validation: on blur once a field has been visited, live while a
      field shows an error, and for every field on submit (focus moves to the
      first problem). Errors are tied to inputs with aria-invalid and
@@ -22,8 +27,8 @@
   var cat = Eventora.events;
   var store = Eventora.registrations;
 
-  var event = null, kind = 'registration';
-  var section, form, views, fields, cta, ctaBtn, mine, status, submitBtn;
+  var event = null, kind = 'registration', returnTo = 'index.html';
+  var section, form, views, fields, cta, ctaBtn, mine, status, submitBtn, host;
   var busy = false;
 
   function $(root, sel) { return root.querySelector(sel); }
@@ -45,8 +50,7 @@
   /* ---------- accounts (Phase 8) ---------- */
   function me() { return Eventora.auth ? Eventora.auth.current() : null; }
   function canRegister() { return !!Eventora.auth && Eventora.auth.can('register'); }
-  function here() { return location.pathname.split('/').pop() + location.search + '#register'; }
-  function authLink(page) { return page + '?next=' + encodeURIComponent(here()); }
+  function authLink(page) { return page + '?next=' + encodeURIComponent(returnTo); }
 
   function showError(name, msg) {
     var f = fields[name];
@@ -78,9 +82,9 @@
 
   /* ---------- CTA ---------- */
   function renderCta() {
-    cta = document.getElementById('registerCta');
     if (!cta) return;
     cta.textContent = '';
+    ctaBtn = null; mine = null;
     var st = event.registration.status;
     if (st === 'sold-out') {
       var closed = el('p', 'register-cta__closed', 'Registration is closed — this event is sold out.');
@@ -88,12 +92,13 @@
       return;
     }
     if (!canRegister()) {
+      // Visitors: same button; it takes them to sign in, then back here
       var signIn = el('a', 'btn btn--lg register-cta__btn');
       signIn.href = authLink('login.html');
-      signIn.appendChild(el('span', '', kind === 'waitlist' ? 'Sign in to join the waitlist' : 'Sign in to register'));
+      signIn.appendChild(el('span', '', kind === 'waitlist' ? 'Join the waitlist' : 'Register now'));
       cta.appendChild(signIn);
       var join = el('p', 'register-cta__mine');
-      join.appendChild(document.createTextNode('New to EVENTORA? '));
+      join.appendChild(document.createTextNode('You’ll sign in first. New to EVENTORA? '));
       var a = el('a', 'register-cta__manage', 'Create an account');
       a.href = authLink('signup.html');
       join.appendChild(a);
@@ -147,7 +152,6 @@
     var target = views.done.hidden ? fields.name.input : views.done;
     if (focus) target.focus({ preventScroll: true });
     section.scrollIntoView({ behavior: reduced() ? 'auto' : 'smooth', block: 'start' });
-    if (location.hash !== '#register') history.replaceState(null, '', location.pathname + location.search + '#register');
   }
 
   /* ---------- submit ---------- */
@@ -297,9 +301,9 @@
   /* ---------- mount ---------- */
   function mount() {
     var tpl = document.getElementById('registerTemplate');
-    var main = document.getElementById('main');
-    if (!tpl || !main) return false;
-    main.appendChild(tpl.content.cloneNode(true));
+    if (!tpl || !host) return false;
+    host.textContent = '';                       // one form at a time
+    host.appendChild(tpl.content.cloneNode(true));
     section = document.getElementById('register');
     form = document.getElementById('registerForm');
     status = document.getElementById('regStatus');
@@ -333,15 +337,27 @@
   }
 
   Eventora.registrationForm = {
-    init: function () {
-      if (!cat || !store || !Eventora.eventPage) return;
-      event = Eventora.eventPage.current;
-      if (!event) return;
+    /** Render the CTA into opts.cta and the (hidden) form into opts.host. */
+    attach: function (opts) {
+      if (!cat || !store || !opts || !opts.event) return;
+      event = opts.event;
+      cta = opts.cta;
+      host = opts.host;
+      returnTo = opts.returnTo || 'index.html';
+      busy = false;
+      section = null;
       kind = event.registration.status === 'waitlist' ? 'waitlist' : 'registration';
+      if (host) host.textContent = '';
       renderCta();
       if (event.registration.status === 'sold-out' || !canRegister()) return;
-      if (!mount()) return;
-      if (location.hash === '#register') openForm(false);
+      mount();
+    },
+
+    /** As if "Register now" was pressed: open the form, or go and sign in. */
+    start: function () {
+      if (!event || event.registration.status === 'sold-out') return;
+      if (!canRegister()) { location.href = authLink('login.html'); return; }
+      if (section) openForm(true);
     }
   };
 })(window.Eventora);

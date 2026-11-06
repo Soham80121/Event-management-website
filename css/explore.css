@@ -224,3 +224,20 @@ html.is-locked { overflow: hidden; scrollbar-gutter: stable; }   /* no layout sh
   .explore__arrow, .explore__glow { transition: none; }
 }
 .explore-tl__month--start .explore-tl__label { transform: none; }   /* left-aligned at the edge */
+
+/* ---------- Details panel: actions + registration (one details experience) ---------- */
+.explore-detail__cta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-4); }
+.explore-detail__cta .register-cta { margin: 0; }
+.explore-detail__cta .register-cta__btn { min-width: 220px; }
+.explore-detail__cta .demo-note[hidden] { display: none; }
+.explore-detail__register { width: 100%; }
+.explore-detail__register:empty { display: none; }
+/* the Phase 6 form/confirmation card, sitting inside the panel's info column */
+.explore-detail .register { padding-top: var(--space-4); scroll-margin-top: 72px; }
+.explore-detail .register > .container { padding: 0; margin: 0; width: auto; max-width: none; }
+.explore-detail .register__card { max-width: none; margin: 0; padding: clamp(20px, 3vw, 32px); }
+.explore-detail .register__form { grid-template-columns: 1fr; }
+@media (max-width: 700px) {
+  .explore-detail__cta { flex-direction: column; align-items: stretch; }
+  .explore-detail__cta .register-cta__btn { width: 100%; }
+}

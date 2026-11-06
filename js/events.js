@@ -269,8 +269,8 @@
       return new Intl.NumberFormat('en-US', { style: 'currency', currency: e.price.currency, maximumFractionDigits: 0 })
         .format(e.price.amount);
     },
-    /** URL of the event's details page (one template, keyed by stable id). */
-    detailUrl: function (e) { return 'event.html?id=' + encodeURIComponent(e.id); },
+    /** URL of the event's details: the homepage panel (js/event-detail.js). */
+    detailUrl: function (e) { return 'index.html#event=' + encodeURIComponent(e.id); },
 
     /** Sized, compressed Unsplash URL for the event photo. */
     imageUrl: function (e, w, h) {
