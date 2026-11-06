@@ -114,10 +114,10 @@
         </section>
 
         <section class="panel dash-section" id="create" aria-labelledby="formTitle">
-          <h2 class="heading-3" id="formTitle">Create a new event</h2>
+          <h2 class="heading-3" id="formTitle" data-form-title>Create a new event</h2>
           <p class="field__hint">New and edited events stay private until an admin approves them.</p>
           <form class="panel-form event-form" id="eventForm" novalidate>
-            <p class="form-alert" id="formAlert" role="alert" hidden></p>
+            <p class="form-alert" id="formAlert" role="alert" data-form-alert hidden></p>
             <div class="field">
               <label class="field__label" for="evTitle">Event title</label>
               <input class="field__input" id="evTitle" name="title" type="text" maxlength="80" required>
@@ -156,12 +156,12 @@
             </div>
             <fieldset class="cover-field">
               <legend class="field__label">Cover image</legend>
-              <div class="cover-gallery" id="coverGallery"></div>
-              <p class="field__error" id="coverError" hidden></p>
+              <div class="cover-gallery" id="coverGallery" data-cover-gallery></div>
+              <p class="field__error" id="coverError" data-cover-error hidden></p>
             </fieldset>
             <div class="cluster">
-              <button class="btn btn--md" type="submit" id="formSubmit"><span>Submit for approval</span></button>
-              <button class="btn-ghost" type="button" id="formCancel" hidden>Cancel editing</button>
+              <button class="btn btn--md" type="submit" id="formSubmit" data-submit><span>Submit for approval</span></button>
+              <button class="btn-ghost" type="button" id="formCancel" data-cancel hidden>Cancel editing</button>
             </div>
           </form>
         </section>
@@ -206,6 +206,7 @@
   <script src="js/identity.js"></script>
   <script src="js/forms.js"></script>
   <script src="js/account-nav.js"></script>
+  <script src="js/event-form.js"></script>
   <script src="js/host-dashboard.js"></script>
   <script src="js/main.js"></script>
 </body>

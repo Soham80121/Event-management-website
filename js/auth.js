@@ -465,6 +465,7 @@
         var list = readUsers();
         var rec = list.filter(function (x) { return x.id === userId; })[0];
         if (!rec) return { ok: false, error: 'User not found.' };
+        if (rec.adminAccount) return { ok: false, error: 'The initial Admin account is protected and can’t be changed here.' };
         rec.role = isHost ? 'host' : 'user';
         rec.updatedAt = new Date().toISOString();
         writeUsers(list);
@@ -479,6 +480,7 @@
         var list = readUsers();
         var rec = list.filter(function (x) { return x.id === userId; })[0];
         if (!rec) return { ok: false, error: 'User not found.' };
+        if (rec.adminAccount) return { ok: false, error: 'The initial Admin account is protected and can’t be suspended.' };
         rec.status = status;
         rec.updatedAt = new Date().toISOString();
         writeUsers(list);
@@ -497,7 +499,8 @@
     if (!u) return null;
     var isAdmin = adminState.verified && adminState.userId === u.id && adminState.email === u.email;
     return { id: u.id, name: u.name, email: u.email, phone: u.phone, createdAt: u.createdAt,
-      role: isAdmin ? 'admin' : u.role, baseRole: u.role, status: u.status, avatar: u.avatar || '' };
+      role: isAdmin || u.adminAccount ? 'admin' : u.role, baseRole: u.role, status: u.status, avatar: u.avatar || '',
+      protected: !!u.adminAccount };
   }
 
   /* ---------- start-up ---------- */

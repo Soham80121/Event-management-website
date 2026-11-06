@@ -204,7 +204,30 @@
     });
     return out;
   }
-  function list() { return sources.length ? EVENTS.concat(extra()) : EVENTS.slice(); }
+  /* Admin overrides for built-in events (js/hosting.js keeps them in
+     localStorage): a status that hides the event (unpublished / cancelled)
+     and/or edited fields. The frozen originals and their ids never change;
+     an override that would make an event invalid is ignored. */
+  var overrideFn = null;
+  function applyOverride(e) {
+    var ov = null;
+    try { ov = overrideFn ? overrideFn(e.id) : null; } catch (err) { ov = null; }
+    if (!ov) return e;
+    if (ov.status === 'unpublished' || ov.status === 'cancelled') return null;
+    if (!ov.fields) return e;
+    var f = ov.fields;
+    var merged = Object.assign({}, e, {
+      title: f.title || e.title, category: f.category || e.category,
+      date: f.date || e.date, time: f.time || e.time,
+      venue: f.venue ? { name: f.venue.name, city: f.venue.city } : e.venue,
+      image: f.image ? { src: f.image.src, alt: f.image.alt } : e.image,
+      description: f.description || e.description
+    });
+    if ('price' in f) { if (f.price) merged.price = { amount: f.price.amount, currency: 'USD' }; else delete merged.price; }
+    return validate([merged]).length ? e : merged;
+  }
+  function base() { return overrideFn ? EVENTS.map(applyOverride).filter(Boolean) : EVENTS.slice(); }
+  function list() { return sources.length ? base().concat(extra()) : base(); }
 
   var problems = validate(EVENTS);
   if (problems.length) console.warn('[Eventora] event catalogue problems:\n' + problems.join('\n'));
@@ -237,6 +260,13 @@
     /** Built-in catalogue only (never includes host-created events). */
     catalogue: function () { return EVENTS.slice(); },
     isCatalogue: function (id) { return EVENTS.some(function (e) { return e.id === id; }); },
+    /** fn(id) → { status?, fields? } admin override for a built-in event, or null. */
+    setOverrides: function (fn) { overrideFn = typeof fn === 'function' ? fn : null; },
+    /** A built-in event as the public sees it (edits applied), or null if hidden. */
+    catalogueView: function (id) {
+      var e = EVENTS.filter(function (x) { return x.id === id; })[0];
+      return e ? applyOverride(e) : null;
+    },
     /** Register a function returning extra public events (see above). */
     addSource: function (fn) { if (typeof fn === 'function') sources.push(fn); },
     startOf: startOf,

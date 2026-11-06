@@ -115,7 +115,7 @@
         </a>
       </nav>
 
-      <div class="profile-grid">
+      <div class="profile-grid profile-grid--single">
         <section class="panel" aria-labelledby="detailsTitle">
           <h2 class="heading-3" id="detailsTitle">Profile details</h2>
           <form class="panel-form" id="profileForm" novalidate>
@@ -145,39 +145,6 @@
           </form>
         </section>
 
-        <section class="panel" aria-labelledby="pwTitle">
-          <h2 class="heading-3" id="pwTitle">Change password</h2>
-          <form class="panel-form" id="passwordForm" novalidate>
-            <p class="form-alert" id="passwordAlert" role="status" hidden></p>
-            <div class="field">
-              <label class="field__label" for="pwCurrent">Current password</label>
-              <div class="field__control">
-                <input class="field__input field__input--pw" id="pwCurrent" name="current" type="password" autocomplete="current-password" maxlength="128" required>
-                <button class="pw-toggle" type="button" data-toggle-password="pwCurrent" aria-label="Show password"><span class="pw-toggle__text">Show</span></button>
-              </div>
-            </div>
-            <div class="field">
-              <label class="field__label" for="pwNext">New password</label>
-              <div class="field__control">
-                <input class="field__input field__input--pw" id="pwNext" name="next" type="password" autocomplete="new-password" maxlength="128" required aria-describedby="pwNextChecks">
-                <button class="pw-toggle" type="button" data-toggle-password="pwNext" aria-label="Show password"><span class="pw-toggle__text">Show</span></button>
-              </div>
-            </div>
-            <ul class="pw-checks" id="pwNextChecks" data-password-checks="pwNext" aria-label="Password requirements">
-              <li data-check="length">8 or more characters<span class="visually-hidden"></span></li>
-              <li data-check="letter">A letter<span class="visually-hidden"></span></li>
-              <li data-check="number">A number<span class="visually-hidden"></span></li>
-            </ul>
-            <div class="field">
-              <label class="field__label" for="pwConfirm">Confirm new password</label>
-              <div class="field__control">
-                <input class="field__input field__input--pw" id="pwConfirm" name="confirm" type="password" autocomplete="new-password" maxlength="128" required>
-                <button class="pw-toggle" type="button" data-toggle-password="pwConfirm" aria-label="Show password"><span class="pw-toggle__text">Show</span></button>
-              </div>
-            </div>
-            <button class="btn btn--md" type="submit"><span>Update password</span></button>
-          </form>
-        </section>
       </div>
 
       <section class="panel host-panel" id="host-application" aria-labelledby="hostTitle">
@@ -228,7 +195,7 @@
 
       <aside class="proto-panel" aria-labelledby="protoTitle">
         <h2 class="proto-panel__title" id="protoTitle">About this prototype</h2>
-        <p>Your account, role and host application are stored in this browser only. Passwords are hashed (PBKDF2), never stored as text, but anything in browser storage can be read or changed by someone using this device. Roles here only control what the pages show. Real access control arrives with the backend.</p>
+        <p>Forgot your password? Use <a class="auth-link" href="forgot-password.html">Forgot password</a> on the sign-in page. Your account, role and host application are stored in this browser only. Passwords are hashed (PBKDF2), never stored as text, but anything in browser storage can be read or changed by someone using this device. Roles here only control what the pages show. Real access control arrives with the backend.</p>
         <p class="proto-panel__check" id="pfAdminCheck"></p>
       </aside>
     </div>

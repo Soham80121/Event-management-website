@@ -19,15 +19,25 @@
      - only 'approved' events are public (they join Eventora.events)
      - hosts edit/delete their own events while pending or rejected;
        an edit (re)submits the event for approval
+     - admins create events directly (no host application), edit any event,
+       publish / unpublish / cancel / remove (admin.* below)
+
+   eventora:catalogue-overrides
+     { version, overrides: { <built-in event id>: { status?: 'unpublished'|'cancelled',
+       fields?: {title, category, date, time, venue, image, description, price},
+       updatedAt, note? } } }
+     - the built-in catalogue stays frozen in js/events.js; admin edits and
+       status changes to those events are stored here and applied on read
    ========================================================================= */
 (function (Eventora) {
   'use strict';
 
   var APPS = 'eventora:host-applications';
   var EVENTS_KEY = 'eventora:hosted-events';
+  var OVERRIDES = 'eventora:catalogue-overrides';
   var APP_ID = /^APP-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$/;
   var APP_STATUS = { pending: true, approved: true, rejected: true };
-  var EV_STATUS = { pending: true, approved: true, rejected: true, unpublished: true };
+  var EV_STATUS = { pending: true, approved: true, rejected: true, unpublished: true, cancelled: true };
 
   var auth = function () { return Eventora.auth; };
   var cat = function () { return Eventora.events; };
@@ -50,6 +60,17 @@
     } catch (err) { return false; }
   }
   function str(v, max) { return typeof v === 'string' && v.length <= max; }
+
+  function readOverrides() {
+    try {
+      var data = JSON.parse(window.localStorage.getItem(OVERRIDES) || 'null');
+      return data && data.overrides && typeof data.overrides === 'object' ? data.overrides : {};
+    } catch (err) { return {}; }
+  }
+  function writeOverrides(map) {
+    try { window.localStorage.setItem(OVERRIDES, JSON.stringify({ version: 1, overrides: map })); return true; }
+    catch (err) { return false; }
+  }
 
   function validApp(a) {
     return !!a && APP_ID.test(a.id) && typeof a.userId === 'string' && APP_STATUS[a.status] &&
@@ -102,13 +123,14 @@
   }
 
   /** Validate host-entered fields. Returns { errors, value }. */
-  function checkEvent(f) {
+  function checkEvent(f, opts) {
+    opts = opts || {};
     var v = V(), errs = {};
     var title = String(f.title || '').trim().replace(/\s+/g, ' ');
     errs.title = v.required(title, 'an event title', 3, 80);
     errs.category = cat().categories.indexOf(f.category) === -1 ? 'Choose a category.' : '';
     errs.date = !/^\d{4}-\d{2}-\d{2}$/.test(f.date || '') ? 'Choose a date.'
-      : (f.date < todayISO() ? 'Choose today or a future date.' : '');
+      : (!opts.allowPast && f.date < todayISO() ? 'Choose today or a future date.' : '');
     errs.time = !/^([01]\d|2[0-3]):[0-5]\d$/.test(f.time || '') ? 'Choose a start time.' : '';
     errs.venue = v.required(f.venue, 'the venue name', 2, 60);
     errs.city = v.required(f.city, 'the city', 2, 60);
@@ -134,8 +156,10 @@
 
   Eventora.hosting = {
     KEYS: { applications: APPS, events: EVENTS_KEY },
-    statusLabel: function (s) {
-      return { pending: 'Pending', approved: 'Approved', rejected: 'Rejected', unpublished: 'Unpublished' }[s] || s;
+    /** Application statuses read Approved; event statuses read Published. */
+    statusLabel: function (s, kind) {
+      if (kind === 'event' && s === 'approved') return 'Published';
+      return { pending: 'Pending', approved: 'Approved', rejected: 'Rejected', unpublished: 'Unpublished', cancelled: 'Cancelled' }[s] || s;
     },
 
     /** Cover photos a host can choose (the catalogue's own photography). */
@@ -291,9 +315,87 @@
         this._require('reviewEvents');
         return readHosted().sort(function (a, b) { return a.submittedAt < b.submittedAt ? 1 : -1; });
       },
+
+      /**
+       * Every event in one list, for the admin Events table:
+       * { id, source: 'catalogue'|'host'|'admin', status, event (catalogue-shaped,
+       *   edits applied), hostId, hostName, submittedAt, note }
+       */
+      allEvents: function () {
+        this._require('reviewEvents');
+        var ov = readOverrides();
+        var rows = cat().catalogue().map(function (orig) {
+          var o = ov[orig.id] || {};
+          var view = o.fields ? Object.assign({}, orig, o.fields) : orig;   // edits shown whatever the status
+          return { id: orig.id, source: 'catalogue', status: o.status || 'approved', event: view,
+            hostId: null, hostName: 'EVENTORA (built-in)', submittedAt: '', note: o.note || '' };
+        });
+        readHosted().forEach(function (e) {
+          rows.push({ id: e.id, source: e.createdBy === 'admin' ? 'admin' : 'host', status: e.status,
+            event: publicShape(e), raw: e, hostId: e.hostId, hostName: e.hostName || '',
+            submittedAt: e.submittedAt || e.createdAt, note: e.note || '' });
+        });
+        return rows;
+      },
+
+      /** Admin creates an event directly: no host application needed. */
+      createEvent: function (f, publish) {
+        this._require('reviewEvents');
+        var u = me();
+        var c = checkEvent(f);
+        if (Object.keys(c.errors).length) return { ok: false, errors: c.errors };
+        var list = readHosted();
+        var id; do { id = 'h-' + slug(c.value.title) + '-' + rand(4).toLowerCase(); }
+        while (cat().isCatalogue(id) || list.some(function (e) { return e.id === id; }));
+        var now = new Date().toISOString();
+        var ev = Object.assign({ id: id, hostId: u.id, hostName: 'EVENTORA', createdBy: 'admin',
+          status: publish ? 'approved' : 'pending', createdAt: now, updatedAt: now, submittedAt: now }, c.value);
+        if (publish) ev.decidedAt = now;
+        if (!ev.price) delete ev.price;
+        list.push(ev);
+        if (!write(EVENTS_KEY, 'events', list)) return deny('The event couldn’t be saved in this browser.');
+        return { ok: true, event: ev };
+      },
+
+      /** Admin edits any event in place (status unchanged). */
+      updateEvent: function (id, f) {
+        this._require('reviewEvents');
+        var c = checkEvent(f, { allowPast: true });
+        if (Object.keys(c.errors).length) return { ok: false, errors: c.errors };
+        if (cat().isCatalogue(id)) {
+          var ov = readOverrides();
+          var o = ov[id] || {};
+          o.fields = c.value;
+          o.updatedAt = new Date().toISOString();
+          ov[id] = o;
+          writeOverrides(ov);
+          return { ok: true, event: Object.assign({ id: id }, c.value) };
+        }
+        var list = readHosted();
+        var ev = list.filter(function (e) { return e.id === id; })[0];
+        if (!ev) return deny('Event not found.');
+        Object.assign(ev, c.value);
+        if (!c.value.price) delete ev.price;
+        ev.updatedAt = new Date().toISOString();
+        write(EVENTS_KEY, 'events', list);
+        return { ok: true, event: ev };
+      },
+
+      /** approved (= published) · rejected · unpublished · cancelled. */
       setEventStatus: function (id, status, note) {
         this._require('reviewEvents');
         if (!EV_STATUS[status] || status === 'pending') return deny('Unknown status.');
+        if (cat().isCatalogue(id)) {
+          if (status === 'rejected') return deny('Built-in events can’t be rejected.');
+          var ov = readOverrides();
+          var o = ov[id] || {};
+          if (status === 'approved') delete o.status; else o.status = status;
+          if (note && String(note).trim()) o.note = String(note).trim().slice(0, 500); else delete o.note;
+          o.updatedAt = new Date().toISOString();
+          ov[id] = o;
+          writeOverrides(ov);
+          return { ok: true };
+        }
         var list = readHosted();
         var ev = list.filter(function (e) { return e.id === id; })[0];
         if (!ev) return deny('Event not found.');
@@ -302,10 +404,37 @@
         if (note && String(note).trim()) ev.note = String(note).trim().slice(0, 500); else delete ev.note;
         write(EVENTS_KEY, 'events', list);
         return { ok: true, event: ev };
+      },
+
+      /** Delete a host- or admin-created event record (built-in events can only be cancelled). */
+      removeEvent: function (id) {
+        this._require('reviewEvents');
+        if (cat().isCatalogue(id)) return deny('Built-in events can’t be removed. Cancel or unpublish them instead.');
+        var list = readHosted();
+        if (!list.some(function (e) { return e.id === id; })) return deny('Event not found.');
+        write(EVENTS_KEY, 'events', list.filter(function (e) { return e.id !== id; }));
+        return { ok: true };
+      },
+
+      /** Every registration, for the admin Registrations section. */
+      registrations: function () {
+        this._require('viewAllRegistrations');
+        return Eventora.registrations ? Eventora.registrations.all() : [];
+      },
+
+      /** Title for any event id, including hidden or removed ones. */
+      eventTitle: function (id) {
+        var e = cat().byId(id);
+        if (e) return e.title;
+        var h = readHosted().filter(function (x) { return x.id === id; })[0];
+        if (h) return h.title;
+        var c = cat().catalogue().filter(function (x) { return x.id === id; })[0];
+        return c ? c.title : 'Event no longer listed (' + id + ')';
       }
     }
   };
 
   // Approved host events join the public programme.
   if (cat() && cat().addSource) cat().addSource(function () { return Eventora.hosting.publicEvents(); });
+  if (cat() && cat().setOverrides) cat().setOverrides(function (id) { return readOverrides()[id] || null; });
 })(window.Eventora);

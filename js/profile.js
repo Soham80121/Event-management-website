@@ -1,6 +1,6 @@
 /* =========================================================================
    PROFILE — profile.html (signed-in users only).
-   Details + avatar, password change, role, links to registrations and the
+   Details + avatar, role, links to registrations and the
    role dashboards, and the "Become an Event Host" application.
    ========================================================================= */
 (function (Eventora) {
@@ -20,6 +20,9 @@
   var pendingAvatar;          // undefined = unchanged, null = remove, string = new data URL
 
   /* ---------- header + links ---------- */
+  /** Admin account (server-verified admin, or the account its sign-in created). */
+  function isAdmin(u) { return u.role === 'admin' || !!u.adminAccount; }
+
   function avatarInto(node, u) {
     node.textContent = '';
     if (u.avatar) { var img = new Image(); img.alt = ''; img.src = u.avatar; node.appendChild(img); }
@@ -38,8 +41,12 @@
 
     var regs = Eventora.registrations ? Eventora.registrations.forUser(u.id).filter(function (r) { return r.status !== 'cancelled'; }).length : 0;
     $('pfRegCount').textContent = regs === 1 ? '1 active booking' : regs + ' active bookings';
-    $('pfHostLink').hidden = !auth.can('manageOwnEvents');
-    $('pfAdminLink').hidden = !auth.can('manageUsers');
+    // Admins manage everything from the Admin Dashboard: no Host Dashboard card,
+    // no host application. Hosts keep their Host Dashboard card.
+    var admin = isAdmin(u);
+    $('pfHostLink').hidden = admin || u.role !== 'host';
+    $('pfAdminLink').hidden = !admin;
+    $('host-application').hidden = admin;
 
     var check = auth.adminCheckStatus();
     $('pfAdminCheck').textContent = {
@@ -130,36 +137,6 @@
     });
   }
 
-  /* ---------- password ---------- */
-  function bindPasswordForm() {
-    var f = $('passwordForm'), alertEl = $('passwordAlert');
-    F.passwordToggles(f);
-    F.passwordChecklist(f);
-    var v = F.bind(f, {
-      current: function (x) { return x ? '' : 'Enter your current password.'; },
-      next: V.password,
-      confirm: function (x, form) { return V.confirm(x, form.elements.next.value); }
-    });
-    f.addEventListener('submit', function (e) {
-      e.preventDefault();
-      F.alert(alertEl, 'error', '');
-      if (v.check().length) return;
-      var restore = F.busy(f.querySelector('[type="submit"]'), 'Updating…');
-      auth.changePassword(f.elements.current.value, f.elements.next.value, f.elements.confirm.value).then(function (res) {
-        restore();
-        if (!res.ok) {
-          if (res.errors) Object.keys(res.errors).forEach(function (k) { if (res.errors[k]) v.show(k, res.errors[k]); });
-          else F.alert(alertEl, 'error', res.error);
-          return;
-        }
-        f.reset();
-        v.reset();
-        f.querySelectorAll('[data-check]').forEach(function (li) { li.classList.remove('is-met'); });
-        F.alert(alertEl, 'success', 'Your password is updated. Use the new one next time you sign in.');
-      });
-    });
-  }
-
   /* ---------- Become an Event Host ---------- */
   function statusChip(status) {
     var s = el('span', 'app-status app-status--' + status);
@@ -174,14 +151,13 @@
     form.hidden = true;
     var latest = Eventora.hosting.latestApplication();
 
-    if (u.role === 'host' || u.role === 'admin') {
-      box.appendChild(el('p', 'host-state__title', u.role === 'host' ? 'You’re an Event Host.' : 'You’re an Admin.'));
-      box.appendChild(el('p', 'host-state__text', u.role === 'host'
-        ? 'Create events, follow their approval and see who registered, all from your host dashboard.'
-        : 'Admins can already manage events and review host applications.'));
+    if (isAdmin(u)) return;                              // panel hidden for admins
+    if (u.role === 'host') {
+      box.appendChild(el('p', 'host-state__title', 'You’re an Event Host.'));
+      box.appendChild(el('p', 'host-state__text', 'Create events, follow their approval and see who registered, all from your host dashboard.'));
       var a = el('a', 'btn btn--md');
-      a.href = u.role === 'host' ? 'host-dashboard.html' : 'admin.html';
-      a.appendChild(el('span', '', u.role === 'host' ? 'Open host dashboard' : 'Open admin dashboard'));
+      a.href = 'host-dashboard.html';
+      a.appendChild(el('span', '', 'Open host dashboard'));
       box.appendChild(a);
     } else if (latest && latest.status === 'pending') {
       var row = el('div', 'host-state__row');
@@ -271,7 +247,6 @@
       document.getElementById('main').hidden = false;
       fillProfileForm(u);
       bindProfileForm();
-      bindPasswordForm();
       bindHostForm();
       $('pfSignOut').addEventListener('click', function () { auth.signOut(); location.href = 'index.html'; });
       renderAll();
