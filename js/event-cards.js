@@ -5,6 +5,7 @@
        variant 'feature' : image-led card (Featured section)
        variant 'row'     : agenda row with a calendar tile (Upcoming section)
      Eventora.eventCards.mount()  fills #featuredEvents and #upcomingEvents
+     Eventora.eventCards.renderList(ul, events, opts) is reused by the filters
 
    Built with DOM APIs (textContent only), never by concatenating data into
    HTML.
@@ -158,7 +159,9 @@
     opts = opts || {};
     var variant = opts.variant || 'feature';
     var level = Math.min(6, Math.max(2, opts.headingLevel || 3));
-    var titleId = 'event-' + e.id + '-title';
+    // The same event can appear in two lists (Featured and the Upcoming
+    // programme), so title ids are prefixed per list to stay unique.
+    var titleId = (opts.idPrefix ? opts.idPrefix + '-' : '') + 'event-' + e.id + '-title';
 
     var card = el('article', 'event-card event-card--' + variant + (opts.lead ? ' event-card--lead' : ''));
     card.setAttribute('aria-labelledby', titleId);
@@ -201,7 +204,8 @@
       li.appendChild(create(e, {
         variant: opts.variant,
         lead: opts.leadFirst && i === 0,
-        headingLevel: 3
+        headingLevel: 3,
+        idPrefix: listEl.id
       }));
       frag.appendChild(li);
     });
@@ -217,7 +221,9 @@
     mount: function () {
       if (!cat) return;
       renderList(document.getElementById('featuredEvents'), cat.featured(), { variant: 'feature', leadFirst: true });
-      renderList(document.getElementById('upcomingEvents'), cat.upcoming(), { variant: 'row' });
+      // Upcoming lists the whole programme; js/event-filters.js then applies
+      // search, category and sort on top of this default.
+      renderList(document.getElementById('upcomingEvents'), cat.programme(), { variant: 'row' });
     }
   };
 })(window.Eventora);

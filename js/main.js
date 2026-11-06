@@ -20,6 +20,7 @@
   start('carousel',  'init');
   start('mock',      'init');
   start('eventCards', 'mount');   // before sections: deep links need the final page height
+  start('eventFilters', 'init');
   start('nav',       'init');
   start('layout',    'init');
   start('sections',  'init');

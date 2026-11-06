@@ -18,7 +18,7 @@ You can also open `index.html` directly, because the scripts are plain (non-modu
 
 | Page | Purpose |
 |---|---|
-| `index.html` | The scrolling home page: a full-screen hero, Featured events and Upcoming events (built from the catalogue), then Categories, About, Contact and the footer (placeholders until later phases) |
+| `index.html` | The scrolling home page: a full-screen hero, Featured events, Upcoming events (the full programme, searchable, filterable and sortable), Event categories, then About, Contact and the footer (placeholders until later phases) |
 | `host.html` | The "Host an Event" page (a branded shell for now) |
 | `event.html?id=<event id>` | Event details page: one template that renders any catalogue event, with a friendly "not found" state for unknown ids |
 | `styleguide.html` | Internal design-system reference that renders the live tokens and reusable recipes. It is `noindex` and not linked from the site |
@@ -64,6 +64,17 @@ The fit accounts for the outermost poster's edge magnification, `cos δ / cos(A 
   - *Touch screens* (`hover: none`): the date and venue panel is always shown, and a tap opens the event.
   - *Screen readers:* they get the date and venue as hidden text after the title (the visual panel is `aria-hidden`).
 
+## Search, categories, filtering and sorting (since Phase 5)
+
+- **Upcoming = the full programme.** All 8 events, soonest first. Featured stays the curated highlight and isn't affected by filters.
+- **One filter state** (`js/event-filters.js`): `{ query, category, sort }`. Search, category and sort always combine. The list is re-rendered with the shared card renderer, so card interactions and detail links are unchanged.
+  - **Search** is live. It matches title, category, venue name and city, and description. It's case- and accent-insensitive, ignores apostrophes, and every typed word must match (as part of any word). The × button or Escape clears it.
+  - **Category chips** (with an *All events* option) are built from the catalogue with live counts. The category cards in the Categories section apply the same filter and move to the results.
+  - **Sort:** earliest date (default), latest date, or alphabetical.
+  - **Reset filters** restores the defaults. It's disabled while they're already in place.
+  - **Results count** is announced to screen readers (`role="status"`). When nothing matches, an empty state explains why and offers only the actions that would widen the results.
+- **No storage.** Nothing is stored, in localStorage or anywhere else.
+
 ## Structure
 
 ```
@@ -84,7 +95,8 @@ css/
   utilities.css         reusable recipes: .container, type helpers, .glass*,
                         .btn--md/--lg/--block, .btn-ghost, hairlines, hover helpers
   sections.css          active-nav indicator, homepage sections, footer, page shells
-  events.css            event card component, Featured grid, Upcoming agenda
+  events.css            event card component, Featured grid, Upcoming agenda, details page
+  filters.css           search, sort, category chips, empty state, category cards
   responsive.css        tablet (701–1080) and phone (<=700) architectures
   motion.css            entrance resting states + reduced-motion overrides
   styleguide.css        styleguide page layout only
@@ -99,6 +111,7 @@ js/                     each file attaches to the single `window.Eventora` names
   mock.js               renders the app preview from data
   event-cards.js        reusable event card renderer (feature / row variants)
   event-page.js         renders event.html from the catalogue
+  event-filters.js      live search, category filter, sorting, category cards
   fitter.js             type fitter (cap height, ink width, baseline)
   layout.js             canvas scale law, tablet height split, phone reset
   nav.js                burger menu (aria-expanded, Escape, outside click, focus-out)

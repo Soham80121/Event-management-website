@@ -23,6 +23,7 @@
   <link rel="stylesheet" href="css/utilities.css">
   <link rel="stylesheet" href="css/sections.css">
   <link rel="stylesheet" href="css/events.css">
+  <link rel="stylesheet" href="css/filters.css">
   <link rel="stylesheet" href="css/responsive.css">
   <link rel="stylesheet" href="css/motion.css">
 
@@ -180,7 +181,7 @@
 
   <!-- ============ SECTIONS 2–6 ============
        ids and order are final: featured, upcoming, categories, about, contact.
-       Categories, About and Contact are placeholders until later phases. -->
+       About and Contact are placeholders until later phases. -->
   <!-- ============ 2. FEATURED EVENTS ============ -->
   <section class="section section--events section--glow-tl" id="featured" tabindex="-1" aria-labelledby="featured-title" data-nav-key="explore">
     <div class="container">
@@ -204,20 +205,69 @@
         <div class="section-head__text">
           <p class="eyebrow">03 · Upcoming events</p>
           <h2 class="heading-2" id="upcoming-title">Coming up next</h2>
-          <p class="lead">The rest of the programme, soonest first.</p>
+          <p class="lead">The full programme — search it, filter by category and sort it your way.</p>
         </div>
         <p class="demo-note">Sample events · demo data</p>
       </header>
+      <!-- Search, category filter and sort: js/event-filters.js -->
+      <div class="event-tools" role="search" aria-label="Search and filter events">
+        <div class="search-field">
+          <label class="visually-hidden" for="eventSearch">Search events by title, category, venue or description</label>
+          <svg class="search-field__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="7"/><path d="M20 20l-3.8-3.8"/>
+          </svg>
+          <input type="search" id="eventSearch" class="search-field__input" placeholder="Search title, category, venue or description"
+                 autocomplete="off" spellcheck="false" aria-describedby="resultsCount">
+          <button type="button" class="search-field__clear" id="searchClear" aria-label="Clear search" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+          </button>
+        </div>
+        <div class="sort-field">
+          <label for="eventSort">Sort by</label>
+          <div class="sort-field__select">
+            <select id="eventSort">
+              <option value="date-asc">Earliest date</option>
+              <option value="date-desc">Latest date</option>
+              <option value="title">Alphabetical (A–Z)</option>
+            </select>
+          </div>
+        </div>
+        <button type="button" class="btn-ghost filters-reset" id="filtersReset" disabled>Reset filters</button>
+      </div>
+      <div class="chip-row" id="categoryChips" role="group" aria-label="Filter by category"></div>
+      <p class="results-count" id="resultsCount" role="status" aria-live="polite"></p>
+
       <ul class="event-list" id="upcomingEvents" role="list" aria-busy="true"></ul>
+
+      <div class="empty-state" id="eventsEmpty" hidden>
+        <svg class="empty-state__icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true">
+          <circle cx="21" cy="21" r="12"/><path d="M38 38l-8-8M16 21h10"/>
+        </svg>
+        <h3 class="heading-3">No events match</h3>
+        <p class="body-copy" id="eventsEmptyText"></p>
+        <div class="cluster empty-state__actions">
+          <button type="button" class="btn-ghost" id="emptyClearSearch">Clear search</button>
+          <button type="button" class="btn-ghost" id="emptyAllCategories">Show all categories</button>
+          <button type="button" class="btn btn--md" id="emptyReset"><span>Reset filters</span></button>
+        </div>
+      </div>
       <noscript><p class="body-copy">Turn on JavaScript to see the event line-up.</p></noscript>
     </div>
   </section>
 
-  <section class="section section--placeholder section--glow-bl" id="categories" tabindex="-1" aria-labelledby="categories-title" data-nav-key="categories">
+  <!-- ============ 4. EVENT CATEGORIES ============ -->
+  <section class="section section--events section--glow-bl" id="categories" tabindex="-1" aria-labelledby="categories-title" data-nav-key="categories">
     <div class="container">
-      <p class="eyebrow">04 · Event categories</p>
-      <h2 class="heading-2" id="categories-title">Event categories</h2>
-      <p class="placeholder-note">Section placeholder — built in a later phase.</p>
+      <header class="section-head">
+        <div class="section-head__text">
+          <p class="eyebrow">04 · Event categories</p>
+          <h2 class="heading-2" id="categories-title">Find your kind of night</h2>
+          <p class="lead">Pick a category to filter the Upcoming programme.</p>
+        </div>
+      </header>
+      <!-- Built from the catalogue by js/event-filters.js -->
+      <ul class="category-grid" id="categoryGrid" role="list" aria-busy="true"></ul>
+      <noscript><p class="body-copy">Turn on JavaScript to browse categories.</p></noscript>
     </div>
   </section>
 
@@ -266,6 +316,7 @@
   <script src="js/carousel.js"></script>
   <script src="js/mock.js"></script>
   <script src="js/event-cards.js"></script>
+  <script src="js/event-filters.js"></script>
   <script src="js/fitter.js"></script>
   <script src="js/layout.js"></script>
   <script src="js/nav.js"></script>

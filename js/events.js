@@ -204,6 +204,8 @@
     byId: function (id) { return EVENTS.filter(function (e) { return e.id === id; })[0] || null; },
     /** Featured events, soonest first. */
     featured: function () { return EVENTS.filter(function (e) { return e.featured; }).sort(byDate); },
+    /** Every event, soonest first — the searchable Upcoming programme. */
+    programme: function () { return EVENTS.slice().sort(byDate); },
     /** The rest of the programme (non-featured), soonest first. */
     upcoming: function () { return EVENTS.filter(function (e) { return !e.featured; }).sort(byDate); },
 
