@@ -12,7 +12,8 @@
    - Submission: guarded against double submits; the email is unique per
      event, so a repeat submission returns the existing registration instead
      of creating another.
-   - Confirmation: event, registration ID (copyable) and booking details.
+   - Confirmation: event, registration ID with a check-in QR code, and the
+     booking details.
    Storage lives in js/registrations.js.
    ========================================================================= */
 (function (Eventora) {
@@ -229,7 +230,7 @@
     d('note').textContent = result.saved
       ? 'Demo site: no email is sent. This booking is saved in this browser on this device.'
       : 'Demo site: this browser isn’t allowing storage, so this booking will be lost when you leave the page.';
-    d('copy').textContent = 'Copy ID';
+    renderQr(d('qr'), r.id);
 
     swap(views.form, views.done);
     status.textContent = '';
@@ -259,15 +260,16 @@
     fields.name.input.focus({ preventScroll: true });
   }
 
-  function copyId(btn) {
-    var id = $(views.done, '[data-d="id"]').textContent;
-    var done = function (ok) {
-      btn.textContent = ok ? 'Copied' : 'Copy failed';
-      setTimeout(function () { btn.textContent = 'Copy ID'; }, 1800);
-    };
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(id).then(function () { done(true); }, function () { done(false); });
-    } else done(false);
+  /** QR code of the registration ID for check-in (js/qr.js, no library). */
+  function renderQr(fig, id) {
+    fig.textContent = '';
+    if (!Eventora.qr) { fig.hidden = true; return; }
+    try {
+      fig.appendChild(Eventora.qr.svg(id, { label: 'QR code for registration ' + id, dark: '#05070b' }));
+      fig.hidden = false;
+    } catch (err) {
+      fig.hidden = true;               // the ID is still shown as text
+    }
   }
 
   /* ---------- mount ---------- */
@@ -299,7 +301,6 @@
 
     form.addEventListener('submit', onSubmit);
     $(views.done, '[data-d="again"]').addEventListener('click', again);
-    $(views.done, '[data-d="copy"]').addEventListener('click', function () { copyId(this); });
     return true;
   }
 

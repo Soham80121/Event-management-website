@@ -153,9 +153,12 @@
 
             <div class="register__ticket">
               <div class="register__id">
-                <span class="register__id-label">Registration ID</span>
-                <code class="register__id-code" data-d="id"></code>
-                <button class="btn-ghost register__copy" type="button" data-d="copy">Copy ID</button>
+                <div class="register__id-text">
+                  <span class="register__id-label">Registration ID</span>
+                  <code class="register__id-code" data-d="id"></code>
+                  <span class="register__id-hint">Show this QR code at check-in.</span>
+                </div>
+                <figure class="register__qr" data-d="qr"></figure>
               </div>
               <dl class="register__summary">
                 <dt>Event</dt><dd data-d="event"></dd>
@@ -194,6 +197,7 @@
   <script src="js/nav.js"></script>
   <script src="js/event-page.js"></script>
   <script src="js/registrations.js"></script>
+  <script src="js/qr.js"></script>
   <script src="js/registration-form.js"></script>
   <script src="js/main.js"></script>
 </body>

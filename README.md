@@ -100,7 +100,7 @@ The Featured grid is replaced by a curved 3D carousel (`js/explore-carousel.js`,
   - *Email:* `name@domain.tld`, at most 254 characters.
   - *Phone:* digits, spaces, `( ) - .`, and an optional leading `+`, with 7–15 digits in total.
   - *Errors appear inline* under the field. A field is checked when you leave it (after typing), while it shows an error (it clears as soon as it's fixed), and on submit. On submit, focus moves to the first problem and a status message announces how many there are. Fields use `aria-invalid` and `aria-describedby`.
-- **Submission.** The button locks and reads *Saving…*, so double clicks and repeated Enter presses are ignored. The confirmation then replaces the form in the same card. It shows the registration ID (with a copy button), the event, date and time, venue, name and email.
+- **Submission.** The button locks and reads *Saving…*, so double clicks and repeated Enter presses are ignored. The confirmation then replaces the form in the same card. It shows the registration ID with a **check-in QR code** that encodes the ID, plus the event, date and time, venue, name and email. The QR code comes from `js/qr.js`, a small dependency-free encoder (level M, versions 1–6, alphanumeric or UTF-8 byte mode, best of 8 masks). Its output was verified by decoding it with OpenCV across all masks and versions.
 - **Duplicates.** The same email can register only once per event, ignoring case and spaces. A repeat submission shows *You're already registered* with the existing ID and writes nothing. The same person can still register for other events, and other people can register for the same event (*Register someone else*).
 - **Storage** (`js/registrations.js`). Registrations live in localStorage under one key, `eventora:registrations`, separate from the catalogue:
   ```
@@ -155,6 +155,7 @@ js/                     each file attaches to the single `window.Eventora` names
   event-page.js         renders event.html from the catalogue
   registrations.js      registration store (localStorage, validation of stored data, ids)
   registration-form.js  Register CTA, form validation, submission, confirmation
+  qr.js                 dependency-free QR code encoder (SVG output)
   event-filters.js      live search, category filter, sorting, category cards
   explore-carousel.js   curved Explore carousel + expanding details panel
   fitter.js             type fitter (cap height, ink width, baseline)
