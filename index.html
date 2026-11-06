@@ -24,6 +24,7 @@
   <link rel="stylesheet" href="css/sections.css">
   <link rel="stylesheet" href="css/events.css">
   <link rel="stylesheet" href="css/filters.css">
+  <link rel="stylesheet" href="css/explore.css">
   <link rel="stylesheet" href="css/responsive.css">
   <link rel="stylesheet" href="css/motion.css">
 
@@ -183,18 +184,44 @@
        ids and order are final: featured, upcoming, categories, about, contact.
        About and Contact are placeholders until later phases. -->
   <!-- ============ 2. FEATURED EVENTS ============ -->
-  <section class="section section--events section--glow-tl" id="featured" tabindex="-1" aria-labelledby="featured-title" data-nav-key="explore">
+  <section class="section section--events section--glow-tl section--explore" id="featured" tabindex="-1" aria-labelledby="featured-title" data-nav-key="explore">
     <div class="container">
       <header class="section-head">
         <div class="section-head__text">
           <p class="eyebrow">02 · Featured events</p>
           <h2 class="heading-2" id="featured-title">Handpicked for this season</h2>
-          <p class="lead">The nights our team is most excited about — big stages, rare line-ups and evenings worth planning around.</p>
+          <p class="lead">Drag, swipe or use the arrows to browse the season. Select the front poster to see the details.</p>
         </div>
         <p class="demo-note">Sample events · demo data</p>
       </header>
-      <ul class="event-grid event-grid--featured" id="featuredEvents" role="list" aria-busy="true"></ul>
-      <noscript><p class="body-copy">Turn on JavaScript to see the event line-up.</p></noscript>
+      <noscript><p class="body-copy">Turn on JavaScript to browse the posters, or see the full programme under <a href="#upcoming">Upcoming events</a>.</p></noscript>
+    </div>
+
+    <!-- Curved poster carousel: js/explore-carousel.js (all events, programme order) -->
+    <div class="explore" id="explore" role="region" aria-roledescription="carousel" aria-label="Event posters">
+      <span class="explore__probe" id="exploreProbe" aria-hidden="true"></span>
+      <div class="explore__stage" id="exploreStage">
+        <div class="explore__glow" id="exploreGlow" aria-hidden="true"></div>
+        <div class="explore__ring" id="exploreRing"></div>
+      </div>
+      <p class="visually-hidden" id="exploreHelp">Press Enter to open the event details. Use the left and right arrow keys to browse.</p>
+      <p class="visually-hidden" id="exploreLive" aria-live="polite"></p>
+
+      <div class="explore__nav">
+        <button type="button" class="explore__arrow" id="explorePrev" aria-label="Previous event">
+          <svg viewBox="0 0 24 12" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M6 1L1 6l5 5M1 6h23"/></svg>
+        </button>
+        <div class="explore__caption" id="exploreCaption" aria-hidden="true">
+          <span class="explore__mask explore__cap-title" id="exploreCapTitle"></span>
+          <span class="explore__cap-rule"></span>
+          <span class="explore__mask explore__cap-meta" id="exploreCapMeta"></span>
+        </div>
+        <button type="button" class="explore__arrow" id="exploreNext" aria-label="Next event">
+          <svg viewBox="0 0 24 12" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M18 1l5 5-5 5M23 6H0"/></svg>
+        </button>
+      </div>
+
+      <div class="explore-tl" id="exploreTimeline" aria-hidden="true" title="Jump to a date"></div>
     </div>
   </section>
 
@@ -298,6 +325,42 @@
     </div>
   </footer>
 
+  <!-- ============ EVENT DETAILS PANEL (grows out of the front poster) ============ -->
+  <div class="explore-detail" id="exploreDetail" role="dialog" aria-modal="true" aria-labelledby="exploreDetailTitle" hidden>
+    <div class="explore-detail__sheet" id="exploreSheet">
+      <button type="button" class="btn-ghost explore-detail__close" id="exploreClose">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        Close
+      </button>
+      <div class="container explore-detail__grid">
+        <div class="explore-detail__info">
+          <div class="xd-mask"><p class="xd-line eyebrow" data-x="cat"></p></div>
+          <div class="xd-mask"><h2 class="xd-line explore-detail__title" id="exploreDetailTitle" data-x="title"></h2></div>
+          <div class="xd-mask"><p class="xd-line status" data-x="status"><span class="status__dot" aria-hidden="true"></span><span></span></p></div>
+          <div class="xd-mask">
+            <dl class="xd-line event-detail__facts">
+              <dt>Date</dt><dd><time data-x="date"></time></dd>
+              <dt>Time</dt><dd><time data-x="time"></time></dd>
+              <dt>Venue</dt><dd data-x="venue"></dd>
+              <dt>Price</dt><dd data-x="price"></dd>
+            </dl>
+          </div>
+          <div class="xd-mask"><p class="xd-line lead" data-x="desc"></p></div>
+          <div class="xd-mask">
+            <div class="xd-line cluster explore-detail__actions">
+              <a class="btn btn--lg" data-x="link" href="#"><span>Open event page</span></a>
+              <span class="demo-note">Sample event · demo data</span>
+            </div>
+          </div>
+        </div>
+        <figure class="explore-detail__media" data-x="media">
+          <img alt="" decoding="async" width="600" height="900" sizes="(max-width: 900px) 70vw, 34vw">
+          <span class="event-card__badge" data-x="tag">Featured</span>
+        </figure>
+      </div>
+    </div>
+  </div>
+
   <!-- Floating concierge button: fixed to the viewport on every scroll position -->
   <a class="wa" href="#contact" aria-label="Chat with the Eventora concierge (goes to Contact)">
     <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
@@ -317,6 +380,7 @@
   <script src="js/mock.js"></script>
   <script src="js/event-cards.js"></script>
   <script src="js/event-filters.js"></script>
+  <script src="js/explore-carousel.js"></script>
   <script src="js/fitter.js"></script>
   <script src="js/layout.js"></script>
   <script src="js/nav.js"></script>

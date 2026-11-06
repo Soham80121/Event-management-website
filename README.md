@@ -18,7 +18,7 @@ You can also open `index.html` directly, because the scripts are plain (non-modu
 
 | Page | Purpose |
 |---|---|
-| `index.html` | The scrolling home page: a full-screen hero, Featured events, Upcoming events (the full programme, searchable, filterable and sortable), Event categories, then About, Contact and the footer (placeholders until later phases) |
+| `index.html` | The scrolling home page: a full-screen hero, Explore events (curved poster carousel), Upcoming events (the full programme, searchable, filterable and sortable), Event categories, then About, Contact and the footer (placeholders until later phases) |
 | `host.html` | The "Host an Event" page (a branded shell for now) |
 | `event.html?id=<event id>` | Event details page: one template that renders any catalogue event, with a friendly "not found" state for unknown ids |
 | `styleguide.html` | Internal design-system reference that renders the live tokens and reusable recipes. It is `noindex` and not linked from the site |
@@ -66,7 +66,7 @@ The fit accounts for the outermost poster's edge magnification, `cos δ / cos(A 
 
 ## Search, categories, filtering and sorting (since Phase 5)
 
-- **Upcoming = the full programme.** All 8 events, soonest first. Featured stays the curated highlight and isn't affected by filters.
+- **Upcoming = the full programme.** All 8 events, soonest first. The Explore carousel above is a separate browsing view and isn't affected by filters.
 - **One filter state** (`js/event-filters.js`): `{ query, category, sort }`. Search, category and sort always combine. The list is re-rendered with the shared card renderer, so card interactions and detail links are unchanged.
   - **Search** is live. It matches title, category, venue name and city, and description. It's case- and accent-insensitive, ignores apostrophes, and every typed word must match (as part of any word). The × button or Escape clears it.
   - **Category chips** (with an *All events* option) are built from the catalogue with live counts. The category cards in the Categories section apply the same filter and move to the results.
@@ -74,6 +74,23 @@ The fit accounts for the outermost poster's edge magnification, `cos δ / cos(A 
   - **Reset filters** restores the defaults. It's disabled while they're already in place.
   - **Results count** is announced to screen readers (`role="status"`). When nothing matches, an empty state explains why and offers only the actions that would widen the results.
 - **No storage.** Nothing is stored, in localStorage or anywhere else.
+
+## Explore events: curved poster carousel
+
+The Featured grid is replaced by a curved 3D carousel (`js/explore-carousel.js`, `css/explore.css`). Its motion and interaction ideas are adapted from `LEON_VASARI_CURVED_VHS_REFERENCE.txt.txt`, used only as a motion reference. None of that reference's content, branding or palette is used; the carousel keeps EVENTORA's starfield, cyan glow, glass and type.
+
+- **Content.** It shows all 8 catalogue events in programme order and opens on the soonest featured event. The ring is three loops of copies (24 posters), so it wraps endlessly. Only the poster in the target position is in the Tab order and exposed to screen readers.
+- **Geometry.** Posters sit on a curved arc. Side posters shrink, sink back in depth, turn up to 32° and darken. The front poster lifts, gets a cyan edge and follows the pointer with a small tilt. Posters far off the arc are hidden.
+- **Motion.** Everything follows one spring (`s → T`, critically damped). The loop sleeps when settled and pauses off-screen. The caption changes with a mask slide in the direction of travel.
+- **Input:**
+  - Drag or swipe. Horizontal drags only; vertical page scroll still works on touch.
+  - The ← → buttons.
+  - Keyboard: ← → steps, Home and End jump to the ends, and focus follows the front poster through wrap-around.
+  - Horizontal wheel or trackpad swipe. One notch moves at least one poster.
+  - Clicking a side poster glides it to the front; clicking the front poster opens it.
+  - The timeline under the caption jumps to a date.
+- **Details panel.** It grows out of the front poster with a clip-path expansion. The lines rise in, then the photo reveals. Close, Escape or the browser Back button collapse it back into the poster, and focus returns there. While it is open, the page is scroll-locked and inert. `index.html#event=<id>` deep-links straight to it, and *Open event page* goes to `event.html?id=…`. On phones it is a single scrolling column.
+- **Reduced motion.** Steps are instant, and the panel opens and closes without animation.
 
 ## Structure
 
@@ -97,6 +114,7 @@ css/
   sections.css          active-nav indicator, homepage sections, footer, page shells
   events.css            event card component, Featured grid, Upcoming agenda, details page
   filters.css           search, sort, category chips, empty state, category cards
+  explore.css           curved Explore carousel, timeline, expanding details panel
   responsive.css        tablet (701–1080) and phone (<=700) architectures
   motion.css            entrance resting states + reduced-motion overrides
   styleguide.css        styleguide page layout only
@@ -112,6 +130,7 @@ js/                     each file attaches to the single `window.Eventora` names
   event-cards.js        reusable event card renderer (feature / row variants)
   event-page.js         renders event.html from the catalogue
   event-filters.js      live search, category filter, sorting, category cards
+  explore-carousel.js   curved Explore carousel + expanding details panel
   fitter.js             type fitter (cap height, ink width, baseline)
   layout.js             canvas scale law, tablet height split, phone reset
   nav.js                burger menu (aria-expanded, Escape, outside click, focus-out)
