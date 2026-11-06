@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Event — EVENTORA</title>
+  <meta name="description" content="Event details on EVENTORA.">
+  <meta name="theme-color" content="#020204">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='12' fill='%23020204'/%3E%3Cellipse cx='24' cy='24' rx='17' ry='8.5' fill='none' stroke='%2335d8ff' stroke-width='3' transform='rotate(-32 24 24)'/%3E%3Ccircle cx='24' cy='24' r='6.5' fill='%2335d8ff'/%3E%3Ccircle cx='24' cy='24' r='2.6' fill='%23fff'/%3E%3C/svg%3E">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,600;1,600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/stage.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/utilities.css">
+  <link rel="stylesheet" href="css/sections.css">
+  <link rel="stylesheet" href="css/events.css">
+  <link rel="stylesheet" href="css/responsive.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <!-- Shared page background: ONE fixed layer behind every section (base
+       #020204, blue atmosphere, two-layer starfield). Content scrolls over it,
+       so stars never restart, duplicate or jump between sections. -->
+  <div class="site-bg" aria-hidden="true">
+    <div class="bg"></div>
+    <div class="stars" id="stA"></div>
+    <div class="stars" id="stB"></div>
+  </div>
+
+  <header class="navlayer" id="navlayer">
+    <nav class="nav" id="nav" aria-label="Primary">
+      <svg class="mark" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+        <defs>
+          <linearGradient id="sw" x1="8" y1="8" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#8ef4ff"/>
+            <stop offset=".5" stop-color="#35d8ff"/>
+            <stop offset="1" stop-color="#0a86d8"/>
+          </linearGradient>
+          <linearGradient id="sw2" x1="40" y1="10" x2="10" y2="40" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#a6f7ff"/>
+            <stop offset="1" stop-color="#0f9ae0" stop-opacity=".25"/>
+          </linearGradient>
+        </defs>
+        <g transform="rotate(-32 24 24)">
+          <ellipse cx="24" cy="24" rx="18.5" ry="9.6" stroke="url(#sw2)" stroke-width="3.1"
+                   stroke-linecap="round" stroke-dasharray="58 30" stroke-dashoffset="14"/>
+          <circle cx="41.4" cy="20.6" r="3.1" fill="#bff6ff"/>
+        </g>
+        <circle cx="24" cy="24" r="6.6" fill="url(#sw)"/>
+        <circle cx="24" cy="24" r="2.6" fill="#fff"/>
+      </svg>
+
+      <a class="wm" href="index.html" aria-label="Eventora home">
+        <span class="kick" aria-hidden="true">EVENTS</span>
+        <span class="name" id="wmName" aria-hidden="true">EVENTORA</span>
+      </a>
+
+      <button class="burger" id="burger" type="button" aria-label="Opens menu"
+              aria-expanded="false" aria-controls="navmenu">
+        <span></span><span></span><span></span>
+      </button>
+
+      <div class="navmenu" id="navmenu">
+        <div class="links" id="links">
+          <a href="index.html" data-nav="home">Home</a>
+          <a href="index.html#featured" data-nav="explore">Explore Events</a>
+          <a href="index.html#categories" data-nav="categories">Categories</a>
+          <a href="index.html#about" data-nav="about">About</a>
+          <a href="index.html#contact" data-nav="contact">Contact</a>
+        </div>
+        <a class="btn" href="host.html"><span id="ctaLabel">Host an Event</span></a>
+      </div>
+    </nav>
+  </header>
+
+  <div class="page-shell">
+  <main id="main" tabindex="-1" class="event-detail-wrap">
+    <div class="container">
+      <a class="back-link" href="index.html#featured">
+        <span aria-hidden="true">←</span> All events
+      </a>
+      <!-- Rendered by js/event-page.js from the catalogue (event.html?id=…) -->
+      <article class="event-detail" id="eventDetail" aria-busy="true">
+        <noscript><p class="lead">Turn on JavaScript to see this event.</p></noscript>
+      </article>
+    </div>
+  </main>
+
+    <footer class="site-footer">
+      <div class="container site-footer__inner">
+        <p class="site-footer__brand">EVENTORA</p>
+        <p class="placeholder-note">Footer placeholder — built in a later phase.</p>
+        <p class="site-footer__legal">&copy; 2026 EVENTORA</p>
+      </div>
+    </footer>
+  </div>
+
+  <script src="js/core.js"></script>
+  <script src="js/events.js"></script>
+  <script src="js/starfield.js"></script>
+  <script src="js/fitter.js"></script>
+  <script src="js/layout.js"></script>
+  <script src="js/nav.js"></script>
+  <script src="js/event-page.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

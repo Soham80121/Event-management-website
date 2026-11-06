@@ -238,6 +238,9 @@
       return new Intl.NumberFormat('en-US', { style: 'currency', currency: e.price.currency, maximumFractionDigits: 0 })
         .format(e.price.amount);
     },
+    /** URL of the event's details page (one template, keyed by stable id). */
+    detailUrl: function (e) { return 'event.html?id=' + encodeURIComponent(e.id); },
+
     /** Sized, compressed Unsplash URL for the event photo. */
     imageUrl: function (e, w, h) {
       return e.image.src + '?auto=format&fit=crop&w=' + w + '&h=' + h + '&q=72';

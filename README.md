@@ -20,6 +20,7 @@ You can also open `index.html` directly, because the scripts are plain (non-modu
 |---|---|
 | `index.html` | The scrolling home page: a full-screen hero, Featured events and Upcoming events (built from the catalogue), then Categories, About, Contact and the footer (placeholders until later phases) |
 | `host.html` | The "Host an Event" page (a branded shell for now) |
+| `event.html?id=<event id>` | Event details page: one template that renders any catalogue event, with a friendly "not found" state for unknown ids |
 | `styleguide.html` | Internal design-system reference that renders the live tokens and reusable recipes. It is `noindex` and not linked from the site |
 
 ## Page architecture (since Phase 3)
@@ -56,12 +57,19 @@ The fit accounts for the outermost poster's edge magnification, `cos δ / cos(A 
 - **Derived content.** Hero content reads from the catalogue instead of copying it. The ring posters that advertise an event use its photo, and the app preview's four cards are built from catalogue events.
 - **localStorage.** The catalogue is **not** stored in localStorage. That's reserved for per-user state such as registrations and favourites, keyed by event `id`.
 - **Cards.** `js/event-cards.js` builds the reusable card with DOM APIs. It has two variants: `feature` (with `lead` for the first featured event) and `row` (an agenda row with a date tile).
+- **Card interaction:**
+  - *Default:* photo, category, title and description, plus the status and price footer.
+  - *Hover or keyboard focus:* a glass panel slides up over the photo with the date, time and venue. It overlays the photo, so nothing on the page moves.
+  - *Click:* the title is a real link whose `::after` covers the whole card, so a click anywhere opens `event.html?id=…`. Each card is a single Tab stop named by its title, with a cyan focus ring around the whole card.
+  - *Touch screens* (`hover: none`): the date and venue panel is always shown, and a tap opens the event.
+  - *Screen readers:* they get the date and venue as hidden text after the title (the visual panel is `aria-hidden`).
 
 ## Structure
 
 ```
 index.html              home page (hero + section placeholders + footer)
 host.html               Host an Event page shell
+event.html              event details template (?id=<event id>)
 styleguide.html         internal design-system page
 css/
   tokens.css            ALL design tokens: colour, type, spacing, radii, borders,
@@ -90,6 +98,7 @@ js/                     each file attaches to the single `window.Eventora` names
                         between hero CTA and app preview (see below)
   mock.js               renders the app preview from data
   event-cards.js        reusable event card renderer (feature / row variants)
+  event-page.js         renders event.html from the catalogue
   fitter.js             type fitter (cap height, ink width, baseline)
   layout.js             canvas scale law, tablet height split, phone reset
   nav.js                burger menu (aria-expanded, Escape, outside click, focus-out)

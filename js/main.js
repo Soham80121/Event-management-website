@@ -23,5 +23,6 @@
   start('nav',       'init');
   start('layout',    'init');
   start('sections',  'init');
+  start('eventPage', 'init');
   start('intro',     'run');
 })(window.Eventora);

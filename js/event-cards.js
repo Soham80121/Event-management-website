@@ -7,8 +7,16 @@
      Eventora.eventCards.mount()  fills #featuredEvents and #upcomingEvents
 
    Built with DOM APIs (textContent only), never by concatenating data into
-   HTML. Cards are informational: no links or buttons until detail pages and
-   registration exist (later phases), so they are not focusable.
+   HTML.
+
+   Interaction:
+     · default  — photo, category, title, description (+ status and price)
+     · hover    — a glass panel slides up over the photo with date and venue;
+                  keyboard focus reveals it too; on touch screens (no hover)
+                  it is always shown
+     · click    — the title is a real link whose ::after covers the whole
+                  card, so clicking anywhere opens the event's details page;
+                  one Tab stop per card, named by the title
    ========================================================================= */
 (function (Eventora) {
   'use strict';
@@ -19,6 +27,7 @@
   var ICONS = {
     calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>',
     pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-6.5-5.4-6.5-11a6.5 6.5 0 0 1 13 0C18.5 15.6 12 21 12 21Z"/><circle cx="12" cy="10" r="2.4"/></svg>',
+    clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
     star: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="m12 3.2 2.6 5.5 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6L3.4 9.5l6-.8L12 3.2Z"/></svg>'
   };
 
@@ -71,19 +80,37 @@
     return box;
   }
 
-  function whenLine(e, withYear) {
-    var p = el('p', 'event-card__line');
-    p.appendChild(icon('calendar'));
-    var t = el('time', '', cat.dateLabel(e, withYear) + ' · ' + cat.timeLabel(e));
-    t.setAttribute('datetime', cat.datetime(e));
-    p.appendChild(t);
-    return p;
-  }
-
   function whereLine(e) {
     var p = el('p', 'event-card__line');
     p.appendChild(icon('pin'));
     p.appendChild(el('span', '', e.venue.name + ', ' + e.venue.city));
+    return p;
+  }
+
+  /* Date + venue panel over the photo. Visual only (aria-hidden): the same
+     facts are in the card body as screen-reader text, after the title. */
+  function reveal(e) {
+    var panel = el('div', 'event-card__reveal');
+    panel.setAttribute('aria-hidden', 'true');
+    // one fact per line, so nothing wraps awkwardly on compact cards
+    var date = el('p', 'event-card__line');
+    date.appendChild(icon('calendar'));
+    date.appendChild(el('span', '', cat.dateLabel(e, true)));
+    var time = el('p', 'event-card__line');
+    time.appendChild(icon('clock'));
+    time.appendChild(el('span', '', cat.timeLabel(e)));
+    panel.appendChild(date);
+    panel.appendChild(time);
+    panel.appendChild(whereLine(e));
+    return panel;
+  }
+
+  function srFacts(e) {
+    var p = el('p', 'visually-hidden');
+    var t = el('time', '', cat.dateLabel(e, true) + ', ' + cat.timeLabel(e));
+    t.setAttribute('datetime', cat.datetime(e));
+    p.appendChild(t);
+    p.appendChild(document.createTextNode('. ' + e.venue.name + ', ' + e.venue.city + '.'));
     return p;
   }
 
@@ -140,17 +167,19 @@
     card.setAttribute('data-status', e.registration.status);
 
     if (variant === 'row') card.appendChild(dateTile(e));
-    card.appendChild(media(e, variant === 'row' ? 'row' : (opts.lead ? 'lead' : 'feature'), opts.eager));
+    var box = media(e, variant === 'row' ? 'row' : (opts.lead ? 'lead' : 'feature'), opts.eager);
+    box.appendChild(reveal(e));
+    card.appendChild(box);
 
     var body = el('div', 'event-card__body');
     body.appendChild(el('p', 'event-card__category', e.category));
-    var h = el('h' + level, 'event-card__title', e.title);
+    var h = el('h' + level, 'event-card__title');
     h.id = titleId;
+    var link = el('a', 'event-card__link', e.title);
+    link.href = cat.detailUrl(e);
+    h.appendChild(link);
     body.appendChild(h);
-    var meta = el('div', 'event-card__meta');
-    meta.appendChild(whenLine(e, true));
-    meta.appendChild(whereLine(e));
-    body.appendChild(meta);
+    body.appendChild(srFacts(e));
     body.appendChild(el('p', 'event-card__desc', e.description));
     card.appendChild(body);
 

@@ -103,7 +103,6 @@
   font-size: 19px; font-weight: var(--fw-bold); line-height: var(--lh-snug);
   letter-spacing: var(--tracking-tight); color: var(--c-ink);
 }
-.event-card__meta { margin-top: var(--space-3); display: grid; gap: 6px; }
 .event-card__line {
   display: flex; align-items: center; gap: var(--space-2);
   font-size: 13.5px; color: var(--c-ink-90);
@@ -142,6 +141,53 @@
 .event-card__price { font-size: 15px; font-weight: var(--fw-semibold); color: var(--c-ink); white-space: nowrap; }
 .event-card__was { margin-left: 6px; font-size: 12.5px; font-weight: var(--fw-regular); color: var(--c-muted); }
 
+/* ---------- Whole-card link ----------
+   The title link's ::after stretches over the entire card, so a click
+   anywhere opens the details page while the card stays ONE link, named by
+   its title, for keyboard and screen-reader users. */
+.event-card { cursor: pointer; }
+.event-card__link { color: inherit; text-decoration: none; }
+.event-card__link::after {
+  content: ""; position: absolute; inset: 0; z-index: 4;
+  border-radius: inherit;
+}
+.event-card__link:focus-visible { outline: none; }   /* the ring goes on the whole card */
+
+/* Visible focus: cyan ring around the whole card */
+.event-card:has(.event-card__link:focus-visible) {
+  outline: var(--focus-ring); outline-offset: var(--focus-offset-btn);
+  border-color: var(--c-card-hover-line);
+}
+@supports not selector(:has(*)) {
+  .event-card:focus-within { outline: var(--focus-ring); outline-offset: var(--focus-offset-btn); }
+}
+
+/* ---------- Date + venue reveal ----------
+   A glass panel over the bottom of the photo. Hidden by default on devices
+   that can hover; it slides up on hover or keyboard focus. Because it
+   overlays the photo, revealing it never moves anything else on the page,
+   and the default card information stays exactly where it is. */
+.event-card__reveal {
+  position: absolute; left: var(--space-3); right: var(--space-3); bottom: var(--space-3); z-index: 2;
+  display: grid; gap: 4px;
+  padding: 9px 12px;
+  border-radius: var(--radius-md);
+  background: rgba(4, 6, 12, .80);
+  border: 1px solid rgba(142, 244, 255, .22);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  box-shadow: 0 10px 24px -10px rgba(0, 0, 0, .7);
+  opacity: 0; transform: translateY(10px);
+  transition: opacity .28s var(--ease-std), transform .4s var(--ease-expo);
+  pointer-events: none;
+}
+.event-card__reveal .event-card__line { font-size: 13px; color: var(--c-ink); }
+.event-card__reveal .event-card__icon { color: var(--c-cyan); }
+
+.event-card:has(.event-card__link:focus-visible) .event-card__reveal { opacity: 1; transform: none; }
+@supports not selector(:has(*)) {
+  .event-card:focus-within .event-card__reveal { opacity: 1; transform: none; }
+}
+
 /* ---------- Hover (pointer devices only) ---------- */
 @media (hover: hover) {
   .event-card:hover {
@@ -150,10 +196,19 @@
     box-shadow: var(--shadow-inset-top), var(--shadow-card-hover);
   }
   .event-card:hover .event-card__media img { transform: scale(1.045); }
+  .event-card:hover .event-card__reveal { opacity: 1; transform: none; }
 }
+
+/* Touch screens have no hover: show date and venue all the time; a tap on
+   the card opens the details page. */
+@media (hover: none) {
+  .event-card__reveal { opacity: 1; transform: none; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .event-card:hover { transform: none; }
   .event-card:hover .event-card__media img { transform: none; }
+  .event-card__reveal { transform: none; }   /* fade only, no slide */
 }
 
 /* =========================================================================
@@ -215,7 +270,9 @@
 .event-card--row .event-card__media::before { display: none; }
 .event-card--row .event-card__body { grid-area: body; padding: 0; }
 .event-card--row .event-card__title { margin-top: 6px; font-size: 18px; }
-.event-card--row .event-card__meta { display: flex; flex-wrap: wrap; gap: 4px var(--space-5); margin-top: var(--space-2); }
+.event-card--row .event-card__reveal { left: 6px; right: 6px; bottom: 6px; padding: 6px 8px; gap: 2px; border-radius: 9px; }
+.event-card--row .event-card__reveal .event-card__line { font-size: 11px; gap: 6px; }
+.event-card--row .event-card__reveal .event-card__icon { width: 12px; height: 12px; }
 .event-card--row .event-card__desc { margin-top: var(--space-2); -webkit-line-clamp: 2; line-clamp: 2; }
 .event-card--row .event-card__foot {
   grid-area: foot; margin: 0; padding: 0 var(--space-2) 0 0; border: 0;
@@ -258,6 +315,73 @@
   .event-card--row .date-tile { width: 64px; }
   .event-card--row .date-tile__day { font-size: 26px; }
   .event-card--row .event-card__desc { -webkit-line-clamp: 3; line-clamp: 3; }
-  .event-card--row .event-card__meta { display: grid; gap: 6px; }
+  .event-card--row .event-card__reveal .event-card__line { font-size: 12.5px; }
   .section-head .demo-note { order: -1; }
+}
+
+/* =========================================================================
+   EVENT DETAILS PAGE (event.html) — photo + facts, same material language
+   ========================================================================= */
+.event-detail-wrap {
+  flex: 1 0 auto;
+  padding-block: calc(var(--nav-offset, 96px) + var(--space-6)) var(--space-20);
+}
+.event-detail-wrap:focus { outline: none; }
+
+.back-link {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  margin-bottom: var(--space-6);
+  font-size: var(--fs-small); color: var(--c-muted);
+  transition: color var(--dur-base);
+}
+.back-link:hover { color: var(--c-ink); }
+
+.event-detail__grid {
+  display: grid; gap: clamp(24px, 4vw, 56px); align-items: start;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+}
+.event-detail__media {
+  position: relative; margin: 0; overflow: hidden;
+  aspect-ratio: 3 / 2;
+  border-radius: var(--radius-xl);
+  border: var(--border-hairline);
+  background: linear-gradient(155deg, #1d2a3d, #0f1622 60%, #1b1426);   /* fallback */
+  box-shadow: var(--shadow-card);
+}
+.event-detail__media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.event-detail__media.is-broken::after {
+  content: attr(data-fallback); position: absolute; inset: 0; display: grid; place-items: center;
+  font-family: var(--f-serif); font-weight: var(--fw-serif); font-size: 28px; color: rgba(191, 246, 255, .55);
+}
+.event-detail__media .event-card__badge { left: var(--space-4); top: var(--space-4); }
+
+.event-detail__info { display: grid; gap: var(--space-4); justify-items: start; }
+.event-detail__title { margin-top: calc(var(--space-2) * -1); }
+
+.event-detail__facts {
+  width: 100%;
+  display: grid; grid-template-columns: max-content 1fr; gap: var(--space-3) var(--space-6);
+  padding: var(--space-5);
+  border-radius: var(--radius-lg);
+  border: var(--border-hairline);
+  background: var(--c-card-surface);
+}
+.event-detail__facts dt {
+  font-size: var(--fs-caption); font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-cyan);
+  padding-top: 3px;
+}
+.event-detail__facts dd { font-size: var(--fs-body); color: var(--c-ink); }
+.event-detail__desc { max-width: 56ch; }
+.event-detail__info .placeholder-note { margin-top: 0; }
+
+.event-detail__missing { display: grid; gap: var(--space-4); justify-items: start; max-width: 640px; padding-block: var(--space-12); }
+
+@media (max-width: 900px) {
+  .event-detail__grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 700px) {
+  .event-detail__media { border-radius: var(--radius-lg); }
+  .event-detail__facts { grid-template-columns: 1fr; gap: 2px; }
+  .event-detail__facts dd + dt { margin-top: var(--space-3); }
 }
