@@ -120,7 +120,7 @@
   /** "You're registered" note under the CTA — proves persistence on reload. */
   function renderMine() {
     if (!mine) return;
-    var list = store.forEvent(event.id);
+    var list = store.forEvent(event.id).filter(function (r) { return r.status !== 'cancelled'; });
     mine.textContent = '';
     mine.hidden = list.length === 0;
     if (!list.length) return;
@@ -133,6 +133,9 @@
       : list.length + ' registrations on this device · ';
     mine.appendChild(document.createTextNode(lead));
     mine.appendChild(el('code', '', list.map(function (r) { return r.id; }).join(', ')));
+    var manage = el('a', 'register-cta__manage', 'My registrations');
+    manage.href = 'my-registrations.html';
+    mine.appendChild(manage);
   }
 
   /* ---------- open / reveal ---------- */
@@ -208,16 +211,25 @@
   function showDone(result) {
     var r = result.record;
     var dup = result.status === 'duplicate';
+    var back = result.status === 'reinstated';
     var wait = r.type === 'waitlist';
+
+    // Temporary guest identity (js/identity.js): the first booker on this
+    // browser becomes the guest whose registrations My Registrations shows.
+    // Booking for someone else later doesn't switch it.
+    var who = Eventora.identity;
+    if (who && !who.current()) who.signInGuest(r.email, r.name);
     var d = function (k) { return $(views.done, '[data-d="' + k + '"]'); };
 
     views.done.classList.toggle('is-duplicate', dup);
-    d('kicker').textContent = dup ? 'Already booked' : (wait ? 'Waitlist' : 'Confirmed');
+    d('kicker').textContent = dup ? 'Already booked' : back ? 'Reinstated' : (wait ? 'Waitlist' : 'Confirmed');
     d('title').textContent = dup
       ? (wait ? 'You’re already on the waitlist' : 'You’re already registered')
+      : back ? (wait ? 'You’re back on the waitlist' : 'You’re registered again')
       : (wait ? 'You’re on the waitlist' : 'You’re registered');
     d('msg').textContent = dup
       ? r.email + ' is already booked for this event, so we didn’t create a second registration. Here are your details.'
+      : back ? 'You had cancelled this booking. It’s active again under the same registration ID.'
       : (wait
         ? 'We’ll hold your place in the queue and let you know if a spot opens up.'
         : 'Your place is booked. Keep your registration ID handy for check-in.');
@@ -231,6 +243,7 @@
       ? 'Demo site: no email is sent. This booking is saved in this browser on this device.'
       : 'Demo site: this browser isn’t allowing storage, so this booking will be lost when you leave the page.';
     renderQr(d('qr'), r.id);
+    d('mine').href = 'my-registrations.html#' + r.id;
 
     swap(views.form, views.done);
     status.textContent = '';

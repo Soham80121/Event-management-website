@@ -18,6 +18,7 @@ You can also open `index.html` directly, because the scripts are plain (non-modu
 
 | Page | Purpose |
 |---|---|
+| `my-registrations.html` | My Registrations: the current guest's bookings (Upcoming / Past), details with the QR code, print, cancel |
 | `index.html` | The scrolling home page: a full-screen hero, Explore events (curved poster carousel), Upcoming events (the full programme, searchable, filterable and sortable), Event categories, then About, Contact and the footer (placeholders until later phases) |
 | `host.html` | The "Host an Event" page (a branded shell for now) |
 | `event.html?id=<event id>` | Event details page: one template that renders any catalogue event, with a friendly "not found" state for unknown ids |
@@ -115,12 +116,42 @@ The Featured grid is replaced by a curved 3D carousel (`js/explore-carousel.js`,
   - If storage is blocked, the registration is kept for that page view only, and the confirmation says it wasn't saved.
 - **Persistence.** After a reload, the event page shows *Registered on this device · EVR-…* under the button.
 
+## My Registrations (since Phase 7)
+
+- **Page.** `my-registrations.html` (`js/my-registrations.js`, `css/my-registrations.css`). You reach it from the registration confirmation (*View my registrations*) and from the *Registered on this device · … My registrations* note under an event's Register button. The homepage nav is unchanged; a nav or account entry comes with Phase 8 sign-in.
+- **Who "you" are: a temporary guest identity** (`js/identity.js`).
+  - Registrations already store the booker's email, so the email is the owner key. The page shows only registrations whose email matches the current guest, never everything in the browser, because one device can hold bookings for several people (*Register someone else*).
+  - The guest is set when someone completes a registration and no guest is active yet. Booking for someone else afterwards doesn't switch it. It is also set when someone enters their email in *Find your registrations*, which only accepts an email that has bookings here. *Not you?* signs out.
+  - It is stored separately as `eventora:session = { version: 1, user: { kind: 'guest', email, name, since } }`.
+  - It is **not authentication**. Anyone using the browser can enter an email. That's acceptable only because the data never leaves the browser.
+  - *Phase 8:* swap the module's internals for real sign-in and keep its API (`current()`, `owns(record)`, `signInGuest()`, `signOut()`, `onChange()`). `owns()` would match a `userId` on new records and fall back to email for older guest bookings. A backend would serve the same record shape.
+- **Dashboard.**
+  - Upcoming and Past tabs follow the WAI-ARIA tabs pattern (arrow keys, Home and End). *Past* means the event's date is before today.
+  - Cards show the poster, title, date and time, venue, registration ID, a status chip and a *Waitlist* tag when relevant. The whole card opens the details.
+  - Upcoming is sorted soonest first and Past most recent first.
+  - There are empty states for no bookings at all and for an empty tab.
+- **Status.** *Confirmed*, *Cancelled*, or *Completed*. Completed means confirmed with the event date passed. It's derived when displayed, never stored.
+- **Details** open in a modal `<dialog>` (focus stays inside; Escape, the backdrop or *Close* closes it, and focus returns to the card).
+  - They show the poster, category, title and status, date, time, venue, price and description. Below that: registration ID, QR code, name, email, phone, type, booked time and cancelled time.
+  - `my-registrations.html#EVR-…` opens a booking directly, but only one the current guest owns.
+- **Print / Save as PDF** uses `window.print()`. A print stylesheet prints only the open booking: white page, poster, details and QR code, with no buttons.
+- **Cancellation.**
+  - Only confirmed upcoming bookings can be cancelled.
+  - An inline confirmation step comes first, with focus on *Keep registration*. Confirming sets `status: 'cancelled'` and `cancelledAt`.
+  - The record and its ID are kept. The QR code is stamped VOID, and the card and status update in place.
+  - Registering again for that event with the same email **reinstates the same record and ID**, so no duplicate is created.
+- **Data.**
+  - Records gained `status` and an optional `cancelledAt`. Older records without a status read as confirmed.
+  - Event details always come from the catalogue by `eventId`. A booking for an event that's no longer listed still shows, with a fallback poster, a note and its booking details.
+  - Corrupt session data means signed out. Corrupt registration data means an empty list (Phase 6 rules). Other tabs' changes are picked up through the `storage` event.
+
 ## Structure
 
 ```
 index.html              home page (hero + section placeholders + footer)
 host.html               Host an Event page shell
 event.html              event details template (?id=<event id>)
+my-registrations.html   My Registrations (guest bookings, details, print, cancel)
 styleguide.html         internal design-system page
 css/
   tokens.css            ALL design tokens: colour, type, spacing, radii, borders,
@@ -139,6 +170,7 @@ css/
   filters.css           search, sort, category chips, empty state, category cards
   explore.css           curved Explore carousel, timeline, expanding details panel
   registration.css      Register CTA, registration form, validation states, confirmation
+  my-registrations.css  My Registrations dashboard, cards, tabs, details dialog, print layout
   responsive.css        tablet (701–1080) and phone (<=700) architectures
   motion.css            entrance resting states + reduced-motion overrides
   styleguide.css        styleguide page layout only
@@ -153,7 +185,10 @@ js/                     each file attaches to the single `window.Eventora` names
   mock.js               renders the app preview from data
   event-cards.js        reusable event card renderer (feature / row variants)
   event-page.js         renders event.html from the catalogue
-  registrations.js      registration store (localStorage, validation of stored data, ids)
+  registrations.js      registration store (localStorage, validation of stored data, ids,
+                        status, cancel, reinstate)
+  identity.js           temporary guest identity (email) — replaced by auth in Phase 8
+  my-registrations.js   My Registrations page: tabs, cards, details dialog, print, cancel
   registration-form.js  Register CTA, form validation, submission, confirmation
   qr.js                 dependency-free QR code encoder (SVG output)
   event-filters.js      live search, category filter, sorting, category cards

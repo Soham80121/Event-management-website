@@ -12,6 +12,11 @@
   font-size: var(--fs-small); color: var(--c-ink-90);
 }
 .register-cta__mine[hidden] { display: none; }
+.register-cta__manage {
+  margin-left: 4px; color: var(--c-cyan-pale); font-weight: var(--fw-semibold);
+  text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(142, 244, 255, .4);
+}
+.register-cta__manage:hover { color: var(--c-ink); }
 .register-cta__mine code { font: inherit; font-weight: var(--fw-semibold); color: var(--c-cyan-pale); letter-spacing: .04em; }
 .register-cta__tick {
   display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: var(--radius-full);

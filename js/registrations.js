@@ -14,11 +14,16 @@
          name:      'Ada Lovelace',              trimmed, single-spaced
          email:     'ada@example.com',           trimmed, lower-case
          phone:     '+442079460958',             digits with optional leading +
-         createdAt: '2026-11-06T18:04:11.000Z'
+         createdAt: '2026-11-06T18:04:11.000Z',
+         status:    'confirmed' | 'cancelled',   (since Phase 7; missing = confirmed)
+         cancelledAt?: ISO date                  set while cancelled
        }]
      }
    Only what a booking needs is kept: no event titles, dates or prices (they
    are looked up from the catalogue), no free-text notes, no tracking data.
+   "Completed" is never stored: it's derived from the event date when shown.
+   Cancelling keeps the record and its id; registering again with the same
+   email for the same event reinstates that record instead of adding one.
 
    Robustness:
    - Missing key → empty list.
@@ -36,6 +41,7 @@
   var VERSION = 1;
   var ID_RE = /^EVR-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$/;
   var TYPES = { registration: true, waitlist: true };
+  var STATUSES = { confirmed: true, cancelled: true };
 
   var memory = null;          // fallback when storage can't be used
   var warned = false;
@@ -69,7 +75,18 @@
       isString(r.name, 80) &&
       isString(r.email, 254) &&
       isString(r.phone, 16) &&
-      isString(r.createdAt, 40) && !isNaN(Date.parse(r.createdAt));
+      isString(r.createdAt, 40) && !isNaN(Date.parse(r.createdAt)) &&
+      (r.status === undefined || STATUSES[r.status] === true) &&
+      (r.cancelledAt === undefined || (isString(r.cancelledAt, 40) && !isNaN(Date.parse(r.cancelledAt))));
+  }
+
+  /** Records written before Phase 7 have no status: they are confirmed. */
+  function normalise(r) {
+    var out = {};
+    Object.keys(r).forEach(function (k) { out[k] = r[k]; });
+    if (!out.status) out.status = 'confirmed';
+    if (out.status !== 'cancelled') delete out.cancelledAt;
+    return out;
   }
 
   /** Read and sanitise. Never throws. */
@@ -91,7 +108,7 @@
       warn('Stored registrations had an unexpected format and have been ignored.');
       return [];
     }
-    var clean = data.registrations.filter(validRecord);
+    var clean = data.registrations.filter(validRecord).map(normalise);
     if (clean.length !== data.registrations.length) {
       warn((data.registrations.length - clean.length) + ' malformed registration record(s) were skipped.');
     }
@@ -155,14 +172,38 @@
       return read().filter(function (r) { return r.id === id; })[0] || null;
     },
 
+    /** Registrations made with this email (the guest identity key). */
+    forEmail: function (email) {
+      var e = normEmail(email);
+      return read().filter(function (r) { return r.email === e; });
+    },
+
+    /**
+     * Cancel by id. The record and its id are kept; only the status changes.
+     * Returns { ok, record, saved }; ok is false when the id isn't found.
+     */
+    cancel: function (id) {
+      var list = read();
+      var rec = list.filter(function (r) { return r.id === id; })[0];
+      if (!rec) return { ok: false, record: null, saved: false };
+      if (rec.status !== 'cancelled') {
+        rec.status = 'cancelled';
+        rec.cancelledAt = new Date().toISOString();
+      }
+      var saved = write(list);
+      return { ok: true, record: rec, saved: saved };
+    },
+
     /** true when registrations survive a reload on this device. */
     persistent: function () { return !!storage(); },
 
     /**
      * Save a registration.
-     * Returns { status: 'created' | 'duplicate', record, saved }.
-     * 'duplicate' = this email is already registered for this event; the
-     * existing record is returned and nothing new is written.
+     * Returns { status: 'created' | 'duplicate' | 'reinstated', record, saved }.
+     * 'duplicate'  = this email is already registered for this event; the
+     *                existing record is returned and nothing new is written.
+     * 'reinstated' = that registration had been cancelled; it is confirmed
+     *                again under the same id (no second record).
      */
     create: function (input) {
       var list = read();     // re-read so another tab's writes are respected
@@ -173,11 +214,19 @@
         name: normName(input.name),
         email: normEmail(input.email),
         phone: normPhone(input.phone),
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        status: 'confirmed'
       };
       var existing = list.filter(function (r) {
         return r.eventId === rec.eventId && r.email === rec.email;
       })[0];
+      if (existing && existing.status === 'cancelled') {
+        existing.status = 'confirmed';
+        delete existing.cancelledAt;
+        existing.name = rec.name;               // the latest details win
+        existing.phone = rec.phone;
+        return { status: 'reinstated', record: existing, saved: write(list) };
+      }
       if (existing) return { status: 'duplicate', record: existing, saved: true };
 
       var taken = {};
