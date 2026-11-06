@@ -12,10 +12,16 @@
    What IS done properly even in the prototype:
    - Passwords are never stored: PBKDF2-SHA256 (600,000 iterations, 16-byte
      random salt) via Web Crypto; only salt + hash are kept.
-   - The Admin role is never stored and never comes from browser state. It is
-     asked of the dev server on every page load (POST /api/auth/admin-check,
-     tools/dev_server.py), which compares the signed-in email with the
-     server-side ADMIN_EMAIL. Editing localStorage can't grant it.
+   - The Admin role is never stored and never comes from browser state. The
+     dev server (tools/dev_server.py) verifies the admin EMAIL AND PASSWORD
+     against its own configuration (ADMIN_EMAIL + a PBKDF2 ADMIN_PASSWORD_HASH)
+     and issues a short-lived admin token it tracks in memory. Every page load
+     asks the server whether that token is still valid. Editing localStorage
+     or forging a session can't grant Admin without the password.
+   - The password goes to the server only on the admin path: when a local
+     sign-in fails (so the server can recognise the admin), or when the
+     account was created by the server-verified admin sign-in. Ordinary
+     users' successful sign-ins never send their password anywhere.
    - New accounts always get the "user" role. Only an admin operation can
      set "host" (and the host-application approval uses it).
 
@@ -35,6 +41,7 @@
   var USERS = 'eventora:users';
   var SESSION = 'eventora:auth';
   var LEGACY_GUEST = 'eventora:session';     // Phase 7 guest identity
+  var ADMIN_TOKEN = 'eventora:admin-session'; // { email, token, expiresAt } from the dev server
   var ITERATIONS = 600000;
   var REMEMBER_MS = 30 * 24 * 3600 * 1000;
   var SESSION_MS = 12 * 3600 * 1000;
@@ -81,6 +88,7 @@
       typeof u.createdAt === 'string' && !isNaN(Date.parse(u.createdAt)) &&
       ROLES[u.role] === true &&
       (u.status === 'active' || u.status === 'suspended') &&
+      (u.adminAccount === undefined || u.adminAccount === true) &&
       (u.avatar === undefined || (typeof u.avatar === 'string' && /^data:image\/(jpeg|png|webp);base64,/.test(u.avatar) && u.avatar.length < 250000)) &&
       !!u.password && typeof u.password.salt === 'string' && typeof u.password.hash === 'string' &&
       typeof u.password.iterations === 'number';
@@ -154,8 +162,39 @@
   function clearSession() {
     ['localStorage', 'sessionStorage'].forEach(function (k) {
       var s = storageOf(k);
-      if (s) try { s.removeItem(SESSION); } catch (err) { /* ignore */ }
+      if (s) try { s.removeItem(SESSION); s.removeItem(ADMIN_TOKEN); } catch (err) { /* ignore */ }
     });
+  }
+
+  /* ---------- admin token (issued by the dev server after a password check) ---------- */
+  function readAdminToken() {
+    var stores = [storageOf('localStorage'), storageOf('sessionStorage')];
+    for (var i = 0; i < stores.length; i++) {
+      var t = readJSON(stores[i], ADMIN_TOKEN);
+      if (t && typeof t.token === 'string' && Date.parse(t.expiresAt) > Date.now()) return t;
+    }
+    return null;
+  }
+  function writeAdminToken(email, data, remember) {
+    writeJSON(storageOf(remember ? 'localStorage' : 'sessionStorage'), ADMIN_TOKEN,
+      { email: email, token: data.token, expiresAt: data.expiresAt });
+  }
+
+  function api(path, body) {
+    return fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      credentials: 'same-origin',
+      cache: 'no-store'
+    }).then(function (res) {
+      return res.json().catch(function () { return {}; }).then(function (data) { data.httpStatus = res.status; return data; });
+    }, function () { return { httpStatus: 0 }; });       // server not reachable
+  }
+
+  /** Ask the dev server to verify admin email + password. */
+  function serverAdminLogin(email, password) {
+    return api('/api/auth/admin-login', { email: email, password: password });
   }
 
   function userRecord() {
@@ -175,11 +214,14 @@
       createdAt: u.createdAt, updatedAt: u.updatedAt || u.createdAt,
       avatar: u.avatar || '', status: u.status,
       baseRole: u.role,
+      adminAccount: !!u.adminAccount,
       role: admin ? 'admin' : u.role
     };
   }
 
-  /* ---------- trusted admin check (dev server; Phase 11 backend) ---------- */
+  /* ---------- trusted admin check (dev server; Phase 11 backend) ----------
+     Admin = the server still holds a live token for this email, issued after
+     it verified the admin password. No token → not admin. */
   function checkAdmin(u) {
     if (!u) {
       adminState = { userId: null, email: null, verified: false, status: 'signed-out', promise: Promise.resolve(false) };
@@ -188,23 +230,18 @@
     if (adminState.userId === u.id && adminState.email === u.email && adminState.promise) return adminState.promise;
     var state = { userId: u.id, email: u.email, verified: false, status: 'checking', promise: null };
     adminState = state;
-    state.promise = fetch('/api/auth/admin-check', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: u.email }),
-      credentials: 'same-origin',
-      cache: 'no-store'
-    }).then(function (res) {
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      return res.json();
-    }).then(function (data) {
-      state.verified = !!(data && data.isAdmin === true);
-      state.status = data && data.configured ? 'ok' : 'not-configured';
+    var t = readAdminToken();
+    var token = t && t.email === u.email ? t.token : '';
+    state.promise = api('/api/auth/admin-check', { email: u.email, token: token }).then(function (data) {
+      if (data.httpStatus !== 200) {
+        state.verified = false;           // no server → no admin
+        state.status = 'unavailable';
+        return false;
+      }
+      state.verified = data.isAdmin === true;
+      state.status = !data.configured ? 'not-configured'
+        : (!state.verified && u.adminAccount ? 'admin-relogin' : 'ok');
       return state.verified;
-    }).catch(function () {
-      state.verified = false;           // no server → no admin
-      state.status = 'unavailable';
-      return false;
     }).then(function (v) { emit(); return v; });
     return state.promise;
   }
@@ -227,6 +264,35 @@
   }
 
   function fail(field, error) { return { ok: false, field: field, error: error }; }
+
+  /**
+   * Controlled initialisation of the development admin account. Runs ONLY
+   * after the server has verified the admin email and password. Creates the
+   * browser-side account record on first sign-in, or takes over an existing
+   * record with that email (e.g. one created through public sign-up) and
+   * re-hashes the server-verified password into it. The stored role stays
+   * 'user': Admin is never stored, it comes from the live server token.
+   */
+  function adoptAdmin(existing, email, password) {
+    return hashPassword(password).then(function (pw) {
+      var list = readUsers();
+      var now = new Date().toISOString();
+      var rec = existing ? list.filter(function (x) { return x.id === existing.id; })[0] : null;
+      if (!rec) {
+        var taken = {};
+        list.forEach(function (x) { taken[x.id] = true; });
+        var id; do { id = randomId('usr_', 12); } while (taken[id]);
+        rec = { id: id, name: 'EVENTORA Admin', email: email, phone: '', createdAt: now, role: 'user', status: 'active' };
+        list.push(rec);
+      }
+      rec.password = pw;
+      rec.adminAccount = true;
+      rec.status = 'active';
+      rec.updatedAt = now;
+      writeUsers(list);
+      return rec;
+    });
+  }
 
   var V = function () { return Eventora.validate; };
 
@@ -296,15 +362,39 @@
       // still run the hash for unknown emails so both paths take similar time
       var rec = u ? u.password : { salt: 'AAAAAAAAAAAAAAAAAAAAAA==', hash: '', iterations: ITERATIONS };
       return verifyPassword(password, rec).then(function (match) {
-        if (!u || !match) return generic;
-        if (u.status === 'suspended') return fail('form', 'This account is suspended. Contact an EVENTORA admin.');
-        writeSession(u.id, !!remember);
-        claimRegistrations(u);
-        return checkAdmin(u).then(function () { emit(); return { ok: true, user: publicUser(u) }; });
+        if (u && match && u.status === 'suspended') return fail('form', 'This account is suspended. Contact an EVENTORA admin.');
+
+        // Ordinary account, password matches locally: done. Its password never
+        // leaves the browser.
+        if (u && match && !u.adminAccount) return finish(u, null);
+
+        // Admin path: the server verifies email + password against its own
+        // configuration. Asked when the local check failed (the server may
+        // know this account) or for the server-initialised admin account.
+        return serverAdminLogin(e, password).then(function (res) {
+          if (res.httpStatus === 200 && res.ok && res.token) {
+            return adoptAdmin(u, e, password).then(function (rec) { return finish(rec, res); });
+          }
+          if (u && match) return finish(u, null);          // admin account, server says no / unreachable
+          if (res.httpStatus === 429) {
+            return fail('form', 'Too many sign-in attempts. Wait ' + (res.retryAfter || 60) + ' seconds and try again.');
+          }
+          return generic;
+        });
       });
+
+      function finish(rec, adminLogin) {
+        writeSession(rec.id, !!remember);
+        if (adminLogin) writeAdminToken(rec.email, adminLogin, !!remember);
+        claimRegistrations(rec);
+        adminState.promise = null;
+        return checkAdmin(rec).then(function () { emit(); return { ok: true, user: publicUser(rec) }; });
+      }
     },
 
     signOut: function () {
+      var t = readAdminToken();
+      if (t) api('/api/auth/admin-logout', { token: t.token });   // the server forgets the token
       clearSession();
       checkAdmin(null);
       emit();
@@ -322,6 +412,9 @@
         return Promise.resolve(fail('email', 'Another account already uses this email.'));
       }
       var rec = list.filter(function (x) { return x.id === u.id; })[0];
+      if (rec.adminAccount && rec.email !== email) {
+        return Promise.resolve(fail('email', 'The development admin’s email is set on the server (tools/init_admin.py), so it can’t be changed here.'));
+      }
       var emailChanged = rec.email !== email;
       rec.name = normName(changes.name);
       rec.email = email;
@@ -338,6 +431,9 @@
     changePassword: function (current, next, confirm) {
       var u = userRecord();
       if (!u) return Promise.resolve(fail('form', 'Sign in again to change your password.'));
+      if (u.adminAccount) {
+        return Promise.resolve(fail('form', 'The development admin’s password is set on the server. Change it with: python tools/init_admin.py'));
+      }
       var v = V();
       var errs = { current: current ? '' : 'Enter your current password.', next: v.password(next), confirm: v.confirm(confirm, next) };
       if (!errs.next && next === current) errs.next = 'Choose a password you haven’t used for this account.';

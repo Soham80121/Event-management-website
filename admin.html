@@ -94,7 +94,7 @@
 
       <section class="panel dash-denied" id="dashDenied" hidden>
         <h2 class="heading-3">Admins only</h2>
-        <p id="deniedWhy">This account isn’t an Admin. The Admin role comes only from the server configuration (ADMIN_EMAIL).</p>
+        <p id="deniedWhy">This account isn’t an Admin. Admin access needs the admin email and password, verified by the server.</p>
         <a class="btn-ghost" href="profile.html">Back to your profile</a>
       </section>
 
@@ -117,7 +117,7 @@
           </div>
           <div class="panel admin-perm">
             <h2 class="heading-3">Admin permissions</h2>
-            <p>The Admin role is never granted from this page or from browser data. The server assigns it to the account whose email matches <code>ADMIN_EMAIL</code>, checked on every page load. To change who is admin, change that setting on the server and restart it (see README → “Admin setup”).</p>
+            <p>The Admin role is never granted from this page or from browser data. The dev server verifies the admin email <em>and password</em> against its own configuration (<code>ADMIN_EMAIL</code> + a hashed password from <code>tools/init_admin.py</code>) and issues a 12-hour admin session it checks on every page load. To change who is admin, re-run that script and restart the server (see README → “Admin setup”).</p>
           </div>
         </section>
 

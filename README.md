@@ -14,7 +14,7 @@ Then open http://localhost:5500.
 
 - It sends `Cache-Control: no-store`. The stock server lets browsers reuse stale CSS and JS after you edit a file, which mixes old and new code.
 - It refuses to serve dotfiles and dot-folders (`.env`, `.git`).
-- It answers the Admin check (see *Admin setup* below).
+- It runs the development admin sign-in: it checks the admin's email and password and issues admin sessions (see *Admin setup* below).
 
 Use it for anything involving accounts. Opening `index.html` directly still works for browsing, but without the server nobody can be an Admin.
 
@@ -185,17 +185,52 @@ The Featured grid is replaced by a curved 3D carousel (`js/explore-carousel.js`,
 
 - New accounts are always **User**. No page or setting lets anyone give themselves Host or Admin.
 - **Host** is granted only by an admin action: approving an application, or *Make host* in the admin users table. *Revoke host* takes it away; that host's events are kept.
-- **Admin is never stored.** On every page load the browser asks the dev server whether the signed-in email is the configured admin (`POST /api/auth/admin-check`). Setting `"role": "admin"` in localStorage grants nothing; it makes the record invalid. Change or remove `ADMIN_EMAIL` and that account goes back to User on its next page load.
+- **Admin is never stored, and an email match alone never grants it.**
+  - The dev server checks the admin email **and password** against its own configuration: `ADMIN_EMAIL`, plus a PBKDF2 `ADMIN_PASSWORD_HASH` written by `tools/init_admin.py`.
+  - It then issues a random admin token that it keeps in memory for 12 hours.
+  - On every page load the browser asks whether that token is still valid (`POST /api/auth/admin-check`). With no valid token, the account is a User.
+  - Setting `"role": "admin"` in localStorage, forging a session, or inventing a token grants nothing (all three were tested).
+  - Signing out revokes the token on the server. Restarting the server ends every admin session.
 
-### Admin setup (make your own account the Admin)
-1. Sign up normally on the site with your email, or use an account you already have.
-2. Tell the dev server that email. Pick one option:
-   - **`.env` file (simplest).** Copy `.env.example` to `.env` in the project root and set `ADMIN_EMAIL=you@example.com`. `.env` is git-ignored, and the dev server refuses to serve dotfiles.
-   - **Environment variable.** In bash: `ADMIN_EMAIL=you@example.com python tools/dev_server.py`. In PowerShell: `$env:ADMIN_EMAIL="you@example.com"; python tools/dev_server.py`. The environment variable wins over `.env`.
-3. Restart the dev server. Its first line says `admin configured`.
-4. Reload any page while signed in. Your role badge reads **Admin** and the profile shows an *Admin dashboard* link. *About this prototype* on the profile reports the result of the server check.
+### Admin setup (development admin account)
 
-The email is read only by the server. The browser never receives it; it only gets a yes or no for the signed-in email. There is no admin sign-up and no admin password anywhere in the frontend.
+> ⚠ **TEMPORARY DEVELOPMENT CREDENTIALS. Do not use them anywhere real.**
+> | | |
+> |---|---|
+> | Email | `admin@Evpedia.com` (stored and compared in lower case) |
+> | Password | `Evpedia@Admin123` |
+> | Role | Admin, for this development prototype only |
+>
+> They exist so the admin features can be built and tested locally. Change the password with `tools/init_admin.py` whenever you like. Production authentication and secure Admin authorization arrive with the **Phase 11 backend**, which replaces this mechanism and these credentials.
+
+**1. Initialise the account (one time, or again to change the password).** From the project root:
+
+```powershell
+python tools/init_admin.py --email admin@Evpedia.com
+```
+
+It asks for the password twice without showing it, checks it (8 or more characters, a letter and a number), and writes two lines to the git-ignored `.env`: `ADMIN_EMAIL=admin@evpedia.com` and `ADMIN_PASSWORD_HASH=pbkdf2_sha256$600000$…`. **Only the hash is stored.** The password is never written to disk, logged or put in frontend code. For scripts you can use `--password-env NAME` to read the password from an environment variable instead of prompting.
+
+**2. Start the dev server.**
+
+```powershell
+$env:ADMIN_EMAIL="admin@Evpedia.com"
+python tools/dev_server.py
+```
+
+Setting `$env:ADMIN_EMAIL` is optional once `.env` exists. The environment variable takes priority over `.env`; the password hash always comes from `.env`, or from an `ADMIN_PASSWORD_HASH` environment variable. The first line of output should end with `admin sign-in configured`.
+
+**3. Sign in** at http://localhost:5500/login.html with the email and password above.
+- **First time in this browser:** the server verifies the password, and only then does the browser create the account record (*EVENTORA Admin*). This is the controlled initialisation; there is no admin sign-up form.
+- **If someone already signed up with that email:** that record is taken over by the verified admin sign-in, and the old password stops working.
+- **Afterwards:** your role badge reads **Admin**, and the profile links to the *Admin dashboard*.
+
+**How it behaves**
+- **Session length.** The admin session lasts 12 hours and ends when the dev server restarts. The account then shows as User with a "sign in again" note; sign out and back in to restore Admin.
+- **Server-managed details.** The admin account's password and email can't be changed on the profile page; they're managed on the server with `init_admin.py`.
+- **Lockout.** Five wrong passwords in a row from one machine lock the admin sign-in for 60 seconds.
+- **Ordinary users.** Their passwords are never sent to the server when they sign in successfully. The server is consulted only when a local sign-in fails, or for the admin account.
+- **Public sign-up.** It always creates a **User**. Signing up with the admin email gives no admin rights.
 
 ### Become an Event Host
 1. A **User** opens *Profile → Become an Event Host*. Name, email and phone are prefilled from the profile and read-only. They add an organization (optional), why they want to host (30–1000 characters) and extra information (optional).
@@ -233,8 +268,9 @@ eventora:registrations      records gained userId (Phase 6/7 IDs and event IDs u
 | Feature | Status |
 |---|---|
 | Password storage | **Done properly:** PBKDF2-SHA256, 600,000 iterations, random 16-byte salt (Web Crypto). No plaintext anywhere. The hashes still sit in readable browser storage, though, so weak passwords could be cracked offline. |
-| Admin email (`ADMIN_EMAIL`) | **Server-side:** never sent to the browser. The check endpoint only answers yes or no. `.env` is git-ignored and never served. |
-| Admin role assignment | **Partly secured.** It can't be granted by editing stored roles. But the session is a localStorage record, so someone with access to the browser can forge a session for the admin's account ID (tested). Only server sessions fix that. |
+| Admin credentials | **Server-side:** `ADMIN_EMAIL` and a PBKDF2 hash of the password live in the git-ignored `.env`, which is never served. The plaintext password isn't stored anywhere, and the email never reaches the browser. |
+| Admin sign-in | **Server-verified (development grade).** Email *and* password are checked on the server (constant-time compare). It issues random 12-hour tokens held in server memory and revoked on sign-out, with a 5-failure lockout per client. Forged sessions and made-up tokens don't grant Admin (tested). Still dev-only: plain HTTP on localhost, the token sits in browser storage, and sessions don't survive a restart. |
+| What an admin can do once signed in | **Prototype.** The admin *actions* (roles, approvals, suspensions) change browser localStorage, so the server doesn't enforce them, and anyone with DevTools could make the same edits directly. |
 | Host and user roles, permissions, approvals | **Prototype.** Stored in localStorage and checked in browser code only. Anyone with DevTools can change them. |
 | Registration privacy between users | **Prototype.** The UI shows only your own bookings, but all bookings are in the same browser storage. |
 | Sessions and remember-me | **Prototype.** Not HttpOnly cookies, no CSRF protection, no rate limiting or lockout. |
@@ -245,7 +281,7 @@ eventora:registrations      records gained userId (Phase 6/7 IDs and event IDs u
 - The server owns the users, applications, events and registrations tables. Passwords are hashed with Argon2id or bcrypt on the server.
 - Sessions are HttpOnly, Secure, SameSite cookies, with CSRF tokens on state-changing requests and rate limits on sign-in.
 - Roles are checked **on the server for every request**. The browser modules (`Eventora.auth`, `Eventora.hosting`, `Eventora.registrations`) keep their function shapes and call the API instead of localStorage, so the pages don't change.
-- `ADMIN_EMAIL` seeds the first admin on the server (`/api/auth/admin-check` becomes part of sign-in). Further admin grants become audited admin-API operations.
+- The first admin is seeded on the server (from configuration like today's `ADMIN_EMAIL` and hash) into a real users table. Admin sign-in uses the same server session as everyone else, with secure cookies and MFA recommended. Further admin grants become audited admin-API operations. The temporary development credentials above are retired.
 - New features: email verification before older bookings are claimed, real password-reset emails, and audit logs for role and approval changes.
 
 ## Structure
@@ -324,7 +360,9 @@ tests/
   hero-snapshot.js      hero regression snapshot (dev tool, see below)
   ring-visibility.js    checks every visible ring poster is 2:3 and placed correctly
 tools/
-  dev_server.py         no-cache local server; blocks dotfiles; POST /api/auth/admin-check
+  dev_server.py         no-cache local server; blocks dotfiles; dev admin sign-in
+                        (admin-login / admin-check / admin-logout)
+  init_admin.py         initialise the dev admin: writes ADMIN_EMAIL + password hash to .env
 docs/screenshots/       verification screenshots per phase
 ```
 

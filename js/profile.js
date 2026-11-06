@@ -43,8 +43,11 @@
 
     var check = auth.adminCheckStatus();
     $('pfAdminCheck').textContent = {
-      ok: 'The server answered the admin check for this account.',
-      'not-configured': 'The server has no ADMIN_EMAIL configured, so no account is Admin.',
+      ok: u.role === 'admin'
+        ? 'Admin access verified by the server for this sign-in (email and password checked; expires after 12 hours or a server restart).'
+        : 'The server answered the admin check for this account.',
+      'admin-relogin': 'Your admin session has ended (it lasts 12 hours and ends when the dev server restarts). Sign out and sign in again with the admin password to restore Admin.',
+      'not-configured': 'The server has no admin sign-in configured (run python tools/init_admin.py), so no account is Admin.',
       unavailable: 'The admin check server couldn’t be reached, so Admin features are off for this session.',
       checking: 'Checking with the server…'
     }[check] || '';

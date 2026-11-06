@@ -245,7 +245,8 @@
     $('dashDenied').hidden = false;
     $('dashBody').hidden = true;
     var why = {
-      'not-configured': 'No ADMIN_EMAIL is configured on the server, so no account is an Admin yet.',
+      'not-configured': 'No admin sign-in is configured on the server (python tools/init_admin.py), so no account is an Admin yet.',
+      'admin-relogin': 'Your admin session has ended. Sign out and sign in again with the admin email and password.',
       unavailable: 'The admin check server couldn’t be reached (start the site with tools/dev_server.py).'
     }[auth.adminCheckStatus()];
     if (why) $('deniedWhy').textContent = why;
