@@ -542,6 +542,12 @@
     price.textContent = e.price ? cat.priceLabel(e) : 'Free';
     d.querySelector('[data-x="desc"]').textContent = e.description;
     d.querySelector('[data-x="link"]').href = cat.detailUrl(e);
+    // Register shortcut → the form on the event page (none when sold out)
+    var reg = d.querySelector('[data-x="register"]');
+    var regStatus = e.registration.status;
+    reg.hidden = regStatus === 'sold-out';
+    reg.href = cat.detailUrl(e) + '#register';
+    reg.querySelector('span').textContent = regStatus === 'waitlist' ? 'Join the waitlist' : 'Register now';
     var fig = d.querySelector('[data-x="media"]');
     fig.classList.remove('is-broken');
     fig.setAttribute('data-fallback', e.category);

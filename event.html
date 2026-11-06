@@ -19,6 +19,7 @@
   <link rel="stylesheet" href="css/utilities.css">
   <link rel="stylesheet" href="css/sections.css">
   <link rel="stylesheet" href="css/events.css">
+  <link rel="stylesheet" href="css/registration.css">
   <link rel="stylesheet" href="css/responsive.css">
 </head>
 <body>
@@ -92,6 +93,90 @@
     </div>
   </main>
 
+  <!-- Registration form + confirmation. Cloned by js/registration-form.js
+       below the event details when the event takes registrations. -->
+  <template id="registerTemplate">
+    <section class="register" id="register" aria-labelledby="registerTitle" hidden>
+      <div class="container">
+        <div class="register__card">
+          <div class="register__view register__view--form" data-view="form">
+            <header class="register__head">
+              <p class="eyebrow" data-r="kicker">Registration</p>
+              <h2 class="heading-2" id="registerTitle" data-r="title">Register for this event</h2>
+              <p class="register__intro">All fields are required.</p>
+            </header>
+
+            <form class="register__form" id="registerForm" novalidate>
+              <div class="field field--event">
+                <label class="field__label" for="regEvent">Selected event</label>
+                <input class="field__input" id="regEvent" name="event" type="text" readonly aria-readonly="true" aria-describedby="regEventHint">
+                <p class="field__hint" id="regEventHint" data-r="when"></p>
+              </div>
+
+              <div class="field field--wide">
+                <label class="field__label" for="regName">Full name</label>
+                <input class="field__input" id="regName" name="name" type="text" autocomplete="name"
+                       autocapitalize="words" spellcheck="false" maxlength="80" required aria-describedby="regNameError">
+                <p class="field__error" id="regNameError" hidden></p>
+              </div>
+
+              <div class="field">
+                <label class="field__label" for="regEmail">Email address</label>
+                <input class="field__input" id="regEmail" name="email" type="email" autocomplete="email"
+                       inputmode="email" spellcheck="false" maxlength="254" required aria-describedby="regEmailError">
+                <p class="field__error" id="regEmailError" hidden></p>
+              </div>
+
+              <div class="field">
+                <label class="field__label" for="regPhone">Phone number</label>
+                <input class="field__input" id="regPhone" name="phone" type="tel" autocomplete="tel"
+                       inputmode="tel" maxlength="24" required aria-describedby="regPhoneHint regPhoneError">
+                <p class="field__hint" id="regPhoneHint">Include your country code, e.g. +44 20 7946 0958.</p>
+                <p class="field__error" id="regPhoneError" hidden></p>
+              </div>
+
+              <div class="register__actions">
+                <button class="btn btn--lg register__submit" type="submit"><span data-r="submit">Complete registration</span></button>
+                <p class="register__privacy">Saved on this device only (demo). We keep just your name, email and phone for this booking.</p>
+              </div>
+              <p class="visually-hidden" id="regStatus" role="status"></p>
+            </form>
+          </div>
+
+          <div class="register__view register__done" data-view="done" tabindex="-1" aria-labelledby="doneTitle" hidden>
+            <span class="register__check" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+            </span>
+            <p class="eyebrow" data-d="kicker">Confirmed</p>
+            <h2 class="heading-2" id="doneTitle" data-d="title">You’re registered</h2>
+            <p class="lead register__done-msg" data-d="msg"></p>
+
+            <div class="register__ticket">
+              <div class="register__id">
+                <span class="register__id-label">Registration ID</span>
+                <code class="register__id-code" data-d="id"></code>
+                <button class="btn-ghost register__copy" type="button" data-d="copy">Copy ID</button>
+              </div>
+              <dl class="register__summary">
+                <dt>Event</dt><dd data-d="event"></dd>
+                <dt>When</dt><dd data-d="when"></dd>
+                <dt>Venue</dt><dd data-d="venue"></dd>
+                <dt>Name</dt><dd data-d="name"></dd>
+                <dt>Email</dt><dd data-d="email"></dd>
+              </dl>
+            </div>
+
+            <p class="register__note" data-d="note"></p>
+            <div class="cluster register__done-actions">
+              <a class="btn btn--md" href="index.html#featured"><span>Explore more events</span></a>
+              <button class="btn-ghost" type="button" data-d="again">Register someone else</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </template>
+
     <footer class="site-footer">
       <div class="container site-footer__inner">
         <p class="site-footer__brand">EVENTORA</p>
@@ -108,6 +193,8 @@
   <script src="js/layout.js"></script>
   <script src="js/nav.js"></script>
   <script src="js/event-page.js"></script>
+  <script src="js/registrations.js"></script>
+  <script src="js/registration-form.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

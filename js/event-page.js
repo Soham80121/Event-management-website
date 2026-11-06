@@ -84,7 +84,9 @@
     info.appendChild(dl);
 
     info.appendChild(el('p', 'lead event-detail__desc', e.description));
-    info.appendChild(el('p', 'placeholder-note', 'Registration opens in a later phase.'));
+    var slot = el('div', 'register-cta');   // filled by js/registration-form.js
+    slot.id = 'registerCta';
+    info.appendChild(slot);
     if (cat.isSample) info.appendChild(el('p', 'demo-note', 'Sample event · demo data'));
 
     grid.appendChild(info);
@@ -109,6 +111,7 @@
   }
 
   Eventora.eventPage = {
+    current: null,   // the rendered event, for js/registration-form.js
     init: function () {
       var root = document.getElementById('eventDetail');
       if (!root || !cat) return;
@@ -116,6 +119,7 @@
       var e = id ? cat.byId(id) : null;
       root.textContent = '';
       if (e) renderEvent(root, e); else renderNotFound(root);
+      this.current = e || null;
       root.removeAttribute('aria-busy');
     }
   };

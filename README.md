@@ -73,7 +73,7 @@ The fit accounts for the outermost poster's edge magnification, `cos δ / cos(A 
   - **Sort:** earliest date (default), latest date, or alphabetical.
   - **Reset filters** restores the defaults. It's disabled while they're already in place.
   - **Results count** is announced to screen readers (`role="status"`). When nothing matches, an empty state explains why and offers only the actions that would widen the results.
-- **No storage.** Nothing is stored, in localStorage or anywhere else.
+- **No storage.** Filters aren't stored, in localStorage or anywhere else.
 
 ## Explore events: curved poster carousel
 
@@ -91,6 +91,29 @@ The Featured grid is replaced by a curved 3D carousel (`js/explore-carousel.js`,
   - The timeline under the caption jumps to a date.
 - **Details panel.** It grows out of the front poster with a clip-path expansion. The lines rise in, then the photo reveals. Close, Escape or the browser Back button collapse it back into the poster, and focus returns there. While it is open, the page is scroll-locked and inert. `index.html#event=<id>` deep-links straight to it, and *Open event page* goes to `event.html?id=…`. On phones it is a single scrolling column.
 - **Reduced motion.** Steps are instant, and the panel opens and closes without animation.
+
+## Event registration (since Phase 6)
+
+- **Where.** Each event page (`event.html?id=…`) has a **Register now** button under the details. Waitlist events show *Join the waitlist* instead, and sold-out events show a "registration closed" notice with no form. The button reveals the form below the details, scrolls to it and focuses *Full name*. `event.html?id=…#register` opens it directly, and the Explore carousel's details panel links there.
+- **Form** (`js/registration-form.js`). It has *Selected event* (filled in and read-only), *Full name*, *Email address* and *Phone number*. All fields are required.
+  - *Name:* 2–80 characters; letters, spaces, hyphens, apostrophes and periods.
+  - *Email:* `name@domain.tld`, at most 254 characters.
+  - *Phone:* digits, spaces, `( ) - .`, and an optional leading `+`, with 7–15 digits in total.
+  - *Errors appear inline* under the field. A field is checked when you leave it (after typing), while it shows an error (it clears as soon as it's fixed), and on submit. On submit, focus moves to the first problem and a status message announces how many there are. Fields use `aria-invalid` and `aria-describedby`.
+- **Submission.** The button locks and reads *Saving…*, so double clicks and repeated Enter presses are ignored. The confirmation then replaces the form in the same card. It shows the registration ID (with a copy button), the event, date and time, venue, name and email.
+- **Duplicates.** The same email can register only once per event, ignoring case and spaces. A repeat submission shows *You're already registered* with the existing ID and writes nothing. The same person can still register for other events, and other people can register for the same event (*Register someone else*).
+- **Storage** (`js/registrations.js`). Registrations live in localStorage under one key, `eventora:registrations`, separate from the catalogue:
+  ```
+  { version: 1, registrations: [{ id: 'EVR-7K3M-Q9TD', eventId, type: 'registration'|'waitlist',
+                                  name, email, phone, createdAt }] }
+  ```
+  Only what a booking needs is kept. Event titles, dates and prices are looked up from the catalogue by `eventId`. Emails are stored lower-case and phones as digits with an optional `+`. IDs use 8 random Crockford base-32 characters and are checked against existing IDs.
+- **Damaged or missing data.**
+  - A missing key means an empty list.
+  - Unreadable JSON or the wrong shape is ignored, with one console warning, and the next save writes a clean copy.
+  - Malformed records are dropped and the valid ones kept.
+  - If storage is blocked, the registration is kept for that page view only, and the confirmation says it wasn't saved.
+- **Persistence.** After a reload, the event page shows *Registered on this device · EVR-…* under the button.
 
 ## Structure
 
@@ -115,6 +138,7 @@ css/
   events.css            event card component, Featured grid, Upcoming agenda, details page
   filters.css           search, sort, category chips, empty state, category cards
   explore.css           curved Explore carousel, timeline, expanding details panel
+  registration.css      Register CTA, registration form, validation states, confirmation
   responsive.css        tablet (701–1080) and phone (<=700) architectures
   motion.css            entrance resting states + reduced-motion overrides
   styleguide.css        styleguide page layout only
@@ -129,6 +153,8 @@ js/                     each file attaches to the single `window.Eventora` names
   mock.js               renders the app preview from data
   event-cards.js        reusable event card renderer (feature / row variants)
   event-page.js         renders event.html from the catalogue
+  registrations.js      registration store (localStorage, validation of stored data, ids)
+  registration-form.js  Register CTA, form validation, submission, confirmation
   event-filters.js      live search, category filter, sorting, category cards
   explore-carousel.js   curved Explore carousel + expanding details panel
   fitter.js             type fitter (cap height, ink width, baseline)

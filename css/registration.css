@@ -1,0 +1,193 @@
+/* =========================================================================
+   REGISTRATION — CTA in the event details, the form card and the
+   confirmation (event.html, js/registration-form.js). Same glass, hairline
+   and cyan language as the event cards, filters and nav.
+   ========================================================================= */
+
+/* ---------- CTA in the event details ---------- */
+.register-cta { display: grid; gap: var(--space-3); justify-items: start; margin-top: var(--space-1); }
+.register-cta__btn { min-width: 220px; }
+.register-cta__mine {
+  display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  font-size: var(--fs-small); color: var(--c-ink-90);
+}
+.register-cta__mine[hidden] { display: none; }
+.register-cta__mine code { font: inherit; font-weight: var(--fw-semibold); color: var(--c-cyan-pale); letter-spacing: .04em; }
+.register-cta__tick {
+  display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: var(--radius-full);
+  background: rgba(53, 216, 255, .16); color: var(--c-cyan); font-size: 11px; font-weight: var(--fw-bold);
+}
+.register-cta__closed {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--c-line-15);
+  background: rgba(255, 255, 255, .03);
+  color: var(--c-muted); font-size: var(--fs-small);
+}
+
+/* ---------- Section + card ---------- */
+.register {
+  padding-top: var(--space-16);
+  scroll-margin-top: calc(var(--nav-offset, 96px) + var(--space-2));
+  opacity: 0; transform: translateY(16px);
+  transition: opacity .5s var(--ease-expo), transform .6s var(--ease-expo);
+}
+.register.is-open { opacity: 1; transform: none; }
+
+.register__card {
+  position: relative; overflow: hidden;
+  max-width: 760px; margin-inline: auto;
+  padding: clamp(24px, 4vw, 44px);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--c-line-15);
+  background:
+    radial-gradient(120% 70% at 0% 0%, rgba(53, 216, 255, .09), transparent 60%),
+    var(--c-card-surface);
+  -webkit-backdrop-filter: var(--glass-blur-lg); backdrop-filter: var(--glass-blur-lg);
+  box-shadow: var(--shadow-panel);
+}
+/* thin cyan light along the top edge, like the glow buttons */
+.register__card::before {
+  content: ""; position: absolute; left: 12%; right: 12%; top: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(142, 244, 255, .6), transparent);
+}
+.register__view[hidden] { display: none; }
+.register__view:focus { outline: none; }
+
+.register__head { display: grid; gap: var(--space-2); margin-bottom: var(--space-6); }
+.register__intro { font-size: var(--fs-small); color: var(--c-muted); }
+
+/* ---------- Form ---------- */
+.register__form {
+  display: grid; gap: var(--space-5) var(--space-4);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.field { display: grid; gap: var(--space-2); align-content: start; min-width: 0; }
+.field--event, .field--wide, .register__actions { grid-column: 1 / -1; }
+
+.field__label { font-size: var(--fs-small); font-weight: var(--fw-semibold); color: var(--c-ink-92); }
+.field__input {
+  width: 100%; height: 52px; padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--c-line-15);
+  background: rgba(6, 8, 12, .72);
+  box-shadow: var(--shadow-inset-top);
+  color: var(--c-ink); font: inherit; font-size: 16px;   /* 16px: no zoom-on-focus on iOS */
+  transition: border-color var(--dur-base), box-shadow var(--dur-base), background var(--dur-base);
+  -webkit-appearance: none; appearance: none;
+}
+.field__input:hover { border-color: rgba(142, 244, 255, .3); }
+.field__input:focus-visible {
+  outline: var(--focus-ring); outline-offset: var(--focus-offset);
+  border-color: rgba(142, 244, 255, .5);
+}
+.field__input[readonly] {
+  background: rgba(53, 216, 255, .06);
+  border-color: rgba(142, 244, 255, .28);
+  font-weight: var(--fw-semibold); cursor: default;
+}
+.field__hint { font-size: var(--fs-small); color: var(--c-muted); }
+
+.field.is-valid .field__input { border-color: rgba(142, 244, 255, .4); }
+.field.is-invalid .field__input {
+  border-color: rgba(255, 128, 140, .75);
+  box-shadow: 0 0 0 3px rgba(255, 96, 112, .12);
+}
+.field__error {
+  display: flex; gap: 6px; align-items: flex-start;
+  font-size: var(--fs-small); line-height: var(--lh-snug); color: #ff9aa4;
+  animation: reg-error .25s var(--ease-std);
+}
+.field__error::before {
+  content: "!"; flex: 0 0 auto;
+  display: inline-grid; place-items: center; width: 16px; height: 16px; margin-top: 1px;
+  border-radius: var(--radius-full); background: rgba(255, 110, 124, .2);
+  font-size: 11px; font-weight: var(--fw-bold);
+}
+.field__error[hidden] { display: none; }
+@keyframes reg-error { from { opacity: 0; transform: translateY(-3px); } }
+
+.register__actions {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-5);
+  margin-top: var(--space-2);
+}
+.register__submit { min-width: 250px; }
+.register__submit.is-busy { opacity: .75; filter: none; cursor: progress; }
+.register__privacy { flex: 1 1 220px; font-size: var(--fs-small); color: var(--c-muted); }
+
+/* ---------- Confirmation ---------- */
+.register__done { display: grid; gap: var(--space-3); justify-items: start; }
+.register__check {
+  display: grid; place-items: center; width: 56px; height: 56px; margin-bottom: var(--space-2);
+  border-radius: var(--radius-full);
+  background: radial-gradient(circle at 50% 35%, rgba(142, 244, 255, .35), rgba(10, 134, 216, .22));
+  border: 1px solid rgba(142, 244, 255, .5);
+  box-shadow: 0 0 28px rgba(53, 216, 255, .35);
+  color: var(--c-ink);
+}
+.register__check svg { width: 26px; height: 26px; }
+.register__check path { stroke-dasharray: 24; stroke-dashoffset: 0; animation: reg-tick .6s .15s var(--ease-expo) both; }
+@keyframes reg-tick { from { stroke-dashoffset: 24; } }
+.register__done.is-duplicate .register__check {
+  background: radial-gradient(circle at 50% 35%, rgba(255, 196, 107, .32), rgba(160, 110, 20, .2));
+  border-color: rgba(255, 196, 107, .55);
+  box-shadow: 0 0 28px rgba(255, 196, 107, .25);
+}
+.register__done-msg { max-width: 58ch; }
+
+.register__ticket {
+  width: 100%; margin-top: var(--space-3);
+  border-radius: var(--radius-lg);
+  border: var(--border-hairline);
+  background: rgba(6, 8, 12, .55);
+  overflow: hidden;
+}
+.register__id {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px dashed rgba(142, 244, 255, .25);
+  background: linear-gradient(90deg, rgba(53, 216, 255, .1), transparent 70%);
+}
+.register__id-label {
+  width: 100%;
+  font-size: var(--fs-caption); font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-cyan);
+}
+.register__id-code {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: clamp(20px, 1.2rem + 1vw, 28px); font-weight: 700; letter-spacing: .08em;
+  color: var(--c-ink); text-shadow: 0 0 18px rgba(53, 216, 255, .35);
+}
+.register__copy { height: 36px; padding: 0 14px; font-size: var(--fs-small); margin-left: auto; }
+
+.register__summary {
+  display: grid; grid-template-columns: max-content 1fr; gap: var(--space-3) var(--space-6);
+  padding: var(--space-5);
+}
+.register__summary dt {
+  font-size: var(--fs-caption); font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-muted);
+  padding-top: 3px;
+}
+.register__summary dd { font-size: var(--fs-body); color: var(--c-ink); overflow-wrap: anywhere; }
+
+.register__note { font-size: var(--fs-small); color: var(--c-muted); }
+.register__done-actions { margin-top: var(--space-2); }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 700px) {
+  .register { padding-top: var(--space-10); }
+  .register__card { border-radius: var(--radius-lg); }
+  .register__form { grid-template-columns: 1fr; }
+  .register__submit, .register-cta__btn { width: 100%; min-width: 0; }
+  .register-cta { justify-self: stretch; justify-items: stretch; }
+  .register__summary { grid-template-columns: 1fr; gap: 2px; }
+  .register__summary dd + dt { margin-top: var(--space-3); }
+  .register__copy { margin-left: 0; }
+  .register__done-actions > * { flex: 1 1 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .register { transition: none; transform: none; }
+  .field__error, .register__check path { animation: none; }
+}

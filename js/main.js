@@ -26,5 +26,6 @@
   start('layout',    'init');
   start('sections',  'init');
   start('eventPage', 'init');
+  start('registrationForm', 'init');   // after eventPage: mounts under the rendered event
   start('intro',     'run');
 })(window.Eventora);
