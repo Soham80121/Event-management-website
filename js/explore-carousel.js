@@ -593,6 +593,29 @@
       // deep links (index.html#event=<id>) are handled by js/event-detail.js,
       // which asks posterFor() to bring that event to the front first
     },
+    /** Rebuild the ring from the current programme (published events changed),
+     *  keeping the event that was in front when it is still listed. */
+    refresh: function () {
+      if (!cat || !els.ring || !n) return;
+      var keep = events[activeIndex] && events[activeIndex].id;
+      events = cat.programme();
+      n = events.length; M = n * COPIES;
+      if (!n) return;
+      posters = [];
+      els.ring.textContent = '';
+      buildPosters();
+      buildTimeline();
+      measure();
+      var start = -1, i;
+      for (i = 0; i < n; i++) if (events[i].id === keep) { start = i; break; }
+      if (start === -1) { start = 0; for (i = 0; i < n; i++) if (events[i].featured) { start = i; break; } }
+      s = T = n + start;
+      activeIndex = -1;
+      place();
+      updateActive();
+      updateDot(0, true);
+      updateRoving();
+    },
     // exposed for tests
     state: function () { return { s: s, T: T, active: activeIndex, open: detailOpen(), event: events[activeIndex] && events[activeIndex].id }; },
     next: function () { go(1); },

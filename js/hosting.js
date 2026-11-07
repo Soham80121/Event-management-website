@@ -159,6 +159,9 @@
     evCache.pub = cached.events || [];
     ovCache = cached.overrides && typeof cached.overrides === 'object' ? cached.overrides : {};
   } catch (err) { evCache.pub = []; }
+  var publicListeners = [];
+  /** What the public pages show: published server events + built-in overrides. */
+  function publicSignature() { return JSON.stringify([evCache.pub, ovCache]); }
   function byDate(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : (a.time < b.time ? -1 : a.time > b.time ? 1 : 0); }
   function serverEvent(id) {
     return evCache.mine.concat(evCache.all).filter(function (e) { return e.id === id; })[0] || null;
@@ -318,17 +321,25 @@
      * last list this browser saw is used.
      */
     loadPublic: function (timeoutMs) {
+      // The answer is always used, however late it arrives: if the page has
+      // already rendered from the cached list (slow server, first visit), the
+      // listeners (js/main.js) re-render the public sections, so a published
+      // event never stays missing until the next refresh.
       var req = fetch('/api/events/public', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: '{}', cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; });
-      var timeout = new Promise(function (resolve) { setTimeout(function () { resolve(null); }, timeoutMs || 2500); });
-      return Promise.race([req, timeout]).then(function (data) {
-        if (data && Array.isArray(data.events)) {
+        body: '{}', cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (data) {
+          if (!data || !Array.isArray(data.events)) return;
+          var before = publicSignature();
           evCache.pub = data.events;
           ovCache = data.overrides && typeof data.overrides === 'object' ? data.overrides : {};
           try { window.localStorage.setItem(PUBLIC_CACHE, JSON.stringify({ events: data.events, overrides: ovCache })); } catch (err) { /* ignore */ }
-        }
-      }, function () { /* offline: keep the cached list */ });
+          if (publicSignature() !== before) publicListeners.forEach(function (fn) { try { fn(); } catch (err) { /* keep going */ } });
+        }, function () { /* offline: keep the cached list */ });
+      var timeout = new Promise(function (resolve) { setTimeout(resolve, timeoutMs || 2500); });
+      return Promise.race([req, timeout]);
     },
+    /** fn() runs when the public event list changes after the page rendered. */
+    onPublicChange: function (fn) { if (typeof fn === 'function') publicListeners.push(fn); },
     isServerEvent: function (id) { return !!serverEvent(id); },
 
     /** Whether the last sync reached the server (false: show "couldn't load"). */

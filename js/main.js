@@ -40,7 +40,19 @@
   // Published events and the signed-in person's bookings live on the server:
   // fetch them (briefly) before the pages render. Offline, pages still render.
   var booted = false;
-  function once() { if (!booted) { booted = true; boot(); } }
+  function once() {
+    if (booted) return;
+    booted = true;
+    boot();
+    // a late server answer (slow first load) re-renders the public sections
+    if (Eventora.hosting && Eventora.hosting.onPublicChange) {
+      Eventora.hosting.onPublicChange(function () {
+        start('eventCards', 'mount');
+        start('eventFilters', 'refresh');
+        start('exploreCarousel', 'refresh');
+      });
+    }
+  }
   var jobs = [];
   if (Eventora.hosting && Eventora.hosting.loadPublic) jobs.push(Eventora.hosting.loadPublic(2500));
   if (Eventora.registrations && Eventora.registrations.sync) jobs.push(Eventora.registrations.sync());

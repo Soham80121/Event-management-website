@@ -274,6 +274,15 @@
       bind();
       apply();
     },
+    /** Rebuild from the current catalogue (published events changed); keeps search, category and sort. */
+    refresh: function () {
+      if (!cat || !els.list || !els.search || !Eventora.eventCards) return;
+      buildIndex();
+      var stats = categoryStats();
+      renderChips(stats);
+      renderCategoryCards(stats);
+      apply();
+    },
     // exposed for tests and future phases
     state: function () { return { query: state.query, category: state.category, sort: state.sort }; },
     set: set,
