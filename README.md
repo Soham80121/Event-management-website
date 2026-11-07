@@ -200,7 +200,7 @@ There is a single event-details experience: the panel that grows out of the post
   | Event Host | *Host Dashboard* → their own events | My Profile |
   | Admin | *Admin Panel* → `admin.html` | Admin account page |
 
-  Every role (and visitors) also gets **Search** after *Categories*: it jumps to the existing search bar in *Upcoming events* on the home page (`index.html#search`, the `.event-tools` block; other pages open the home page first), below the fixed navbar, exactly like *Categories*. No new search component.
+  Every role (and visitors) also gets **Search**, just before *Categories*: it jumps to the existing search bar in *Upcoming events* on the home page (`index.html#search`, the `.event-tools` block; other pages open the home page first), below the fixed navbar, exactly like *Categories*. No new search component.
   Admins also get a **Host an Event** text link after *Contact*, which opens the **Host an Event** submission form (`host.html`, see *Host an Event* below). On desktop the five standard links keep their size and the pill grows by the extra link's width on both sides, staying centred (`--nav-extra`, set by `js/layout.js`); on tablet and phone it is one more menu row.
 
   `host.html` explains hosting to visitors, sends users to the application, and shows hosts and the admin the event submission form (never the host application). The account entry sits in the gap between the link row and *Host an Event*: a person icon when signed out, your initial or photo when signed in. On tablet and phone it becomes a row in the menu.
