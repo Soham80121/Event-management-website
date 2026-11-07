@@ -302,6 +302,7 @@
     rows.forEach(function (row) {
       var e = row.event, host = row.hostId ? auth.userById(row.hostId) : null;
       var li = el('li', 'app-card approval-card');
+      li.setAttribute('data-event-id', row.id);
       var fig = el('figure', 'approval-card__poster');
       var img = new Image(); img.alt = e.image.alt; img.loading = 'lazy'; img.src = cat.imageUrl(e, 200, 300);
       fig.appendChild(img);
@@ -357,16 +358,18 @@
     var title = row.event.title, out = [];
     var n = function () { return note ? note.value : ''; };
     var set = function (status, msg) { return function () { done(hosting.admin.setEventStatus(row.id, status, n()), '“' + title + '” ' + msg); }; };
+    // Approving and rejecting happen only in Event approvals (one review
+    // queue, same records): All Events manages events that were already decided.
     if (row.status === 'pending') {
-      out.push(button('Approve', 'btn-ghost btn-sm btn-ok', set('approved', 'is approved and now published.')));
-      if (row.source !== 'catalogue') out.push(armed('Reject', 'Confirm reject', 'btn-ghost btn-sm btn-danger', set('rejected', 'was rejected.')));
+      out.push(button('Review in Event approvals', 'btn-ghost btn-sm btn-ok', function () { openApproval(row.id); }));
     } else if (row.status === 'approved') {
       out.push(armed('Unpublish', 'Confirm unpublish', 'btn-ghost btn-sm', set('unpublished', 'is no longer public.')));
       out.push(armed('Cancel event', 'Confirm cancel', 'btn-ghost btn-sm btn-danger', set('cancelled', 'is cancelled. Its registrations are kept.')));
-    } else {
-      out.push(button('Publish', 'btn-ghost btn-sm btn-ok', set('approved', 'is published.')));
+    } else if (row.status === 'unpublished' || row.status === 'cancelled') {
+      out.push(button('Publish again', 'btn-ghost btn-sm btn-ok', set('approved', 'is published again.')));
       if (row.status !== 'cancelled') out.push(armed('Cancel event', 'Confirm cancel', 'btn-ghost btn-sm btn-danger', set('cancelled', 'is cancelled. Its registrations are kept.')));
     }
+    // rejected: the host edits and resubmits it, which brings it back to Event approvals
     if (row.source !== 'catalogue') {
       out.push(armed('Remove', 'Confirm remove', 'btn-ghost btn-sm btn-danger', function () {
         if (formApi && formApi.editing() === row.id) formApi.cancel();
@@ -374,6 +377,19 @@
       }));
     }
     return out;
+  }
+
+  /** Open the Event approvals queue at this event's card. */
+  function openApproval(id) {
+    if ($('adDialog').open) $('adDialog').close();
+    select('approvals');
+    var card = document.querySelector('#approvalsList [data-event-id="' + id + '"]');
+    if (!card) return;
+    card.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    card.classList.add('is-target');
+    setTimeout(function () { card.classList.remove('is-target'); }, 2000);
+    var first = card.querySelector('textarea, button');
+    if (first) first.focus({ preventScroll: true });
   }
 
   function reviewEvent(row) {
@@ -395,7 +411,7 @@
     if (row.note) { info.appendChild(el('p', 'app-card__label', 'Admin note')); info.appendChild(el('p', 'app-card__text', row.note)); }
     wrap.appendChild(info);
     body.appendChild(wrap);
-    var note = noteField(body, 'Note for this decision (shown to the host; required to reject)');
+    var note = noteField(body, 'Note for this change (shown to the host)');
     var dlgAlert = el('p', 'form-alert');
     dlgAlert.setAttribute('role', 'alert');
     dlgAlert.setAttribute('data-dialog-alert', '');

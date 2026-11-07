@@ -529,3 +529,7 @@ td.cell-actions > * { margin: 2px 4px 2px 0; }
 .host-submit__done { padding: clamp(24px, 4vw, 40px); }
 .host-submit__done[hidden], .host-submit__panel[hidden] { display: none; }
 .host-submit__done .mono { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; color: var(--c-cyan-pale); }
+
+/* Admin panel: the approval card opened from All Events gets a brief highlight */
+.approval-card { transition: box-shadow var(--dur-base), border-color var(--dur-base); }
+.approval-card.is-target { border-color: rgba(142, 244, 255, .6); box-shadow: 0 0 0 3px rgba(53, 216, 255, .18), 0 0 24px rgba(53, 216, 255, .2); }
