@@ -168,7 +168,7 @@ def main() -> None:
         if service.mailer.test_override:
             mail = "reset emails go to a LOCAL TEST MOCK (RESEND_API_URL)"
         elif service.mailer.configured:
-            mail = "reset emails via Resend"
+            mail = "reset emails via Resend from %s" % service.mailer.sender
         else:
             mail = "reset emails NOT configured (no RESEND_API_KEY): Forgot password will say so"
         print("EVENTORA dev server: http://localhost:%d/  (no-store caching; %s; %s)" % (port, admin, mail), flush=True)

@@ -49,10 +49,10 @@ def start(server):
 class Env:
     """One dev server + mock mailer with its own data directory."""
 
-    def __init__(self, api_key="test-key", fail_status=0, admin_password="Admin-Start-2026"):
+    def __init__(self, api_key="test-key", fail_status=0, admin_password="Admin-Start-2026", omit_id=False):
         self.dir = pathlib.Path(tempfile.mkdtemp(prefix="eventora-test-"))
         self.outbox = self.dir / "outbox.jsonl"
-        self.mock = start(mock_resend.serve(0, self.outbox, fail_status))
+        self.mock = start(mock_resend.serve(0, self.outbox, fail_status, omit_id))
         self.clock = Clock()
         self.logs = []
         config = {
@@ -309,6 +309,52 @@ class RecoveryTests(unittest.TestCase):
             self.assertEqual(e2.post("/api/auth/me", {"token": "x"})[0], 401)          # server still fine
         finally:
             e2.close()
+
+    def last_delivery(self, env):
+        end = time.time() + 5
+        while not env.mailer.outcomes and time.time() < end:
+            time.sleep(0.05)
+        return env.mailer.outcomes[-1]
+
+    def test_invalid_api_key_is_handled(self):
+        e2 = Env(fail_status=401)
+        try:
+            status, body = e2.post("/api/auth/forgot", {"email": ADMIN_EMAIL})
+            self.assertEqual(status, 200)                                  # same generic reply
+            out = self.last_delivery(e2)
+            self.assertFalse(out["ok"])
+            self.assertIn("HTTP 401", out["detail"])
+            self.assertFalse(any("test-key" in line for line in e2.logs))   # key never logged
+        finally:
+            e2.close()
+
+    def test_reply_without_message_id_is_not_counted_as_sent(self):
+        e2 = Env(omit_id=True)
+        try:
+            self.assertEqual(e2.post("/api/auth/forgot", {"email": ADMIN_EMAIL})[0], 200)
+            out = self.last_delivery(e2)
+            self.assertFalse(out["ok"])
+            self.assertTrue(any("NOT confirmed" in line for line in e2.logs))
+        finally:
+            e2.close()
+
+    def test_accepted_email_is_logged_with_resend_id(self):
+        e = self.env
+        e.request_code(ADMIN_EMAIL)
+        out = self.last_delivery(e)
+        self.assertTrue(out["ok"])
+        self.assertTrue(out["detail"].startswith("accepted id="))
+        self.assertTrue(any("accepted by Resend" in line and "k***@gmail.com" in line for line in e.logs))
+        self.assertFalse(any(ADMIN_EMAIL in line for line in e.logs))       # address masked in logs
+
+    def test_sender_placeholder_falls_back(self):
+        self.assertEqual(accounts.check_sender("")[0], accounts.DEFAULT_SENDER)
+        sender, note = accounts.check_sender("EVENTORA <noreply@your-verified-domain.com>")
+        self.assertEqual(sender, accounts.DEFAULT_SENDER)
+        self.assertIn("placeholder", note)
+        self.assertEqual(accounts.check_sender("not an address")[0], accounts.DEFAULT_SENDER)
+        self.assertEqual(accounts.check_sender("EVENTORA <noreply@eventora.dev>"), ("EVENTORA <noreply@eventora.dev>", ""))
+        self.assertEqual(accounts.check_sender("noreply@eventora.dev"), ("noreply@eventora.dev", ""))
 
     # ---- roles and storage -------------------------------------------------------------
     def test_signup_never_creates_admin(self):

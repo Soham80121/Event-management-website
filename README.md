@@ -264,13 +264,13 @@ Sign in at http://localhost:5500/login.html. The role badge reads **Admin**, the
    RESEND_API_KEY=re_...
    EMAIL_FROM=EVENTORA <noreply@your-verified-domain.com>
    ```
-   Leave `EMAIL_FROM` out to use `EVENTORA <onboarding@resend.dev>`. Restart the dev server; its first line should say `reset emails via Resend`. The key stays on the server: it is never sent to the browser or logged, and `.env` is never committed or served.
-5. **Test delivery**: open http://localhost:5500/forgot-password.html, enter `k.soham.025@gmail.com`, and check that inbox (and Spam). The server console logs `Password reset email sent to k***@gmail.com`, or the reason it failed. Resend's dashboard (*Emails*) shows each message and its delivery status.
+   Leave `EMAIL_FROM` empty to use `EVENTORA <onboarding@resend.dev>`. A sender that is malformed or still a placeholder (such as `your-verified-domain.com`) is ignored with a warning, and the server uses `onboarding@resend.dev` instead. Restart the dev server (it reads `.env` only at start-up); its first line should say `reset emails via Resend from …` and name the sender in use. The key stays on the server: it is never sent to the browser or logged, and `.env` is never committed or served.
+5. **Test delivery**: open http://localhost:5500/forgot-password.html, enter `k.soham.025@gmail.com`, and check that inbox (and Spam). The server console logs `Password reset email to k***@gmail.com accepted by Resend (id …)` only when Resend answers with a message id; otherwise it logs why it failed (for example `HTTP 401 API key is invalid`, or Resend's testing-mode refusal). Resend's dashboard (*Emails*) shows each message and its delivery status. The page itself never says an email was delivered: it says a code "is being emailed" if the address has an account, because confirming delivery per address would reveal which emails are registered.
 
 ### Testing password recovery
 - **Admin:** run `init_admin.py`, configure Resend, then on *Forgot password* enter `k.soham.025@gmail.com`. Type the code from that inbox, set a new password, and sign in with it: the badge still reads **Admin** and the Admin panel opens. The old password no longer works.
 - **User and Event Host:** sign up (or sign in with an old browser account to move it to the server), make one account a host from the Admin panel, then run *Forgot password* for each. With a verified domain the codes arrive in their inboxes; without one, use the local mock below. Each keeps its role, and resetting one account never changes another.
-- **Automated tests:** `python -m unittest tests/test_password_reset.py -v` runs 22 API tests on a throw-away server and data folder: every account type, incorrect, expired, reused and locked codes, resend cooldown and hourly limit, unknown emails, reset-token reuse and expiry, missing API key, delivery failure, independent accounts, role protection, login lockout, migration, and that `.data` and `.env` are never served.
+- **Automated tests:** `python -m unittest tests/test_password_reset.py -v` runs 26 API tests on a throw-away server and data folder: every account type, incorrect, expired, reused and locked codes, resend cooldown and hourly limit, unknown emails, reset-token reuse and expiry, missing API key, invalid API key, delivery failure, a Resend reply without a message id, placeholder sender fallback, independent accounts, role protection, login lockout, migration, and that `.data` and `.env` are never served.
 - **Local mock (test only):** `tools/mock_resend.py` stands in for Resend. Start it with `python tools/mock_resend.py 5599 --outbox outbox.jsonl`, then start a dev server with `RESEND_API_KEY=test-key` and `RESEND_API_URL=http://127.0.0.1:5599/emails` (localhost only; the server announces `LOCAL TEST MOCK`). Every "sent" email lands in the outbox file instead of a real inbox. Never use it for real accounts.
 
 ### Become an Event Host
@@ -415,7 +415,7 @@ js/                     each file attaches to the single `window.Eventora` names
 tests/
   hero-snapshot.js      hero regression snapshot (dev tool, see below)
   ring-visibility.js    checks every visible ring poster is 2:3 and placed correctly
-  test_password_reset.py  22 API tests: accounts, roles, OTP recovery, security cases
+  test_password_reset.py  26 API tests: accounts, roles, OTP recovery, Resend handling, security cases
 tools/
   dev_server.py         no-cache local server; blocks dotfiles; account API routes
   accounts.py           accounts, scrypt, sessions, roles, OTP recovery, Resend mailer

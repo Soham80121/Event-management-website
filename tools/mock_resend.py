@@ -19,14 +19,18 @@ import secrets
 import threading
 
 
-def make_handler(outbox: pathlib.Path, fail_status: int, lock: threading.Lock):
+def make_handler(outbox: pathlib.Path, fail_status: int, lock: threading.Lock, omit_id: bool = False):
     class Handler(http.server.BaseHTTPRequestHandler):
         def do_POST(self):
             length = int(self.headers.get("Content-Length", "0"))
             body = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
             auth = self.headers.get("Authorization", "")
+            if fail_status == 401:
+                return self._reply(401, {"name": "validation_error", "message": "API key is invalid"})
             if fail_status:
                 return self._reply(fail_status, {"name": "mock_failure", "message": "Mock failure for testing"})
+            if omit_id:
+                return self._reply(200, {})
             if not auth.startswith("Bearer ") or len(auth) < 12:
                 return self._reply(401, {"name": "missing_api_key", "message": "Missing API key"})
             body["_id"] = secrets.token_hex(8)
@@ -49,9 +53,9 @@ def make_handler(outbox: pathlib.Path, fail_status: int, lock: threading.Lock):
     return Handler
 
 
-def serve(port: int, outbox: pathlib.Path, fail_status: int = 0) -> http.server.ThreadingHTTPServer:
+def serve(port: int, outbox: pathlib.Path, fail_status: int = 0, omit_id: bool = False) -> http.server.ThreadingHTTPServer:
     outbox.parent.mkdir(parents=True, exist_ok=True)
-    return http.server.ThreadingHTTPServer(("127.0.0.1", port), make_handler(outbox, fail_status, threading.Lock()))
+    return http.server.ThreadingHTTPServer(("127.0.0.1", port), make_handler(outbox, fail_status, threading.Lock(), omit_id))
 
 
 def main() -> None:

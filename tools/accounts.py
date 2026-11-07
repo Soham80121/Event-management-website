@@ -297,8 +297,10 @@ def init_admin(store: Store, email: str, password: str, name: str = "EVENTORA Ad
 class Mailer:
     def __init__(self, config: dict, log=print):
         self.api_key = config["resend_api_key"]
-        self.sender = config["email_from"]
         self.log = log
+        self.sender, self.sender_note = check_sender(config["email_from"])
+        if self.sender_note:
+            log("EMAIL_FROM " + self.sender_note)
         self.url = RESEND_URL
         self.test_override = False
         override = config.get("resend_api_url") or ""
@@ -342,8 +344,13 @@ class Mailer:
         try:
             with urllib.request.urlopen(req, timeout=15) as res:
                 body = json.loads(res.read().decode("utf-8") or "{}")
-            self._record(to, True, "sent id=%s" % body.get("id", "?"))
-            self.log("Password reset email sent to %s" % masked)
+            # Resend accepted the message only if it answered 2xx WITH a message id
+            if not isinstance(body, dict) or not body.get("id"):
+                self._record(to, False, "no message id in Resend's reply")
+                self.log("Password reset email to %s NOT confirmed: Resend's reply had no message id" % masked)
+                return
+            self._record(to, True, "accepted id=%s" % body["id"])
+            self.log("Password reset email to %s accepted by Resend (id %s)" % (masked, body["id"]))
         except urllib.error.HTTPError as err:
             try:
                 detail = json.loads(err.read().decode("utf-8")).get("message", "")
@@ -354,6 +361,29 @@ class Mailer:
         except (urllib.error.URLError, OSError, ValueError) as err:
             self._record(to, False, "network: %s" % err)
             self.log("Password reset email to %s FAILED: %s" % (masked, err))
+
+
+SENDER_RE = re.compile(r"^(?:[^<>\r\n]{1,80}\s)?<?([^\s<>@]+@[^\s<>@]+\.[^\s<>@]+)>?$")
+PLACEHOLDER_DOMAINS = ("your-verified-domain", "example.com", "example.org", "yourdomain")
+
+
+def check_sender(value: str):
+    """-> (sender to use, note for the server console or "").
+
+    A missing, malformed or still-placeholder EMAIL_FROM falls back to
+    Resend's shared test sender, which delivers only to the email address
+    that owns the Resend account."""
+    v = (value or "").strip()
+    if not v or v == DEFAULT_SENDER:
+        return DEFAULT_SENDER, ""
+    m = SENDER_RE.match(v)
+    if not m:
+        return DEFAULT_SENDER, "isn't a valid sender (use: EVENTORA <noreply@your-domain>); using %s" % DEFAULT_SENDER
+    domain = m.group(1).rsplit("@", 1)[1].lower()
+    if any(p in domain for p in PLACEHOLDER_DOMAINS):
+        return DEFAULT_SENDER, ("is still a placeholder (%s); using %s, which only delivers to your Resend "
+                                "account's own email until you verify a domain" % (domain, DEFAULT_SENDER))
+    return v, ""
 
 
 def mask_email(email: str) -> str:
