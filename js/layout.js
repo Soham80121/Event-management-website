@@ -236,12 +236,13 @@
     if (els.heroBtn) F.centreLabel(els.heroBtn, $('vpLabel'), TYPE.vpLabel.tc * T, k);
 
     // Nav links: one shared size, then squeeze the whole row. The five
-    // standard links always fill LINK_ROW_W; an extra link (the admin's "Host
-    // an Event") keeps that same scale and widens the pill symmetrically by
-    // its own width (--nav-extra, see components.css).
+    // reference links (Home … Contact) always fill LINK_ROW_W; extra links
+    // ("Search" [data-nav-extra], the admin's "Host an Event") keep that same
+    // scale and widen the pill symmetrically by their own width (--nav-extra,
+    // see components.css), so the reference design never gets condensed.
     els.links.style.transform = '';
     var links = Array.prototype.slice.call(els.links.children);
-    var extraLink = $('navHostLink');
+    var extras = links.filter(function (a) { return a.id === 'navHostLink' || a.hasAttribute('data-nav-extra'); });
     var navExtra = 0;
     if (state.mode === 'tablet') {
       links.forEach(function (a) { a.style.fontSize = ''; });
@@ -251,10 +252,10 @@
       links.forEach(function (a) { a.style.fontSize = fs + 'px'; });
       var rowW = F.inkWidth(els.links, k);
       var baseW = rowW;
-      if (extraLink) {
-        extraLink.style.display = 'none';
+      if (extras.length) {
+        extras.forEach(function (a) { a.style.display = 'none'; });
         baseW = F.inkWidth(els.links, k);
-        extraLink.style.display = '';
+        extras.forEach(function (a) { a.style.display = ''; });
       }
       if (baseW > 0) {
         var sx = LINK_ROW_W / baseW;

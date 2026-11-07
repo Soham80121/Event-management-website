@@ -12,6 +12,7 @@
 
   var dom = Eventora.dom;
   var currentKey = null;
+  var holdUntil = 0;            // a jump to a nav target keeps its link marked meanwhile
 
   /** Marks the nav links whose data-nav matches `key`. */
   function setCurrent(key) {
@@ -40,8 +41,13 @@
       // focus, without a second scroll, so assistive tech lands on the section.
       if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
       target.focus({ preventScroll: true });
-      var key = target.getAttribute('data-nav-key');
+      // a section marks itself; a jump target inside a section (the search
+      // bar) marks the nav link that was used
+      var key = target.getAttribute('data-nav-key') || (link.closest('#links') && link.getAttribute('data-nav'));
       if (key) setCurrent(key);
+      // the search bar sits inside "Upcoming": keep "Search" marked while the
+      // smooth scroll passes the surrounding sections
+      if (key && !target.hasAttribute('data-nav-key')) holdUntil = Date.now() + 1500;
     });
   }
 
@@ -52,6 +58,7 @@
     // A section is "current" while it crosses a thin band just below the
     // nav (40%–45% down the viewport), which reads naturally while scrolling.
     var spy = new IntersectionObserver(function (entries) {
+      if (Date.now() < holdUntil) return;
       entries.forEach(function (entry) {
         if (entry.isIntersecting) setCurrent(entry.target.getAttribute('data-nav-key'));
       });
@@ -67,12 +74,16 @@
     }).observe(hero);
   }
 
-  /* Arriving from another page (e.g. host.html -> index.html#about): the
-     browser jumps before --nav-offset exists, so re-align once it does. */
+  /* Arriving from another page (e.g. host.html -> index.html#about or
+     #search): the browser jumps before --nav-offset exists, so re-align once
+     it does. Targets are sections, or anything a nav link points at. */
   function alignInitialHash() {
-    var target = location.hash.length > 1 ? document.getElementById(location.hash.slice(1)) : null;
-    if (!target || !target.hasAttribute('data-nav-key')) return;
-    setCurrent(target.getAttribute('data-nav-key'));
+    var id = location.hash.length > 1 ? location.hash.slice(1) : '';
+    var target = id && /^[A-Za-z][\w-]*$/.test(id) ? document.getElementById(id) : null;
+    var navLink = target ? dom.one('#links a[data-nav][href="#' + id + '"]') : null;
+    if (!target || !(target.hasAttribute('data-nav-key') || navLink)) return;
+    setCurrent(target.getAttribute('data-nav-key') || navLink.getAttribute('data-nav'));
+    if (!target.hasAttribute('data-nav-key')) holdUntil = Date.now() + 1500;
     requestAnimationFrame(function () {
       target.scrollIntoView({ block: 'start', behavior: 'instant' });
       target.focus({ preventScroll: true });
