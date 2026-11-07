@@ -532,6 +532,9 @@
       p.hidden = !on;
     });
     if (focus) $('tab-' + name).focus();
+    // on phones the tab row scrolls sideways: keep the selected tab in view
+    var bar = $('tab-' + name).parentNode, tb = $('tab-' + name);
+    if (bar.scrollWidth > bar.clientWidth) bar.scrollLeft = tb.offsetLeft - (bar.clientWidth - tb.offsetWidth) / 2;
     history.replaceState(null, '', location.pathname + '#' + name);
   }
   function bindTabs() {

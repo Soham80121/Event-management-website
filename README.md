@@ -24,9 +24,9 @@ Use it for anything involving accounts. Opening `index.html` directly still work
 |---|---|
 | `my-registrations.html` | My Registrations: the signed-in user's bookings (Upcoming / Past), details with the QR code, print, cancel |
 | `signup.html` · `login.html` · `forgot-password.html` | Create an account, sign in (with remember-me), and a password-reset screen (prototype) |
-| `profile.html` | Profile: details, photo, password, role, links to dashboards, *Become an Event Host* |
-| `host-dashboard.html` | Event Host dashboard: create, edit and track your events; see their registrations |
-| `admin.html` | Admin dashboard: users and roles, host applications, event approvals |
+| `profile.html` | My Profile: details, photo, role, links (My registrations, Host or Admin dashboard), *Become an Event Host* for Users |
+| `host-dashboard.html` | Event Host dashboard: create, edit and track **your own** events; see their registrations (admins are sent to the Admin dashboard) |
+| `admin.html` | Admin dashboard, the central management interface: overview, host applications, all events (incl. create), users, registrations |
 | `index.html` | The scrolling home page: a full-screen hero, Explore events (curved poster carousel), Upcoming events (the full programme, searchable, filterable and sortable), Event categories, then About, Contact and the footer (placeholders until later phases) |
 | `host.html` | The "Host an Event" page, which explains how to become a host |
 | `event.html?id=<event id>` | Redirect only: old links open the event-details panel (`index.html#event=<id>`) |
@@ -183,14 +183,22 @@ There is a single event-details experience: the panel that grows out of the post
   - Wrong credentials get one generic message, so it never reveals whether the email exists. Suspended accounts are told so.
   - `?next=` returns you to where you were. It accepts only same-site page names.
 - **Sign out.** From the profile or *My registrations*.
-- **Forgot password** (`forgot-password.html`). A prototype screen: no email is sent, and the reply is identical whether or not the account exists.
-- **Profile** (`profile.html`). Shows user ID, name, email, phone, *Member since*, role badge and an optional photo (resized in the browser to 160 px JPEG). You can:
+- **Forgot password** (`forgot-password.html`, linked from the sign-in page). This is the only password-management screen; the account page has no Change Password form. It's a prototype: no email is sent, the reply is the same whether or not the account exists, and no password is actually reset until the Phase 11 backend can send verified reset emails.
+- **Account page** (`profile.html`). Shows user ID, name, email, phone, *Member since*, role badge and an optional photo (resized in the browser to 160 px JPEG). You can:
   - edit your name, email and phone (emails stay unique);
-  - change your password (current password required; the new one must differ);
   - open My registrations;
-  - open the Host or Admin dashboard when your role allows;
-  - apply to become an Event Host.
-- **Nav.** An account entry sits in the gap between the link row and *Host an Event*: a person icon when signed out, your initial or photo when signed in. Nothing else in the nav moves. On tablet and phone it becomes a row in the menu.
+  - Event Hosts: open the Host dashboard; Admins: open the Admin dashboard (no Host dashboard card for admins);
+  - Users: apply to become an Event Host (admins never see the application).
+- **Nav: role-based navigation** (`js/account-nav.js`). The *Host an Event* label never changes (the hero nav is a fitted design); its destination does:
+
+  | Role | *Host an Event* goes to | Account entry goes to |
+  |---|---|---|
+  | Visitor | Sign in (then `host.html`) | Sign in |
+  | User | *Become an Event Host* on the profile | My Profile |
+  | Event Host | Host dashboard → Create event form | My Profile |
+  | Admin | Admin dashboard → Create event form | Admin dashboard |
+
+  `host.html` explains hosting to visitors and routes signed-in people the same way. The account entry sits in the gap between the link row and *Host an Event*: a person icon when signed out, your initial or photo when signed in. On tablet and phone it becomes a row in the menu.
 - **Registering for events now needs an account.** Visitors see *Sign in to register* / *Create an account*. The form is prefilled from the profile and the booking is saved with your `userId`.
   - If someone types an email that another account has already booked for that event, they get a plain error and never see that booking.
   - The "You're registered" note and My Registrations show only your own bookings.
@@ -260,17 +268,26 @@ Setting `$env:ADMIN_EMAIL` is optional once `.env` exists. The environment varia
 5. The profile shows the latest status (Pending, Approved or Rejected) and the application history. Processed applications stay listed for admins.
 
 ### Host dashboard
-- **Your events.** Stats show events, pending, live and registrations. Each event card shows its status: Pending, Approved, Rejected (with the admin's note) or Unpublished.
-- **Creating an event.** Fields: title, category, date (today or later), time, venue, city, whole-dollar price (0 means free), a description of 20–400 characters, and a cover chosen from the catalogue's photography. New events are **Pending** and private.
+- **Your events.** Stats show events, pending, live and registrations. Each event card shows its status: Pending, Published, Rejected (with the admin's note), Unpublished or Cancelled.
+- **Creating an event.** Fields: title, category, date (today or later), time, venue, city, whole-dollar price (0 means free), a description of 20–400 characters, and a cover chosen from the catalogue's photography. New events are **Pending** and private. The form is one shared component (`js/event-form.js`), also used by the Admin dashboard.
 - **Editing and deleting.** Only while an event is Pending or Rejected; an edit resubmits it. Approved events are locked until an admin unpublishes them.
 - **Registrations.** You can see who registered for **your** events only. Another host's events, edits, deletes and attendee lists are refused.
 - **Going public.** An approved event joins the public programme through `Eventora.events.addSource()`: the homepage carousel, Upcoming, categories and the event-details panel (`index.html#event=h-…`). Host event IDs start with `h-` and never collide with catalogue IDs; the built-in catalogue is unchanged.
 
-### Admin dashboard
-- **Users.** Name, email, role, status, join date and booking count. Actions: *Make host* / *Revoke host*, *Suspend* / *Reactivate*. You can't suspend yourself. The Admin row is marked *Server-configured*.
-- **Host applications.** A pending queue with the full details, Approve / Reject (with a note), and a processed history.
-- **Events.** Every host-submitted event with its host, status and bookings. Actions: Approve, Reject, Unpublish, Publish. Built-in catalogue events are listed read-only with their booking counts.
-- **Confirmations.** Destructive actions need a second click within 4 seconds.
+### Admin dashboard (central management interface)
+Admins never apply to host: they create and manage every event here. Sections are tabs (arrow keys, Home and End work; on tablet and phone the tab row scrolls sideways).
+
+- **A. Overview.** Live counts from the stored data: total users, total events, pending host applications, pending event approvals, published events and total registrations. Each card opens the matching section and filter. Below are the two review queues.
+- **B. Host applications.** All applications with applicant, organization, date and status, filtered by Pending, Approved, Rejected or All. *Review* opens the full application. Approve makes the user an Event Host; Reject keeps them a User, with an optional note. A decided application can't be decided again, and every record is kept.
+- **C. Events.** Every event: the built-in catalogue, host events and admin events (tagged), filtered by Pending, Published, Unpublished, Rejected, Cancelled or All.
+  - *Review* opens a dialog with the poster, all fields, host, bookings and ID.
+  - *Edit* opens the shared form; admins may edit any event, including built-in ones.
+  - Status actions: Approve, Reject, Publish, Unpublish, Cancel event (hidden from the public, registrations kept) and Remove (host or admin events only; the record is deleted, registrations are kept).
+  - **Create event** (header button, or *Host an Event* in the nav) creates an event directly, published immediately or saved as Pending.
+  - Built-in events can't be rejected or removed, only edited, unpublished or cancelled. Their edits and statuses are stored as overrides (`eventora:catalogue-overrides`), so the frozen catalogue and its IDs never change.
+- **D. Users.** User ID, name, email, role, status, registration date and bookings. *View* shows contact details, registrations, host applications and hosted events. Actions: *Make host* / *Revoke host*, *Suspend* / *Reactivate*. The initial Admin account is **protected**: no actions in the table, and the data layer refuses to suspend it, demote it or give it the Host role.
+- **E. Registrations.** Every booking with registration ID, attendee, event, status (Confirmed, Completed or Cancelled) and booked date, filtered by event and status. *QR code* shows the check-in QR (VOID when cancelled) and the linked account.
+- **Confirmations.** Destructive actions (reject, unpublish, cancel, remove, revoke, suspend) need a second click within 4 seconds.
 
 ### Data (localStorage, all versioned)
 ```
@@ -280,7 +297,9 @@ eventora:users              { version, users: [{ id: 'usr_…', name, email, pho
 eventora:auth               { version, userId, createdAt, expiresAt }   (localStorage or sessionStorage)
 eventora:host-applications  { version, applications: [{ id: 'APP-…', userId, name, email, phone,
                               organization?, reason, info?, status, createdAt, decidedAt?, decidedBy?, note? }] }
-eventora:hosted-events      { version, events: [{ …catalogue fields, id: 'h-…', hostId, status, … }] }
+eventora:hosted-events      { version, events: [{ …catalogue fields, id: 'h-…', hostId, createdBy?: 'admin',
+                              status: 'pending'|'approved'|'rejected'|'unpublished'|'cancelled', … }] }
+eventora:catalogue-overrides { version, overrides: { <built-in id>: { status?, fields?, note?, updatedAt } } }
 eventora:registrations      records gained userId (Phase 6/7 IDs and event IDs unchanged)
 ```
 
@@ -364,10 +383,11 @@ js/                     each file attaches to the single `window.Eventora` names
   auth-pages.js         sign up / sign in / forgot password pages
   profile.js            profile page
   host-dashboard.js     host dashboard
-  admin.js              admin dashboard
+  admin.js              Admin dashboard: overview, applications, events, users, registrations
   my-registrations.js   My Registrations page: tabs, cards, details dialog, print, cancel
   registration-form.js  Register CTA, form validation, submission, confirmation (attaches to the panel)
   qr.js                 dependency-free QR code encoder (SVG output)
+  event-form.js         shared create/edit event form (host + admin dashboards)
   event-filters.js      live search, category filter, sorting, category cards
   explore-carousel.js   curved Explore carousel + expanding details panel
   fitter.js             type fitter (cap height, ink width, baseline)

@@ -460,3 +460,14 @@ td.cell-actions > * { margin: 2px 4px 2px 0; }
   .dash-toolbar__count { margin-left: 0; }
   .dash-select { min-width: 0; flex: 1 1 100%; }
 }
+
+/* Tablet + phone: dashboard tabs stay on one row and scroll sideways (like the category chips) */
+@media (max-width: 900px) {
+  .dash-tabs {
+    flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
+    border-radius: var(--radius-pill);
+    max-width: 100%;
+  }
+  .dash-tabs::-webkit-scrollbar { display: none; }
+  .dash-tab { flex: 0 0 auto; }
+}
