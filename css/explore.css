@@ -229,7 +229,6 @@ html.is-locked { overflow: hidden; scrollbar-gutter: stable; }   /* no layout sh
 .explore-detail__cta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-4); }
 .explore-detail__cta .register-cta { margin: 0; }
 .explore-detail__cta .register-cta__btn { min-width: 220px; }
-.explore-detail__cta .demo-note[hidden] { display: none; }
 .explore-detail__register { width: 100%; }
 .explore-detail__register:empty { display: none; }
 /* the Phase 6 form/confirmation card, sitting inside the panel's info column */

@@ -54,14 +54,6 @@
 .auth-done:focus { outline: none; }
 .auth-done__text { color: var(--c-ink-90); }
 
-.proto-note {
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
-  border: 1px dashed rgba(255, 196, 107, .45);
-  background: rgba(255, 196, 107, .06);
-  color: var(--c-ink-90); font-size: var(--fs-small); line-height: var(--lh-snug);
-}
-.proto-note strong { color: var(--c-status-limited); }
 
 /* ---------- Form bits ---------- */
 .field__control { position: relative; }
@@ -223,13 +215,6 @@ input[type="date"].field__input, input[type="time"].field__input { color-scheme:
 .host-form { margin-top: var(--space-5); padding-top: var(--space-5); border-top: 1px solid var(--c-line-10); animation: acct-rise .4s var(--ease-expo) both; }
 .host-form__grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); }
 
-.proto-panel {
-  margin-top: var(--space-5); padding: var(--space-5);
-  border-radius: var(--radius-lg); border: 1px dashed rgba(255, 196, 107, .4); background: rgba(255, 196, 107, .04);
-  display: grid; gap: var(--space-2); color: var(--c-ink-90); font-size: var(--fs-small); line-height: var(--lh-body);
-}
-.proto-panel__title { font-size: var(--fs-body); font-weight: var(--fw-bold); color: var(--c-status-limited); }
-.proto-panel__check { color: var(--c-muted); }
 
 /* ---------- Dashboards ---------- */
 .dash-head { display: grid; gap: var(--space-3); margin-bottom: var(--space-6); max-width: 720px; }

@@ -19,17 +19,6 @@
 .section-head .heading-2 { margin-top: var(--space-3); }
 .section-head .lead { margin-top: var(--space-3); }
 
-/* Visible "this is sample data" label (required while content is demo data) */
-.demo-note {
-  display: inline-flex; align-items: center; gap: var(--space-2);
-  padding: 6px 12px; border-radius: var(--radius-pill);
-  border: 1px dashed rgba(142, 244, 255, .28); background: rgba(53, 216, 255, .03);
-  font-size: 12px; color: var(--c-muted); white-space: nowrap;
-}
-.demo-note::before {
-  content: ""; width: 6px; height: 6px; border-radius: var(--radius-full);
-  background: var(--c-cyan); box-shadow: 0 0 8px rgba(53, 216, 255, .7);
-}
 
 /* Lists are layout only; role="list" in the markup keeps list semantics. */
 .event-grid, .event-list { list-style: none; }
@@ -317,7 +306,6 @@
   .event-card--row .date-tile__day { font-size: 26px; }
   .event-card--row .event-card__desc { -webkit-line-clamp: 3; line-clamp: 3; }
   .event-card--row .event-card__reveal .event-card__line { font-size: 12.5px; }
-  .section-head .demo-note { order: -1; }
 }
 
 /* =========================================================================
@@ -374,7 +362,6 @@
 }
 .event-detail__facts dd { font-size: var(--fs-body); color: var(--c-ink); }
 .event-detail__desc { max-width: 56ch; }
-.event-detail__info .placeholder-note { margin-top: 0; }
 
 .event-detail__missing { display: grid; gap: var(--space-4); justify-items: start; max-width: 640px; padding-block: var(--space-12); }
 

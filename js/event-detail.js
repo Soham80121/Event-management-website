@@ -78,7 +78,6 @@
     img.srcset = cat.imageUrl(e, 600, 900) + ' 600w, ' + cat.imageUrl(e, 1000, 1500) + ' 1000w';
     img.src = cat.imageUrl(e, 600, 900);
     $('[data-x="tag"]').hidden = !e.featured;
-    $('[data-x="demo"]').hidden = !cat.isCatalogue(e.id);
 
     // registration lives inside the panel (Register now, form, confirmation)
     if (Eventora.registrationForm && Eventora.registrationForm.attach) {

@@ -51,15 +51,6 @@
     // was "Open host dashboard", which the navbar already provides
     $('host-application').hidden = admin || u.role === 'host';
 
-    var check = auth.adminCheckStatus();
-    $('pfAdminCheck').textContent = {
-      ok: u.role === 'admin'
-        ? 'Admin role confirmed by the server for this session (ADMIN_EMAIL account, password checked on sign-in).'
-        : 'Your account and role are confirmed by the server.',
-      'not-configured': 'The server has no admin account yet (run python tools/init_admin.py), so no account is Admin.',
-      unavailable: 'The EvAtlas server couldn’t be reached, so your role couldn’t be confirmed and Admin features are off.',
-      checking: 'Checking with the server…'
-    }[check] || '';
   }
 
   /* ---------- profile form ---------- */
