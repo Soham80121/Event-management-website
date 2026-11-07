@@ -640,8 +640,8 @@
     init: function () {
       if (!$('usersBody') || !Eventora.auth || !Eventora.hosting) return;
       auth = Eventora.auth; hosting = Eventora.hosting; cat = Eventora.events; F = Eventora.forms; store = Eventora.registrations;
-      // old links: the create form now lives on the admin's account page
-      if (location.hash === '#create') { location.replace('profile.html#create-event'); return; }
+      // old links: the admin's event form lives on the events dashboard
+      if (location.hash === '#create') { location.replace('host-dashboard.html#create'); return; }
       if (!auth.current()) { deny(null); return; }
       auth.ready().then(function (u) {
         if (!u || !auth.can('manageUsers')) { deny(u); return; }

@@ -178,7 +178,7 @@
       '<fieldset class="cover-field"><legend class="field__label">Cover image</legend>' +
         '<div class="cover-gallery" data-cover-gallery></div>' +
         '<p class="field__error" id="' + p + 'CoverError" data-cover-error hidden></p></fieldset>' +
-      (opts.publish ? '<label class="check" data-publish-row><input type="checkbox" name="publish" checked>' +
+      (opts.publish ? '<label class="check" data-publish-row><input type="checkbox" name="publish">' +
         '<span>Publish immediately (otherwise it waits as Pending)</span></label>' : '') +
       '<div class="cluster">' +
         '<button class="btn btn--md" type="submit" data-submit><span>' + (opts.create || 'Create event') + '</span></button>' +

@@ -24,8 +24,8 @@ Use it for anything involving accounts. Opening `index.html` directly still work
 |---|---|
 | `my-registrations.html` | My Registrations: the signed-in user's bookings (Upcoming / Past), details with the QR code, print, cancel |
 | `signup.html` · `login.html` · `forgot-password.html` | Create an account, sign in (with remember-me), and reset a forgotten password with a 6-digit email code |
-| `profile.html` | Account page. Users and hosts: details, photo, role, My registrations, Host dashboard link (hosts), *Become an Event Host* (users). Admins: the **Admin account** page, the same details plus *Create an event* |
-| `host-dashboard.html` | Event Host dashboard: create, edit and track **your own** events; see their registrations (admins are sent to the Admin panel) |
+| `profile.html` | Account page. Users and hosts: details, photo, role, My registrations, Host dashboard link (hosts), *Become an Event Host* (users). Admins: the **Admin account** page (profile only) |
+| `host-dashboard.html` | Event Host dashboard: create, edit and track **your own** events; see their registrations. For the Admin it is the **Admin events** dashboard ("Host an Event" in the admin navbar) |
 | `admin.html` | Admin panel, the central management interface: overview, host applications, event approvals, all events, users, registrations |
 | `index.html` | The scrolling home page: a full-screen hero, Explore events (curved poster carousel), Upcoming events (the full programme, searchable, filterable and sortable), Event categories, then About, Contact and the footer (placeholders until later phases) |
 | `host.html` | The "Host an Event" page, which explains how to become a host |
@@ -190,7 +190,7 @@ There is a single event-details experience: the panel that grows out of the post
   - open My registrations;
   - Event Hosts: open the Host dashboard;
   - Users: apply to become an Event Host.
-- **Admin account page** (`profile.html` for admins, reached from the account icon). It keeps the profile parts (photo, name, email, **Admin** badge, member since, user ID, sign out, profile editing, My registrations) and adds **Create an event**: the shared event form with a *Publish immediately* option (otherwise the event is saved as Pending). It has no Host dashboard card, no host application, no Change Password form and no admin-dashboard card: the Admin panel is its own navbar item.
+- **Admin account page** (`profile.html` for admins, reached from the account icon). It keeps the profile parts (photo, name, email, **Admin** badge, member since, user ID, sign out, profile editing, My registrations) It has no event form, no Host dashboard card, no host application, no Change Password form and no admin-dashboard card: the Admin panel and the admin's events dashboard are their own navbar items.
 - **Nav: role-based navigation** (`js/account-nav.js`). The nav button's label and destination depend on the role; when the label changes, `js/layout.js` re-fits it in the hero's fitted nav (same type size as *Host an Event*):
 
   | Role | Nav button | Account icon goes to |
@@ -200,9 +200,9 @@ There is a single event-details experience: the panel that grows out of the post
   | Event Host | *Host Dashboard* → their own events | My Profile |
   | Admin | *Admin Panel* → `admin.html` | Admin account page |
 
-  Admins also get a **Host an Event** text link after *Contact*, which opens *Create an event* on their account page (`profile.html#create-event`, focused on the title). On desktop the five standard links keep their size and the pill grows by the extra link's width on both sides, staying centred (`--nav-extra`, set by `js/layout.js`); on tablet and phone it is one more menu row.
+  Admins also get a **Host an Event** text link after *Contact*, which opens the **Admin events** dashboard (`host-dashboard.html` in admin mode, see *Admin events dashboard* below). On desktop the five standard links keep their size and the pill grows by the extra link's width on both sides, staying centred (`--nav-extra`, set by `js/layout.js`); on tablet and phone it is one more menu row.
 
-  `host.html` explains hosting to visitors and routes signed-in people: users to the application, hosts to their Create event form, admins to *Create an event* on their account page (never to the host application). The account entry sits in the gap between the link row and *Host an Event*: a person icon when signed out, your initial or photo when signed in. On tablet and phone it becomes a row in the menu.
+  `host.html` explains hosting to visitors and routes signed-in people: users to the application, hosts to their dashboard, admins to their Admin events dashboard (never to the host application). The account entry sits in the gap between the link row and *Host an Event*: a person icon when signed out, your initial or photo when signed in. On tablet and phone it becomes a row in the menu.
 - **Registering for events now needs an account.** Visitors see *Sign in to register* / *Create an account*. The form is prefilled from the profile and the booking is saved with your `userId`.
   - If someone types an email that another account has already booked for that event, they get a plain error and never see that booking.
   - The "You're registered" note and My Registrations show only your own bookings.
@@ -282,7 +282,15 @@ Sign in at http://localhost:5500/login.html. The role badge reads **Admin**, the
 
 ### Host dashboard
 - **Your events.** Stats show events, pending, live and registrations. Each event card shows its status: Pending, Published, Rejected (with the admin's note), Unpublished or Cancelled.
-- **Creating an event.** Fields: title, category, date (today or later), time, venue, city, whole-dollar price (0 means free), a description of 20–400 characters, and a cover chosen from the catalogue's photography. New events are **Pending** and private. The form is one shared component (`js/event-form.js`): `render()` builds the fields and `create()` wires validation, cover picking, editing and submit. The host dashboard, the Admin account page (create) and the Admin panel (edit) all use it.
+- **Creating an event.** Fields: title, category, date (today or later), time, venue, city, whole-dollar price (0 means free), a description of 20–400 characters, and a cover chosen from the catalogue's photography. New events are **Pending** and private. The form is one shared component (`js/event-form.js`): `render()` builds the fields and `create()` wires validation, cover picking, editing and submit. The host dashboard (hosts and the admin's events) and the Admin panel (edit) use it.
+
+### Admin events dashboard
+*Host an Event* in the admin navbar opens `host-dashboard.html` in admin mode (the same page and code as the host dashboard, no separate page):
+- **Overview** of the events the admin created (`createdBy: 'admin'`, owned by the admin's user ID): totals, pending, live and registrations.
+- **My events** with status filters: All, Pending, Published, Rejected, Unpublished & cancelled. Each event shows its registrations (attendee list).
+- **Create event**: the shared form and validation. *Publish immediately* is **unticked by default**; unticked, the event is saved as Pending and also appears under *Admin panel → Event approvals*.
+- **Manage** with the existing admin permissions: Edit (status unchanged), Publish, Unpublish, Cancel event and Remove (two-click confirm for the last three); registrations and QR codes are kept.
+- Other hosts' events are reviewed in the Admin panel, not here. Old links (`profile.html#create-event`, `admin.html#create`) open this dashboard.
 - **Editing and deleting.** Only while an event is Pending or Rejected; an edit resubmits it. Approved events are locked until an admin unpublishes them.
 - **Registrations.** You can see who registered for **your** events only. Another host's events, edits, deletes and attendee lists are refused.
 - **Going public.** An approved event joins the public programme through `Eventora.events.addSource()`: the homepage carousel, Upcoming, categories and the event-details panel (`index.html#event=h-…`). Host event IDs start with `h-` and never collide with catalogue IDs; the built-in catalogue is unchanged.
@@ -347,7 +355,7 @@ my-registrations.html   My Registrations (your bookings, details, print, cancel)
 signup.html             create an account
 login.html              sign in (remember me)
 forgot-password.html    password reset: email → 6-digit code → new password → done
-profile.html            profile, role, Become an Event Host (admins: Create an event)
+profile.html            profile, role, Become an Event Host
 host-dashboard.html     Event Host dashboard
 admin.html              Admin panel
 .env.example            template for the git-ignored .env (ADMIN_EMAIL, RESEND_API_KEY, EMAIL_FROM)

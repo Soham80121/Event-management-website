@@ -21,6 +21,7 @@
   <link rel="stylesheet" href="css/events.css">
   <link rel="stylesheet" href="css/registration.css">
   <link rel="stylesheet" href="css/auth.css">
+  <link rel="stylesheet" href="css/filters.css">
   <link rel="stylesheet" href="css/my-registrations.css">
   <link rel="stylesheet" href="css/responsive.css">
 </head>
@@ -88,9 +89,9 @@
     <div class="container">
       <a class="back-link" href="profile.html"><span aria-hidden="true">←</span> Your profile</a>
       <header class="dash-head">
-        <p class="eyebrow">Event Host</p>
-        <h1 class="heading-1">Host dashboard</h1>
-        <p class="lead">Hi <span id="hdWho">there</span>. Create events, follow their approval and see who registered.</p>
+        <p class="eyebrow" id="hdEyebrow">Event Host</p>
+        <h1 class="heading-1" id="hdHeading">Host dashboard</h1>
+        <p class="lead">Hi <span id="hdWho">there</span>. <span id="hdLead">Create events, follow their approval and see who registered.</span></p>
       </header>
 
       <section class="panel dash-denied" id="dashDenied" hidden>
@@ -110,12 +111,13 @@
 
         <section class="dash-section" aria-labelledby="hdListTitle">
           <h2 class="heading-3" id="hdListTitle">My hosted events</h2>
+          <div class="chip-row dash-filters" role="group" aria-label="Filter events by status" id="hdFilters"></div>
           <ul class="host-events" id="hdList" role="list"></ul>
         </section>
 
         <section class="panel dash-section" id="create" aria-labelledby="formTitle">
           <h2 class="heading-3" id="formTitle" data-form-title>Create a new event</h2>
-          <p class="field__hint">New and edited events stay private until an admin approves them.</p>
+          <p class="field__hint" id="hdFormHint">New and edited events stay private until an admin approves them.</p>
           <form id="eventForm"><!-- fields: js/event-form.js render() --></form>
         </section>
       </div>
