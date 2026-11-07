@@ -51,15 +51,18 @@
   function describe(r) {
     var ev = cat.byId(r.eventId);
     var past = !!ev && dayKey(cat.startOf(ev)) < dayKey(clock());
-    var state = r.status === 'cancelled' ? 'cancelled' : (past ? 'completed' : 'confirmed');
+    // the server says when the event itself was cancelled: the ticket is void then
+    var eventCancelled = r.eventStatus === 'cancelled';
+    var state = r.status === 'cancelled' || eventCancelled ? 'cancelled' : (past ? 'completed' : 'confirmed');
     return {
       r: r,
       ev: ev,
       past: past,
       state: state,
-      label: { confirmed: 'Confirmed', cancelled: 'Cancelled', completed: 'Completed' }[state],
+      eventCancelled: eventCancelled,
+      label: eventCancelled ? 'Event cancelled' : { confirmed: 'Confirmed', cancelled: 'Cancelled', completed: 'Completed' }[state],
       canCancel: state === 'confirmed',
-      title: ev ? ev.title : 'Event no longer listed',
+      title: ev ? ev.title : (r.eventTitle || 'Event no longer listed'),
       when: ev ? cat.dateLabel(ev, true) + ' · ' + cat.timeLabel(ev) : 'Date unavailable',
       where: ev ? ev.venue.name + ', ' + ev.venue.city : 'Event ID: ' + r.eventId
     };
@@ -227,7 +230,8 @@
     try { qr.appendChild(Eventora.qr.svg(r.id, { label: 'QR code for registration ' + r.id, dark: '#05070b' })); qr.hidden = false; }
     catch (err) { qr.hidden = true; }
     qr.classList.toggle('is-void', x.state === 'cancelled');
-    m('hint').textContent = x.state === 'cancelled' ? 'Cancelled — this code is no longer valid for entry.'
+    m('hint').textContent = x.eventCancelled ? 'This event was cancelled — this code is no longer valid for entry.'
+      : x.state === 'cancelled' ? 'Cancelled — this code is no longer valid for entry.'
       : x.state === 'completed' ? 'This event has taken place.' : 'Show this QR code at check-in.';
     m('name').textContent = r.name;
     m('email').textContent = r.email;

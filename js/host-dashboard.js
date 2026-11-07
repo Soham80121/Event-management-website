@@ -3,10 +3,13 @@
    Everyone sees and manages only their own events: overview stats, status
    filters, registrations per event and the create form.
    Event Host: events are saved as Pending; only an admin approval publishes
-     them. Edit / delete while Pending or Rejected (an edit resubmits it).
+     them. Edit / Delete while Pending or Rejected (an edit resubmits it).
    Admin ("Host an Event" in the admin navbar): the same page, but the
      admin's events are published straight away (the server does that), so
-     they never enter Event approvals. Edit (status kept) and Remove.
+     they never enter Event approvals. Edit (status kept) and Delete.
+     Unpublish / Cancel / Publish stay in Admin panel → All events.
+   Delete is permanent (the event and its registrations) and always goes
+   through the shared confirmation dialog (js/confirm.js).
    ========================================================================= */
 (function (Eventora) {
   'use strict';
@@ -31,21 +34,6 @@
     return s;
   }
 
-  /** Two-click confirm for destructive actions. */
-  function armed(label, confirmLabel, cls, run) {
-    var b = el('button', cls, label);
-    b.type = 'button';
-    b.addEventListener('click', function () {
-      if (b.getAttribute('data-armed') !== 'true') {
-        b.setAttribute('data-armed', 'true');
-        b.textContent = confirmLabel;
-        setTimeout(function () { if (document.contains(b)) { b.removeAttribute('data-armed'); b.textContent = label; } }, 4000);
-        return;
-      }
-      run();
-    });
-    return b;
-  }
   function button(label, cls, run) {
     var b = el('button', cls, label);
     b.type = 'button';
@@ -129,7 +117,7 @@
         pending: 'Waiting for admin approval. Not public yet.',
         approved: 'Live on EVENTORA. Approved events are locked; ask an admin for changes.',
         rejected: 'Not approved. Edit it to resubmit.',
-        unpublished: 'Taken down by an admin. Not public.',
+        unpublished: 'Unpublished by an admin. Not public for now; it can be published again.',
         cancelled: 'Cancelled by an admin. Not public; registrations are kept.'
       }[e.status];
       body.appendChild(el('p', 'host-event__help', help));
@@ -148,20 +136,24 @@
       pub.href = cat.detailUrl(e);
       actions.appendChild(pub);
     }
-    var t = '“' + e.title + '”';
-    if (isAdmin) {
-      // the admin's own events: edit any time (status unchanged), or remove
+    // admin: edit any time (status unchanged) and delete; host: only while Pending or Rejected
+    if (isAdmin || e.status === 'pending' || e.status === 'rejected') {
       actions.appendChild(button('Edit', 'btn-ghost', function () { formApi.edit(e); }));
-      actions.appendChild(armed('Remove', 'Confirm remove', 'btn-ghost btn-danger', function () {
-        done(hosting.admin.removeEvent(e.id), t + ' was removed. Its registrations are kept.');
-      }));
-    } else if (e.status === 'pending' || e.status === 'rejected') {
-      actions.appendChild(button('Edit', 'btn-ghost', function () { formApi.edit(e); }));
-      actions.appendChild(armed('Delete', 'Confirm delete', 'btn-ghost btn-danger', function () {
-        done(hosting.deleteEvent(e.id), t + ' was deleted.');
-      }));
+      actions.appendChild(button('Delete', 'btn-ghost btn-danger', function () { confirmDelete(e, n); }));
     }
     return actions;
+  }
+
+  function confirmDelete(e, n) {
+    var detail = n ? (n === 1 ? '1 registration' : n + ' registrations') + ' will be deleted with it.' : '';
+    Eventora.confirmAction('delete', { title: e.title, detail: detail }, function () {
+      return isAdmin ? hosting.admin.deleteEvent(e.id) : hosting.deleteEvent(e.id);
+    }).then(function (res) {
+      if (!res) return;                      // went back
+      var k = res.deletedRegistrations || 0;
+      done(res, '“' + e.title + '” was permanently deleted' +
+        (k ? ', with ' + (k === 1 ? '1 registration' : k + ' registrations') + '.' : '.'));
+    });
   }
 
   /* ---------- registrations dialog ---------- */

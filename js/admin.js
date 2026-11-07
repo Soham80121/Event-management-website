@@ -1,15 +1,17 @@
 /* =========================================================================
    ADMIN PANEL — admin.html, the central administrative interface, reached
-   from the "Admin Panel" item in the navbar. It is separate from the Admin's
-   account page (profile.html), which is where admins create events.
+   from the "Admin Panel" item in the navbar. Admins create their own events
+   in "Host an Event" (host-dashboard.html, admin mode).
 
    A. Overview         live counts from the real data + the two review queues
    B. Host apps        all applications, filter by status, review, approve/reject
-   C. Event approvals  submitted events with submission + host details,
-                       approve / reject
+   C. Event approvals  hosts' submitted events with submission + host details,
+                       approve (= publish) / reject with a required reason
    D. All events       every event (built-in + host + admin-created), filter by
                        status, review, edit (shared js/event-form.js),
-                       publish/unpublish, cancel, remove
+                       publish / unpublish / cancel / delete. Event actions go
+                       through the shared confirmation dialog (js/confirm.js);
+                       the server decides which status changes are allowed.
    E. Users            all accounts, details, host role, suspend; the initial
                        Admin account is protected
    F. Registrations    every booking, filter by event and status, QR check-in
@@ -333,18 +335,21 @@
       body.appendChild(cardAlert);
       var actions = el('div', 'cluster');
       var ok = button('', 'btn btn--md', function () {
-        done(hosting.admin.setEventStatus(row.id, 'approved', note.value), '“' + e.title + '” is approved and now published.');
+        confirmed('approve', row, function () { return hosting.admin.setEventStatus(row.id, 'approved', note.value); },
+          'is approved and now published.');
       });
       ok.appendChild(el('span', '', 'Approve'));
       actions.appendChild(ok);
       if (row.source !== 'catalogue') {
-        actions.appendChild(armed('Reject', 'Confirm reject', 'btn-ghost btn-danger', function () {
+        actions.appendChild(button('Reject', 'btn-ghost btn-danger', function () {
           if (note.value.trim().length < 5) {
             F.alert(cardAlert, 'error', 'Give the host a reason for the rejection (at least 5 characters).');
             note.focus();
             return;
           }
-          done(hosting.admin.setEventStatus(row.id, 'rejected', note.value), '“' + e.title + '” was rejected.');
+          cardAlert.hidden = true;
+          confirmed('reject', row, function () { return hosting.admin.setEventStatus(row.id, 'rejected', note.value); },
+            'was rejected. The host can see your reason.', 'Reason: “' + note.value.trim() + '”');
         }));
       }
       actions.appendChild(button('Edit details', 'btn-ghost', function () { openForm(row); }));
@@ -355,33 +360,58 @@
   }
 
   /** Status buttons for one event (used in the table and the review dialog). */
+  /** Run an event action through the shared confirmation dialog (js/confirm.js). */
+  function confirmed(kind, row, action, okMsg, detail) {
+    return Eventora.confirmAction(kind, { title: row.event.title, detail: detail }, action).then(function (res) {
+      if (res) done(res, '“' + row.event.title + '” ' + okMsg);
+    });
+  }
+
+  /**
+   * Status buttons for one event (All events table and the review dialog).
+   * Only what the server allows for the current status (tools/eventdata.py
+   * TRANSITIONS) is shown:
+   *   Pending (host)     Review in Event approvals (approve / reject happen there)
+   *   Published          Unpublish · Cancel
+   *   Unpublished        Publish · Cancel
+   *   Rejected (host)    nothing: the host edits and resubmits
+   *   Cancelled          nothing: final
+   *   Admin's own event still Pending / Rejected (older data): Publish
+   *   Every non-built-in event: Delete (permanent, with its registrations)
+   */
   function eventActions(row, note) {
-    var title = row.event.title, out = [];
+    var out = [];
     var n = function () { return note ? note.value : ''; };
-    var set = function (status, msg) { return function () { done(hosting.admin.setEventStatus(row.id, status, n()), '“' + title + '” ' + msg); }; };
-    // Approving and rejecting happen only in Event approvals (one review
-    // queue, same records): All Events manages events that were already decided.
-    if (row.status === 'pending' && row.source === 'admin') {
-      // an older admin event saved before admin events were published directly
-      out.push(button('Publish', 'btn-ghost btn-sm btn-ok', set('approved', 'is published.')));
+    var set = function (kind, status, msg, cls, label) {
+      return button(label, 'btn-ghost btn-sm ' + cls, function () {
+        confirmed(kind, row, function () { return hosting.admin.setEventStatus(row.id, status, n()); }, msg);
+      });
+    };
+    var ownOld = row.source === 'admin' && (row.status === 'pending' || row.status === 'rejected');
+    if (ownOld) {
+      out.push(set('publish', 'approved', 'is published.', 'btn-ok', 'Publish'));
     } else if (row.status === 'pending') {
       out.push(button('Review in Event approvals', 'btn-ghost btn-sm btn-ok', function () { openApproval(row.id); }));
     } else if (row.status === 'approved') {
-      out.push(armed('Unpublish', 'Confirm unpublish', 'btn-ghost btn-sm', set('unpublished', 'is no longer public.')));
-      out.push(armed('Cancel event', 'Confirm cancel', 'btn-ghost btn-sm btn-danger', set('cancelled', 'is cancelled. Its registrations are kept.')));
-    } else if (row.status === 'unpublished' || row.status === 'cancelled') {
-      out.push(button('Publish again', 'btn-ghost btn-sm btn-ok', set('approved', 'is published again.')));
-      if (row.status !== 'cancelled') out.push(armed('Cancel event', 'Confirm cancel', 'btn-ghost btn-sm btn-danger', set('cancelled', 'is cancelled. Its registrations are kept.')));
+      out.push(set('unpublish', 'unpublished', 'is no longer public. You can publish it again later.', '', 'Unpublish'));
+      out.push(set('cancel', 'cancelled', 'is cancelled. Its registrations and QR tickets are kept.', 'btn-danger', 'Cancel event'));
+    } else if (row.status === 'unpublished') {
+      out.push(set('publish', 'approved', 'is published again.', 'btn-ok', 'Publish'));
+      out.push(set('cancel', 'cancelled', 'is cancelled. Its registrations and QR tickets are kept.', 'btn-danger', 'Cancel event'));
     }
-    // rejected: the host edits and resubmits it, which brings it back to Event approvals
     if (row.source !== 'catalogue') {
-      out.push(armed('Remove', 'Confirm remove', 'btn-ghost btn-sm btn-danger', function () {
-        if (formApi && formApi.editing() === row.id) formApi.cancel();
-        done(hosting.admin.removeEvent(row.id), '“' + title + '” was removed. Its registrations are kept.');
+      out.push(button('Delete', 'btn-ghost btn-sm btn-danger', function () {
+        var k = regCount(row.id);
+        confirmed('delete', row, function () {
+          if (formApi && formApi.editing() === row.id) formApi.cancel();
+          return hosting.admin.deleteEvent(row.id);
+        }, 'was permanently deleted.', k ? (k === 1 ? '1 registration' : k + ' registrations') + ' will be deleted with it.' : '');
       }));
     }
     return out;
   }
+  /** Every registration for an event, cancelled ones too (all are deleted with it). */
+  function regCount(id) { return hosting.admin.registrations().filter(function (r) { return r.eventId === id; }).length; }
 
   /** Open the Event approvals queue at this event's card. */
   function openApproval(id) {

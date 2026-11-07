@@ -152,7 +152,8 @@
   function put(rec) {
     var at = -1;
     cache.forEach(function (r, i) { if (r.id === rec.id) at = i; });
-    if (at === -1) cache.push(rec); else cache[at] = rec;
+    // merge: the attendee's own list also carries eventStatus / eventTitle
+    if (at === -1) cache.push(rec); else cache[at] = Object.assign({}, cache[at], rec);
   }
   function serverDown() { return (auth() && auth().SERVER_DOWN) || 'The EVENTORA server can’t be reached.'; }
 

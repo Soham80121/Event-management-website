@@ -481,16 +481,13 @@ class EventSubmissionTests(unittest.TestCase):
         self.assertEqual(e.post("/api/me/events/update", {"token": self.host_tok, "id": ev["id"], "event": self.fields()})[0], 409)
         self.assertEqual(e.post("/api/me/events/delete", {"token": self.host_tok, "id": ev["id"]})[0], 409)
 
-    def test_admin_edit_and_remove_keep_registrations(self):
+    def test_admin_edit_keeps_status_and_remove_endpoint_is_gone(self):
         e = self.env
         ev = self.submit(self.host_tok)[1]["event"]
-        e.post("/api/admin/import", {"token": self.admin_tok, "data": {"registrations": [reg("EVR-AAAA-BBBB", ev["id"], "x@example.test")]}})
         status, body = e.post("/api/admin/events/update", {"token": self.admin_tok, "id": ev["id"], "event": self.fields(title="Blue Room Live (renamed)")})
         self.assertEqual((status, body["event"]["title"], body["event"]["status"]), (200, "Blue Room Live (renamed)", "pending"))
         self.assertEqual(e.post("/api/admin/events/update", {"token": self.host_tok, "id": ev["id"], "event": self.fields()})[0], 403)
-        self.assertEqual(e.post("/api/admin/events/remove", {"token": self.admin_tok, "id": ev["id"]})[0], 200)
-        regs = e.post("/api/admin/registrations", {"token": self.admin_tok})[1]["registrations"]
-        self.assertEqual([r["id"] for r in regs], ["EVR-AAAA-BBBB"])
+        self.assertEqual(e.post("/api/admin/events/remove", {"token": self.admin_tok, "id": ev["id"]})[0], 404)
 
     def test_carry_over_keeps_id_and_owner(self):
         e = self.env
@@ -628,6 +625,173 @@ class RegistrationTests(unittest.TestCase):
             tok = e2.login("grace@example.test", "Pass2026xx")[0]
             mine = e2.post("/api/me/registrations", {"token": tok})[1]["registrations"]
             self.assertEqual([(x["id"], x["status"]) for x in mine], [(r["id"], "confirmed")])
+        finally:
+            e2.close(remove=False)
+            shutil.rmtree(e.dir, ignore_errors=True)
+            self.env = type("Closed", (), {"close": lambda *a, **k: None})()
+
+
+class LifecycleTests(unittest.TestCase):
+    """Publish / Unpublish / Cancel / Reject / Delete. Same setup as
+    RegistrationTests: self.ev is a host event that is Published."""
+    BUILTIN = "neon-pulse-live"
+    setUp = RegistrationTests.setUp
+    tearDown = RegistrationTests.tearDown
+    book = RegistrationTests.book
+
+    def status(self, event_id, status, note="", tok=None):
+        return self.env.post("/api/admin/events/status", {"token": tok or self.admin_tok, "id": event_id,
+                                                          "status": status, "note": note})
+
+    def public_ids(self):
+        body = self.env.post("/api/events/public", {})[1]
+        hidden = {k for k, o in body["overrides"].items() if o.get("status") in ("unpublished", "cancelled")}
+        return {x["id"] for x in body["events"]}, hidden
+
+    def all_regs(self):
+        return self.env.post("/api/admin/registrations", {"token": self.admin_tok})[1]["registrations"]
+
+    def test_unpublish_hides_keeps_records_and_publish_again(self):
+        r = self.book(self.user_tok, self.ev)[1]["record"]
+        self.assertEqual(self.status(self.ev, "unpublished")[0], 200)
+        self.assertNotIn(self.ev, self.public_ids()[0])
+        self.assertEqual(self.book(self.user2_tok, self.ev, email="other@example.test")[0], 409)   # no new bookings
+        self.assertEqual([x["id"] for x in self.all_regs()], [r["id"]])                           # records kept
+        self.assertEqual(self.status(self.ev, "approved")[0], 200)                                # publish again
+        self.assertIn(self.ev, self.public_ids()[0])
+        self.assertEqual(self.book(self.user2_tok, self.ev, email="other@example.test")[0], 200)
+
+    def test_cancel_is_final_hides_and_keeps_registrations(self):
+        r = self.book(self.user_tok, self.ev)[1]["record"]
+        self.assertEqual(self.status(self.ev, "cancelled")[0], 200)
+        self.assertNotIn(self.ev, self.public_ids()[0])
+        self.assertEqual(self.book(self.user2_tok, self.ev, email="other@example.test")[0], 409)
+        kept = self.all_regs()
+        self.assertEqual([(x["id"], x["status"]) for x in kept], [(r["id"], "confirmed")])       # ID / QR kept
+        mine = self.env.post("/api/me/registrations", {"token": self.user_tok})[1]["registrations"]
+        self.assertEqual((mine[0]["eventStatus"], mine[0]["eventTitle"]), ("cancelled", "Blue Room Live"))  # ticket void
+        for target in ("approved", "unpublished", "rejected"):
+            status, body = self.status(self.ev, target, note="Trying to undo")
+            self.assertEqual(status, 409, target)
+        self.assertIn("final", body["error"])
+
+    def test_only_allowed_transitions(self):
+        pending = self.env.post("/api/me/events/submit", {"token": self.host_tok,
+                                "event": EventSubmissionTests.fields(title="Waiting In Line")})[1]["event"]["id"]
+        self.assertEqual(self.status(pending, "unpublished")[0], 409)       # pending: approve or reject only
+        self.assertEqual(self.status(pending, "cancelled")[0], 409)
+        self.assertEqual(self.status(pending, "pending")[0], 400)
+        self.assertEqual(self.status(pending, "rejected", note="Needs a venue address")[0], 200)
+        self.assertEqual(self.status(pending, "approved")[0], 409)          # rejected -> only via resubmission
+        self.assertNotIn(pending, self.public_ids()[0])
+        self.assertEqual(self.status(self.ev, "approved")[0], 409)          # already published
+        self.assertEqual(self.status(self.ev, "rejected", note="Changed my mind")[0], 409)
+        self.assertEqual(self.status(self.ev, "bogus")[0], 400)
+
+    def test_reject_keeps_record_and_owner_sees_reason(self):
+        pending = self.env.post("/api/me/events/submit", {"token": self.host_tok,
+                                "event": EventSubmissionTests.fields(title="Second Try")})[1]["event"]["id"]
+        self.assertEqual(self.status(pending, "rejected")[0], 400)          # reason required
+        self.assertEqual(self.status(pending, "rejected", note="Please add the line-up")[0], 200)
+        mine = {x["id"]: x for x in self.env.post("/api/me/events", {"token": self.host_tok})[1]["events"]}
+        self.assertEqual((mine[pending]["status"], mine[pending]["note"]), ("rejected", "Please add the line-up"))
+        self.assertNotIn(pending, self.public_ids()[0])
+
+    def test_admin_own_old_events_can_only_be_published(self):
+        local = event("h-old-admin-night-ab12", self.admin_id, "rejected", createdBy="admin", note="old")
+        self.env.post("/api/admin/import", {"token": self.admin_tok, "data": {"events": [local]}})
+        self.assertEqual(self.status(local["id"], "cancelled")[0], 409)
+        self.assertEqual(self.status(local["id"], "approved")[0], 200)
+        self.assertIn(local["id"], self.public_ids()[0])
+
+    def test_builtin_status_lives_on_the_server(self):
+        self.assertEqual(self.status(self.BUILTIN, "unpublished")[0], 200)
+        self.assertIn(self.BUILTIN, self.public_ids()[1])                   # every visitor gets the override
+        self.assertEqual(self.book(self.user_tok, self.BUILTIN)[0], 409)
+        self.assertEqual(self.status(self.BUILTIN, "rejected", note="Not allowed here")[0], 409)
+        self.assertEqual(self.status(self.BUILTIN, "approved")[0], 200)
+        self.assertNotIn(self.BUILTIN, self.public_ids()[1])
+        self.assertEqual(self.book(self.user_tok, self.BUILTIN)[0], 200)
+        self.assertEqual(self.status(self.BUILTIN, "cancelled")[0], 200)
+        self.assertEqual(self.status(self.BUILTIN, "approved")[0], 409)     # cancel is final
+        self.assertEqual([x["status"] for x in self.all_regs() if x["eventId"] == self.BUILTIN], ["confirmed"])
+        status, body = self.env.post("/api/admin/events/update", {"token": self.admin_tok, "id": "jazz-nights",
+                                     "event": EventSubmissionTests.fields(title="Jazz Nights (moved)")})
+        self.assertEqual((status, body["override"]["fields"]["title"]), (200, "Jazz Nights (moved)"))
+        self.assertEqual(self.env.post("/api/events/public", {})[1]["overrides"]["jazz-nights"]["fields"]["title"],
+                         "Jazz Nights (moved)")
+
+    def test_builtin_events_cannot_be_deleted(self):
+        status, body = self.env.post("/api/admin/events/delete", {"token": self.admin_tok, "id": self.BUILTIN})
+        self.assertEqual(status, 409)
+        self.assertIn("can’t be deleted", body["error"])
+
+    def test_admin_delete_removes_event_and_registrations(self):
+        mine = self.book(self.user_tok, self.ev)[1]["record"]
+        other = self.book(self.user_tok, self.BUILTIN)[1]["record"]
+        self.assertEqual(self.status(self.ev, "cancelled")[0], 200)
+        status, body = self.env.post("/api/admin/events/delete", {"token": self.admin_tok, "id": self.ev})
+        self.assertEqual((status, body["deletedRegistrations"]), (200, 1))
+        self.assertEqual([x["id"] for x in self.all_regs()], [other["id"]])      # only the deleted event's
+        mine_now = self.env.post("/api/me/registrations", {"token": self.user_tok})[1]["registrations"]
+        self.assertNotIn(mine["id"], [x["id"] for x in mine_now])
+        self.assertNotIn(self.ev, [x["id"] for x in self.env.post("/api/admin/events", {"token": self.admin_tok})[1]["events"]])
+        self.assertEqual(self.env.post("/api/admin/events/delete", {"token": self.admin_tok, "id": self.ev})[0], 404)
+        last = self.env.post("/api/admin/audit", {"token": self.admin_tok})[1]["entries"][0]
+        self.assertEqual((last["action"], last["details"]["registrations"]), ("event.deleted", 1))
+
+    def test_host_delete_rules(self):
+        ev2 = self.env.post("/api/me/events/submit", {"token": self.host_tok,
+                            "event": EventSubmissionTests.fields(title="Rejected Night")})[1]["event"]["id"]
+        self.status(ev2, "rejected", note="Needs more detail")
+        self.env.post("/api/admin/import", {"token": self.admin_tok,
+                      "data": {"registrations": [reg("EVR-AAAA-CCCC", ev2, "late@example.test")]}})
+        for tok in (self.user_tok, self.host2_tok):                         # not theirs
+            self.assertIn(self.env.post("/api/me/events/delete", {"token": tok, "id": ev2})[0], (403, 404))
+        self.assertEqual(self.env.post("/api/admin/events/delete", {"token": self.host_tok, "id": ev2})[0], 403)
+        self.assertEqual(self.env.post("/api/me/events/delete", {"token": self.host_tok, "id": self.ev})[0], 409)  # published
+        status, body = self.env.post("/api/me/events/delete", {"token": self.host_tok, "id": ev2})
+        self.assertEqual((status, body["deletedRegistrations"]), (200, 1))
+        self.assertNotIn("EVR-AAAA-CCCC", [x["id"] for x in self.all_regs()])
+
+    def test_users_and_hosts_cannot_change_status(self):
+        for tok in (self.user_tok, self.host_tok):
+            for target in ("approved", "unpublished", "cancelled"):
+                self.assertEqual(self.status(self.ev, target, tok=tok)[0], 403)
+        own = self.env.post("/api/me/events/submit", {"token": self.host_tok,
+                            "event": EventSubmissionTests.fields(title="Self Approval")})[1]["event"]["id"]
+        self.assertEqual(self.status(own, "approved", tok=self.host_tok)[0], 403)   # host can't approve own
+
+    def test_transition_matrix(self):
+        """Every (from, to) pair against the single rules table."""
+        d = self.env.data
+        allowed = {("pending", "approved"), ("pending", "rejected"), ("approved", "unpublished"),
+                   ("approved", "cancelled"), ("unpublished", "approved"), ("unpublished", "cancelled")}
+        for cur in eventdata.EVENT_STATUS:
+            for new in ("approved", "rejected", "unpublished", "cancelled"):
+                ok = d.transition_error(cur, new) is None
+                self.assertEqual(ok, (cur, new) in allowed, (cur, new))
+        # the admin's own older events: only publishing
+        self.assertIsNone(d.transition_error("rejected", "approved", admin_event=True))
+        self.assertIsNotNone(d.transition_error("pending", "rejected", admin_event=True))
+        self.assertIsNotNone(d.transition_error("approved", "rejected", builtin=True))
+
+    def test_statuses_survive_restart(self):
+        r = self.book(self.user_tok, self.ev)[1]["record"]
+        self.status(self.ev, "cancelled")
+        self.status(self.BUILTIN, "unpublished")
+        e = self.env
+        e.close(remove=False)
+        e2 = Env(data_dir=e.dir)
+        try:
+            tok = e2.login(ADMIN, "Admin-Start-2026")[0]
+            evs = {x["id"]: x for x in e2.post("/api/admin/events", {"token": tok})[1]["events"]}
+            body = e2.post("/api/events/public", {})[1]
+            self.assertEqual(evs[self.ev]["status"], "cancelled")
+            self.assertEqual(body["overrides"][self.BUILTIN]["status"], "unpublished")
+            self.assertNotIn(self.ev, [x["id"] for x in body["events"]])
+            regs = e2.post("/api/admin/registrations", {"token": tok})[1]["registrations"]
+            self.assertEqual([(x["id"], x["eventId"]) for x in regs], [(r["id"], self.ev)])
         finally:
             e2.close(remove=False)
             shutil.rmtree(e.dir, ignore_errors=True)

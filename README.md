@@ -289,10 +289,30 @@ Sign in at http://localhost:5500/login.html. The role badge reads **Admin**, the
 - **Your events.** Stats show events, pending, live and registrations. Each event card shows its status: Pending, Published, Rejected (with the admin's note), Unpublished or Cancelled.
 - **Creating an event.** Fields: title, category, date (today or later), time, venue, city, whole-dollar price (0 means free), a description of 20–400 characters, and a cover chosen from the catalogue's photography. New events are **Pending** and private. The form is one shared component (`js/event-form.js`): `render()` builds the fields and `create()` wires validation, cover picking, editing and submit. The host dashboard (hosts and the admin's events) and the Admin panel (edit) use it.
 
+### Event lifecycle (server rules, `tools/eventdata.py`)
+One set of rules on the server (`TRANSITIONS`); the pages only show what the server allows.
+
+| Status | Public | Bookings | Next (admin) |
+|---|---|---|---|
+| Pending (host submission) | Hidden | No | Publish (approve) or Reject (reason required), in Event approvals |
+| Published (`approved`) | Visible | Yes | Unpublish, Cancel |
+| Unpublished | Hidden | No (existing kept) | Publish again, Cancel |
+| Rejected | Hidden | No | none: the host edits and resubmits (back to Pending) |
+| Cancelled | Hidden | No (existing kept, tickets void) | none: final |
+
+- **Delete** is permanent: the event and all its registrations (the QR code is the registration ID). Hosts delete their own Pending or Rejected events (`/api/me/events/delete`); the admin deletes any hosted event (`/api/admin/events/delete`). Built-in events can't be deleted. There is no Remove action.
+- **Admin's own events** are published directly; an older one still Pending or Rejected can only be published.
+- **Built-in events** are always Published unless the admin unpublishes or cancels them. That status and admin edits are stored on the server (`.data/overrides.json`), so every visitor and the booking check see the same thing.
+- Every change is checked for session, role and ownership and recorded in the audit log.
+- **One public catalogue for everyone.** Guests, Users, Event Hosts and the Admin all see the same events: the built-in catalogue (minus unpublished or cancelled ones) plus the server's published events (`/api/events/public`). Explore, Featured, Upcoming, Search, Categories and the event details all read that one list; no role filtering. Events saved only in one browser (from before server saving) are never public.
+
+- **Confirmation dialog** (`js/confirm.js`): Delete, Cancel, Unpublish and Publish all go through one dialog with fixed wording. *Go back* has focus; while the request runs both buttons are disabled; it closes only after the server confirms and shows the error inside otherwise.
+- **Tickets for a cancelled event**: *My registrations* shows **Event cancelled**, the QR code greyed out and *"This event was cancelled — this code is no longer valid for entry."* The server adds the event's status (`eventStatus`) to the attendee's own bookings, since a cancelled event is no longer public.
+
 ### Admin: Host an Event (admin mode of the Host Dashboard)
 The admin's navbar link **Host an Event** opens `host-dashboard.html`, the same page Event Hosts use: stats, *My hosted events* with status filters, registrations per event, *View public page* and the create form. The differences:
 - **Published directly.** The server saves an event the admin creates as **Published** straight away (`createdBy: 'admin'`, host name EVENTORA, audit entry `event.published`). There's no approval or rejection, so admin events never appear in *Admin panel → Event approvals* or in its pending count.
-- **Actions.** *Edit* (any time; the status stays as it is) and *Remove* (registrations are kept). The button reads *Publish event*.
+- **Actions.** *Edit* (any time; the status stays as it is) and *Delete* (permanent: the event and its registrations, after the confirmation dialog). Unpublish, Cancel and Publish stay in *Admin panel → All events*. The button reads *Publish event*.
 - **No approval parts.** The *Pending approval* stat card and the *Pending* and *Rejected* filter tabs are hidden; the stats are *My events*, *Live* and *Registrations* (three across; on phones two, with *Registrations* full width).
 - An older admin event still saved as Pending shows *Publish* in *All events*.
 
@@ -306,21 +326,21 @@ The admin's navbar link **Host an Event** opens `host-dashboard.html`, the same 
 - Events created before server saving stay in the browser that made them until the events phase moves them; the pages show both kinds.
 
 ### Admin panel (central management interface)
-Reached from *Admin Panel* in the navbar. Admins never apply to host; they create events on their account page and review and manage everything here. Sections are tabs (arrow keys, Home and End work; on tablet and phone the tab row scrolls sideways).
+Reached from *Admin Panel* in the navbar. Admins never apply to host; they create their own events in *Host an Event* (the Host Dashboard in admin mode) and review and manage everything here. Sections are tabs (arrow keys, Home and End work; on tablet and phone the tab row scrolls sideways).
 
 - **A. Overview.** Live counts from the stored data: total users, total events, pending host applications, pending event approvals, published events and total registrations. Each card opens the matching section and filter. Below are the two review queues.
 - **B. Host applications.** All applications with applicant, organization, date and status, filtered by Pending, Approved, Rejected or All. *Review* opens the full application. Approve makes the user an Event Host; Reject keeps them a User, with an optional note. A decided application can't be decided again, and every record is kept.
-- **C. Event approvals.** Every Pending host event as a card (admin events are published directly and never wait here): poster, title, category, date and venue; submission details (submitted, source, price, event ID); host details (name, email, role, member since); description; and an optional note to the host. Actions: *Approve* (publishes it), *Reject* and *Edit details*.
+- **C. Event approvals.** Every Pending host event as a card (admin events are published directly and never wait here): poster, title, category, date and venue; submission details (submitted, source, price, event ID); host details (name, email, role, member since); description; and a note to the host. Actions: *Approve* (confirmation dialog, then it's published), *Reject* (a reason of at least 5 characters is required first; the confirmation dialog shows it; the host sees it in their account and can edit and resubmit) and *Edit details*.
 - **D. All events.** Every event: the built-in catalogue, host events and admin events (tagged), filtered by Pending, Published, Unpublished, Rejected, Cancelled or All.
   - *Review* opens a dialog with the poster, all fields, host, bookings and ID.
   - *Edit* opens the shared form (edit only); admins may edit any event, including built-in ones. Its status doesn't change.
   - **No approving or rejecting here:** that happens only in *C. Event approvals* (the single review queue). A Pending event shows *Review in Event approvals*, which opens the queue at its card. A Rejected event comes back to the queue when its host edits and resubmits it.
-  - Management actions: Unpublish, Cancel event (hidden from the public, registrations kept), Publish again (after Unpublish or Cancel) and Remove (host or admin events only; the record is deleted, registrations are kept).
+  - Management actions, only those the server allows for the current status: Published → *Unpublish*, *Cancel event*; Unpublished → *Publish*, *Cancel event*; Cancelled → none (final); Rejected host event → none (the host resubmits); an older admin event still Pending or Rejected → *Publish*. Every host or admin event also has *Delete* (permanent, with its registrations; the dialog says how many). There is no Remove.
   - Both sections read the same event records (server-side for submitted events), so a decision in Event approvals shows in All events at once.
-  - Built-in events can't be rejected or removed, only edited, unpublished or cancelled. Their edits and statuses are stored as overrides (`eventora:catalogue-overrides`), so the frozen catalogue and its IDs never change.
+  - Built-in events can't be rejected or deleted, only edited, unpublished, published again or cancelled. Their edits and statuses are stored on the server (`.data/overrides.json`), so every visitor sees the same thing and the frozen catalogue and its IDs never change. Changes an admin made earlier in their own browser (`eventora:catalogue-overrides`) move to the server the next time they open the Admin panel there.
 - **E. Users.** User ID, name, email, role, status, registration date and bookings. *View* shows contact details, registrations, host applications and hosted events. Actions: *Make host* / *Revoke host*, *Suspend* / *Reactivate*. The initial Admin account is **protected**: no actions in the table, and the data layer refuses to suspend it, demote it or give it the Host role.
 - **F. Registrations.** Every booking from every browser (loaded from the server) with registration ID, attendee, event, event ID, status (Confirmed, Completed or Cancelled) and booked date, with an attendee search (name, email or registration ID) and event and status filters. *QR code* shows the check-in QR (VOID when cancelled) and the linked account.
-- **Confirmations.** Destructive actions (reject, unpublish, cancel, remove, revoke, suspend) need a second click within 4 seconds.
+- **Confirmations.** Event actions (approve, reject, publish, unpublish, cancel, delete) use the shared confirmation dialog (`js/confirm.js`): fixed wording, *Go back* focused, buttons disabled while saving, closes only after the server confirms. Account actions (host application reject, revoke host, suspend) need a second click within 4 seconds.
 
 ### Data (localStorage, all versioned)
 ```

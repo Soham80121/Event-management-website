@@ -27,14 +27,15 @@
      - hosts edit/delete their own events while pending or rejected;
        an edit (re)submits the event for approval
      - admins create events directly (no host application), edit any event,
-       publish / unpublish / cancel / remove (admin.* below)
+       publish / unpublish / cancel / delete (admin.* below; rules on the server)
 
-   eventora:catalogue-overrides
-     { version, overrides: { <built-in event id>: { status?: 'unpublished'|'cancelled',
+   Built-in event overrides: { <built-in event id>: { status?: 'unpublished'|'cancelled',
        fields?: {title, category, date, time, venue, image, description, price},
-       updatedAt, note? } } }
-     - the built-in catalogue stays frozen in js/events.js; admin edits and
-       status changes to those events are stored here and applied on read
+       updatedAt, note? } }
+     - stored on the server (.data/overrides.json) and loaded with the public
+       events; the built-in catalogue stays frozen in js/events.js and the
+       overrides are applied on read. The old browser key
+       eventora:catalogue-overrides is moved to the server once (admin).
    ========================================================================= */
 (function (Eventora) {
   'use strict';
@@ -68,15 +69,26 @@
   }
   function str(v, max) { return typeof v === 'string' && v.length <= max; }
 
-  function readOverrides() {
+  /* Built-in event overrides (unpublished / cancelled status, admin edits)
+     live on the server (.data/overrides.json). ovCache is the copy from
+     /api/events/public (everyone) or /api/admin/events (admin, with notes).
+     The old browser-only copy (OVERRIDES key) is only read once, to move it
+     to the server. */
+  var ovCache = {};
+  function readOverrides() { return ovCache; }
+  function readLocalOverrides() {
     try {
       var data = JSON.parse(window.localStorage.getItem(OVERRIDES) || 'null');
       return data && data.overrides && typeof data.overrides === 'object' ? data.overrides : {};
     } catch (err) { return {}; }
   }
-  function writeOverrides(map) {
-    try { window.localStorage.setItem(OVERRIDES, JSON.stringify({ version: 1, overrides: map })); return true; }
-    catch (err) { return false; }
+  /** Admin: move built-in event changes saved only in this browser to the server, once. */
+  function carryOverOverrides() {
+    var local = readLocalOverrides();
+    if (!Object.keys(local).length) return Promise.resolve();
+    return auth().request('/api/admin/import', { data: { overrides: local } }).then(function (res) {
+      if (res.httpStatus === 200) { try { window.localStorage.removeItem(OVERRIDES); } catch (err) { /* ignore */ } }
+    });
   }
 
   function validApp(a) {
@@ -142,8 +154,11 @@
   /* ---------- events on the server ---------- */
   var PUBLIC_CACHE = 'eventora:public-events-cache';     // last published list (offline fallback only)
   var evCache = { mine: [], all: [], pub: [] };
-  try { evCache.pub = (JSON.parse(window.localStorage.getItem(PUBLIC_CACHE) || 'null') || {}).events || []; }
-  catch (err) { evCache.pub = []; }
+  try {
+    var cached = JSON.parse(window.localStorage.getItem(PUBLIC_CACHE) || 'null') || {};
+    evCache.pub = cached.events || [];
+    ovCache = cached.overrides && typeof cached.overrides === 'object' ? cached.overrides : {};
+  } catch (err) { evCache.pub = []; }
   function byDate(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : (a.time < b.time ? -1 : a.time > b.time ? 1 : 0); }
   function serverEvent(id) {
     return evCache.mine.concat(evCache.all).filter(function (e) { return e.id === id; })[0] || null;
@@ -155,9 +170,22 @@
       list.forEach(function (x, i) { if (x.id === ev.id) at = i; });
       if (at !== -1) list[at] = ev; else if (k[1]) list.push(ev);
     });
+    // keep this tab's public list in step with a status change (only Published is public)
+    evCache.pub = evCache.pub.filter(function (e) { return e.id !== ev.id; });
+    if (ev.status === 'approved') evCache.pub.push(publicShape(ev));
   }
   function dropEvent(id) {
     ['mine', 'all', 'pub'].forEach(function (k) { evCache[k] = evCache[k].filter(function (e) { return e.id !== id; }); });
+  }
+  /** After a permanent delete: drop the event and re-read registrations (its bookings are gone too). */
+  function deleted(id) {
+    return function (res) {
+      if (res.httpStatus !== 200) return serverError(res, 'The event couldn’t be deleted.');
+      dropEvent(id);
+      var regs = Eventora.registrations;
+      var done = { ok: true, deletedRegistrations: res.deletedRegistrations || 0 };
+      return regs && regs.sync ? Promise.resolve(regs.sync()).then(function () { return done; }, function () { return done; }) : done;
+    };
   }
   function eventCall(path, body, fallback) {
     return auth().request(path, body).then(function (res) {
@@ -265,6 +293,8 @@
       if (!u) { appCache = { mine: [], all: [], loaded: false }; return Promise.resolve(); }
       var hostish = auth().can('manageOwnEvents'), admin = auth().can('reviewApplications');
       return carryOver(u).then(function () { return carryOverEvents(u); }).then(function () {
+        return admin ? carryOverOverrides() : null;
+      }).then(function () {
         return Promise.all([
           auth().request('/api/me/applications', {}),
           admin ? auth().request('/api/admin/applications', {}) : null,
@@ -279,6 +309,7 @@
         appCache.status = res[0].httpStatus;
         evCache.mine = res[2] && res[2].httpStatus === 200 ? res[2].events : [];
         evCache.all = res[3] && res[3].httpStatus === 200 ? res[3].events : [];
+        if (res[3] && res[3].httpStatus === 200 && res[3].overrides) ovCache = res[3].overrides;
       });
     },
     /**
@@ -293,7 +324,8 @@
       return Promise.race([req, timeout]).then(function (data) {
         if (data && Array.isArray(data.events)) {
           evCache.pub = data.events;
-          try { window.localStorage.setItem(PUBLIC_CACHE, JSON.stringify({ events: data.events })); } catch (err) { /* ignore */ }
+          ovCache = data.overrides && typeof data.overrides === 'object' ? data.overrides : {};
+          try { window.localStorage.setItem(PUBLIC_CACHE, JSON.stringify({ events: data.events, overrides: ovCache })); } catch (err) { /* ignore */ }
         }
       }, function () { /* offline: keep the cached list */ });
     },
@@ -375,10 +407,7 @@
 
     deleteEvent: function (id) {
       if (serverEvent(id)) {
-        return auth().request('/api/me/events/delete', { id: id }).then(function (res) {
-          if (res.httpStatus === 200) { dropEvent(id); return { ok: true }; }
-          return serverError(res, 'The event couldn’t be deleted.');
-        });
+        return auth().request('/api/me/events/delete', { id: id }).then(deleted(id));
       }
       var u = me();
       var list = readHosted();
@@ -400,11 +429,10 @@
     },
 
     /** Public events: approved browser-saved ones plus the server's published list. */
-    publicEvents: function () {
-      var server = evCache.pub.slice();
-      var ids = {}; server.forEach(function (e) { ids[e.id] = true; });
-      return server.concat(readHosted().filter(function (e) { return e.status === 'approved' && !ids[e.id]; }).map(publicShape));
-    },
+    /** Published hosted events for the public pages: the server's list only,
+     *  so Guests, Users, Hosts and the Admin all see the same catalogue
+     *  (events still saved only in one browser are never public). */
+    publicEvents: function () { return evCache.pub.slice(); },
 
     /* ----- admin review ----- */
     admin: {
@@ -486,13 +514,11 @@
         }
         if (Object.keys(c.errors).length) return { ok: false, errors: c.errors };
         if (cat().isCatalogue(id)) {
-          var ov = readOverrides();
-          var o = ov[id] || {};
-          o.fields = c.value;
-          o.updatedAt = new Date().toISOString();
-          ov[id] = o;
-          writeOverrides(ov);
-          return { ok: true, event: Object.assign({ id: id }, c.value) };
+          return auth().request('/api/admin/events/update', { id: id, event: c.value }).then(function (res) {
+            if (res.httpStatus !== 200) return serverError(res, 'The event couldn’t be saved.');
+            ovCache[id] = res.override;
+            return { ok: true, event: Object.assign({ id: id }, c.value) };
+          });
         }
         var list = readHosted();
         var ev = list.filter(function (e) { return e.id === id; })[0];
@@ -504,7 +530,8 @@
         return { ok: true, event: ev };
       },
 
-      /** approved (= published) · rejected · unpublished · cancelled. */
+      /** approved (= published) · rejected · unpublished · cancelled. The server
+       *  decides which changes are allowed (tools/eventdata.py TRANSITIONS). */
       setEventStatus: function (id, status, note) {
         this._require('reviewEvents');
         if (!EV_STATUS[status] || status === 'pending') return deny('Unknown status.');
@@ -513,15 +540,12 @@
             'That change couldn’t be saved.');
         }
         if (cat().isCatalogue(id)) {
-          if (status === 'rejected') return deny('Built-in events can’t be rejected.');
-          var ov = readOverrides();
-          var o = ov[id] || {};
-          if (status === 'approved') delete o.status; else o.status = status;
-          if (note && String(note).trim()) o.note = String(note).trim().slice(0, 500); else delete o.note;
-          o.updatedAt = new Date().toISOString();
-          ov[id] = o;
-          writeOverrides(ov);
-          return { ok: true };
+          return auth().request('/api/admin/events/status', { id: id, status: status, note: String(note || '') })
+            .then(function (res) {
+              if (res.httpStatus !== 200) return serverError(res, 'That change couldn’t be saved.');
+              ovCache[id] = res.override;
+              return { ok: true };
+            });
         }
         var list = readHosted();
         var ev = list.filter(function (e) { return e.id === id; })[0];
@@ -533,20 +557,15 @@
         return { ok: true, event: ev };
       },
 
-      /** Delete a host- or admin-created event record (built-in events can only be cancelled). */
-      removeEvent: function (id) {
+      /** Permanently delete a hosted event and all its registrations (built-in events can't be deleted). */
+      deleteEvent: function (id) {
         this._require('reviewEvents');
-        if (cat().isCatalogue(id)) return deny('Built-in events can’t be removed. Cancel or unpublish them instead.');
-        if (serverEvent(id)) {
-          return auth().request('/api/admin/events/remove', { id: id }).then(function (res) {
-            if (res.httpStatus === 200) { dropEvent(id); return { ok: true }; }
-            return serverError(res, 'The event couldn’t be removed.');
-          });
-        }
+        if (cat().isCatalogue(id)) return deny('Built-in events can’t be deleted. Unpublish or cancel them instead.');
+        if (serverEvent(id)) return auth().request('/api/admin/events/delete', { id: id }).then(deleted(id));
         var list = readHosted();
         if (!list.some(function (e) { return e.id === id; })) return deny('Event not found.');
         write(EVENTS_KEY, 'events', list.filter(function (e) { return e.id !== id; }));
-        return { ok: true };
+        return { ok: true, deletedRegistrations: 0 };
       },
 
       /** Every registration, for the admin Registrations section. */
@@ -555,7 +574,7 @@
         return Eventora.registrations ? Eventora.registrations.all() : [];
       },
 
-      /** Title for any event id, including hidden or removed ones. */
+      /** Title for any event id, including hidden or deleted ones. */
       eventTitle: function (id) {
         var e = cat().byId(id);
         if (e) return e.title;

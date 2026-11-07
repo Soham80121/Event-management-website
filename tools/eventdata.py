@@ -24,6 +24,19 @@ carry over unchanged through the one-time admin import.
 
 Every endpoint checks the session on the server (tools/accounts.py) and then
 the role and ownership. Frontend role values are never trusted.
+
+Event lifecycle (the only place status rules live; see TRANSITIONS):
+  pending      submitted by an Event Host, waiting in Admin panel → Event approvals
+  approved     = Published: public, open for registration
+  rejected     not approved (reason required); the owner edits and resubmits (→ pending)
+  unpublished  temporarily hidden; records kept; can be published again
+  cancelled    the event won't take place: hidden, no new bookings, existing
+               registrations and their QR codes kept. Final.
+  Delete       permanent: the event and all its registrations (QR codes are the
+               registration IDs, so they go too). Built-in events can't be deleted.
+Built-in events (js/events.js) are always approved; their unpublished / cancelled
+status and admin edits are stored on the server in overrides.json, so every
+visitor and the booking check see the same thing.
 """
 import json
 import os
@@ -42,6 +55,16 @@ TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 APP_STATUS = ("pending", "approved", "rejected")
 EVENT_STATUS = ("pending", "approved", "rejected", "unpublished", "cancelled")
 OVERRIDE_STATUS = ("unpublished", "cancelled")
+# status -> statuses the admin may move an event to (approve/reject only from pending)
+TRANSITIONS = {
+    "pending": ("approved", "rejected"),
+    "approved": ("unpublished", "cancelled"),
+    "unpublished": ("approved", "cancelled"),
+    "rejected": (),
+    "cancelled": (),
+}
+ACTION_NAMES = {"approved": "published", "rejected": "rejected", "unpublished": "unpublished",
+                "cancelled": "cancelled"}
 REG_TYPES = ("registration", "waitlist")
 REG_STATUS = ("confirmed", "cancelled")
 MAX_IMPORT = 5000
@@ -309,8 +332,29 @@ class EventData:
         if err:
             return err
         with self.lock:
-            mine = [r for r in self.regs.data["registrations"] if r.get("userId") == u["id"]]
+            mine = [self._with_event_status(r) for r in self.regs.data["registrations"] if r.get("userId") == u["id"]]
             return 200, {"ok": True, "registrations": mine}
+
+    def event_status(self, event_id):
+        """Lifecycle status of any event id: approved / pending / rejected /
+        unpublished / cancelled, or None if it doesn't exist (deleted)."""
+        if self.cat.is_builtin(event_id):
+            return (self.overrides.data["overrides"].get(event_id) or {}).get("status") or "approved"
+        ev = self.hosted(event_id)
+        return ev["status"] if ev else None
+
+    def _with_event_status(self, r):
+        """An attendee's booking plus its event's status, so a ticket for a
+        cancelled or hidden event shows as such (the event itself isn't public)."""
+        out = dict(r)
+        status = self.event_status(r.get("eventId"))
+        out["eventStatus"] = status or "deleted"
+        if status and status != "approved":
+            ev = self.hosted(r["eventId"])
+            title = ev["title"] if ev else (self.cat.events.get(r["eventId"]) or {}).get("title")
+            if title:
+                out["eventTitle"] = title
+        return out
 
     def host_registrations(self, token, body):
         """Registrations for the signed-in host's own events (admins: any event)."""
@@ -612,13 +656,49 @@ class EventData:
                 return err
             if ev["status"] not in ("pending", "rejected"):
                 return 409, {"ok": False, "error": "Only pending or rejected events can be deleted."}
-            self.events.data["events"] = [e for e in self.events.data["events"] if e["id"] != ev["id"]]
-            self.events.save()
-            self.audit(u, "event.deleted", ev["id"])
-            return 200, {"ok": True}
+            n = self._delete_event(ev)
+            self.audit(u, "event.deleted", ev["id"], title=ev["title"], registrations=n)
+            return 200, {"ok": True, "deletedRegistrations": n}
+
+    def _delete_event(self, ev) -> int:
+        """Permanently delete a hosted event and its registrations (the QR codes
+        are the registration IDs). Registrations go first, so an interrupted
+        delete never leaves registrations pointing at a missing event; caller
+        holds the lock. -> number of registrations deleted."""
+        regs = self.regs.data["registrations"]
+        keep = [r for r in regs if r.get("eventId") != ev["id"]]
+        n = len(regs) - len(keep)
+        if n:
+            self.regs.data["registrations"] = keep
+            self.regs.save()
+        self.events.data["events"] = [e for e in self.events.data["events"] if e["id"] != ev["id"]]
+        self.events.save()
+        return n
+
+    def transition_error(self, current, status, admin_event=False, builtin=False):
+        """None if the admin may move an event from `current` to `status`, else why not."""
+        if status not in EVENT_STATUS or status == "pending":
+            return "Unknown status."
+        if status == current:
+            return "The event is already %s." % ACTION_NAMES.get(status, status)
+        if builtin and status == "rejected":
+            return "Built-in events can’t be rejected."
+        if admin_event and current in ("pending", "rejected"):
+            # the admin's own events skip approval (older ones may still be pending / rejected)
+            return None if status == "approved" else "Your own events are published directly; publish it instead."
+        if status not in TRANSITIONS.get(current, ()):
+            if current == "cancelled":
+                return "Cancelled events are final. They can’t be published or changed again."
+            if current == "rejected":
+                return "Rejected events go back to Event approvals when the host edits and resubmits them."
+            if current == "pending":
+                return "Pending events are approved or rejected in Event approvals first."
+            return "That change isn’t allowed for an event that is %s." % ACTION_NAMES.get(current, current)
+        return None
 
     def admin_set_event_status(self, token, body):
-        """Admin: approve (publish) / reject / unpublish / cancel a server-stored event."""
+        """Admin: approve (= publish) / reject / unpublish / cancel / publish again.
+        Hosted events and built-in events alike; only TRANSITIONS are allowed."""
         admin, err = self.require(token, "admin")
         if err:
             return err
@@ -631,10 +711,33 @@ class EventData:
         if status == "rejected" and len(note.strip()) < 5:
             return 400, {"ok": False, "field": "note",
                          "error": "Give the host a reason for the rejection (at least 5 characters)."}
+        event_id = body.get("id") if isinstance(body.get("id"), str) else None
         with self.lock:
-            ev = self.hosted(body.get("id")) if isinstance(body.get("id"), str) else None
+            if event_id and self.cat.is_builtin(event_id):
+                ov = self.overrides.data["overrides"]
+                o = dict(ov.get(event_id) or {})
+                why = self.transition_error(o.get("status") or "approved", status, builtin=True)
+                if why:
+                    return 409, {"ok": False, "error": why}
+                if status == "approved":
+                    o.pop("status", None)
+                else:
+                    o["status"] = status
+                if note.strip():
+                    o["note"] = note.strip()
+                else:
+                    o.pop("note", None)
+                o["updatedAt"] = accounts.iso(self.clock())
+                ov[event_id] = o
+                self.overrides.save()
+                self.audit(admin, "event." + status, event_id, note=note.strip(), builtin=True)
+                return 200, {"ok": True, "override": o}
+            ev = self.hosted(event_id) if event_id else None
             if not ev:
                 return 404, {"ok": False, "error": "Event not found."}
+            why = self.transition_error(ev["status"], status, admin_event=ev.get("createdBy") == "admin")
+            if why:
+                return 409, {"ok": False, "error": why}
             ev["status"] = status
             ev["decidedAt"] = accounts.iso(self.clock())
             if note.strip():
@@ -646,15 +749,26 @@ class EventData:
             return 200, {"ok": True, "event": ev}
 
     def admin_update_event(self, token, body):
-        """Admin edits any server-stored event in place (status unchanged)."""
+        """Admin edits any event in place (status unchanged). Built-in events
+        keep their frozen original; the edit is stored as an override."""
         admin, err = self.require(token, "admin")
         if err:
             return err
         errors, value = self.check_event_fields(body.get("event"), allow_past=True)
         if errors:
             return 400, {"ok": False, "errors": errors}
+        event_id = body.get("id") if isinstance(body.get("id"), str) else None
         with self.lock:
-            ev = self.hosted(body.get("id")) if isinstance(body.get("id"), str) else None
+            if event_id and self.cat.is_builtin(event_id):
+                ov = self.overrides.data["overrides"]
+                o = dict(ov.get(event_id) or {})
+                o["fields"] = value
+                o["updatedAt"] = accounts.iso(self.clock())
+                ov[event_id] = o
+                self.overrides.save()
+                self.audit(admin, "event.edited", event_id, builtin=True)
+                return 200, {"ok": True, "override": o}
+            ev = self.hosted(event_id) if event_id else None
             if not ev:
                 return 404, {"ok": False, "error": "Event not found."}
             ev.pop("price", None)
@@ -664,19 +778,22 @@ class EventData:
             self.audit(admin, "event.edited", ev["id"])
             return 200, {"ok": True, "event": ev}
 
-    def admin_remove_event(self, token, body):
-        """Admin deletes a server-stored event record; its registrations are kept."""
+    def admin_delete_event(self, token, body):
+        """Admin permanently deletes any hosted event (any status) together with
+        its registrations. Built-in catalogue events can't be deleted."""
         admin, err = self.require(token, "admin")
         if err:
             return err
+        event_id = body.get("id") if isinstance(body.get("id"), str) else None
         with self.lock:
-            ev = self.hosted(body.get("id")) if isinstance(body.get("id"), str) else None
+            if event_id and self.cat.is_builtin(event_id):
+                return 409, {"ok": False, "error": "Built-in events can’t be deleted. Unpublish or cancel them instead."}
+            ev = self.hosted(event_id) if event_id else None
             if not ev:
                 return 404, {"ok": False, "error": "Event not found."}
-            self.events.data["events"] = [e for e in self.events.data["events"] if e["id"] != ev["id"]]
-            self.events.save()
-            self.audit(admin, "event.removed", ev["id"], title=ev["title"])
-            return 200, {"ok": True}
+            n = self._delete_event(ev)
+            self.audit(admin, "event.deleted", ev["id"], title=ev["title"], status=ev["status"], registrations=n)
+            return 200, {"ok": True, "deletedRegistrations": n}
 
     # ----- registrations: create / cancel / carry-over (signed-in attendee) -----
     def _new_reg_id(self) -> str:

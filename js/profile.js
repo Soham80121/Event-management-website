@@ -271,8 +271,8 @@
       pending: 'Waiting for an admin to review it. Not public yet.',
       approved: 'Approved and published on EVENTORA.',
       rejected: 'Not approved. You can edit it and resubmit from the Host Dashboard (in the navbar).',
-      unpublished: 'Taken down by an admin. Not public.',
-      cancelled: 'Cancelled by an admin. Registrations are kept.'
+      unpublished: 'Unpublished by an admin. Not public for now; it can be published again.',
+      cancelled: 'Cancelled by an admin. It won’t take place; registrations are kept.'
     };
     events.forEach(function (e) {
       var li = el('li', 'host-event host-event--' + e.status);

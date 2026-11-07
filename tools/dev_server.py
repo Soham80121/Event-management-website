@@ -32,16 +32,17 @@ Same as `python -m http.server`, but:
      /api/me/applications/apply      {token, reason, organization?, info?}   User applies to host
      /api/me/applications/carry-over {token, application}   your own pending app from browser storage
      /api/admin/applications/decide  {token, id, decision, note}   approve / reject (reason required)
-     /api/me/events/submit     {token, event}      host / admin: new event, always Pending
+     /api/me/events/submit     {token, event}      host: new event (Pending); admin: published directly
      /api/me/events/update     {token, id, event}  owner: edit a Pending/Rejected event (resubmits)
-     /api/me/events/delete     {token, id}         owner: delete a Pending/Rejected event
+     /api/me/events/delete     {token, id}         owner: permanently delete a Pending/Rejected event + its bookings
      /api/me/events/carry-over {token, event}      owner: own pending browser-only submission -> server
      /api/me/registrations/create     {token, eventId, name, email, phone}   book an event (server decides type)
      /api/me/registrations/cancel     {token, id}                            cancel your own booking
      /api/me/registrations/carry-over {token, registration}                  your own browser-only booking -> server
-     /api/admin/events/status  {token, id, status, note}   approve / reject / unpublish / cancel
-     /api/admin/events/update  {token, id, event}  admin edit (status unchanged)
-     /api/admin/events/remove  {token, id}         admin delete (registrations kept)
+     /api/admin/events/status  {token, id, status, note}   publish / reject / unpublish / cancel
+                               (hosted and built-in events; only allowed transitions, see eventdata.TRANSITIONS)
+     /api/admin/events/update  {token, id, event}  admin edit (status unchanged; built-in -> override)
+     /api/admin/events/delete  {token, id}         admin: permanently delete a hosted event + its bookings
      /api/me/events            {token}             your events (host / admin)
      /api/me/registrations     {token}             your bookings
      /api/host/registrations   {token, eventId?}   bookings for your own events (host; admin: any)
@@ -92,7 +93,7 @@ ROUTES = {
     "/api/me/applications/apply", "/api/me/applications/carry-over", "/api/admin/applications/decide",
     "/api/me/events/submit", "/api/me/events/update", "/api/me/events/delete", "/api/me/events/carry-over",
     "/api/me/registrations/create", "/api/me/registrations/cancel", "/api/me/registrations/carry-over",
-    "/api/admin/events/status", "/api/admin/events/update", "/api/admin/events/remove",
+    "/api/admin/events/status", "/api/admin/events/update", "/api/admin/events/delete",
 }
 LARGE_ROUTES = {"/api/account/update", "/api/auth/migrate", "/api/me/events/carry-over"}
 
@@ -185,7 +186,7 @@ class DevHandler(http.server.SimpleHTTPRequestHandler):
                 "/api/me/registrations/carry-over": lambda: d.carry_over_registration(token, body),
                 "/api/admin/events/status": lambda: d.admin_set_event_status(token, body),
                 "/api/admin/events/update": lambda: d.admin_update_event(token, body),
-                "/api/admin/events/remove": lambda: d.admin_remove_event(token, body),
+                "/api/admin/events/delete": lambda: d.admin_delete_event(token, body),
             }[path]()
         except Exception as err:  # noqa: BLE001 - never leak internals to the browser
             self.log_error("API error on %s: %r", path, err)
