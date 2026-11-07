@@ -289,7 +289,8 @@ Sign in at http://localhost:5500/login.html. The role badge reads **Admin**, the
 - **Saving.** `POST /api/me/events/submit` saves the event on the dev server (`.data/events.json`): always **Pending**, owned by the signed-in account (`hostId`; admin submissions also get `createdBy: 'admin'` and host name EVENTORA). Nothing is published automatically. The same event (title, date and time) can't be submitted twice while it's pending.
 - **Confirmation.** The page shows the event's title, ID and Pending status, with *Submit another event* (hosts also get *Track it in your Host Dashboard*).
 - **Review.** Submissions appear in *Admin panel → Event approvals* in any browser. Approving publishes the event on the server; the public pages load published events from the server (`/api/events/public`) before they render, so it shows up for everyone.
-- **Hosts** see and edit their submissions (while Pending or Rejected) in the Host Dashboard, which loads them from the server.
+- **Hosts** see and edit their submissions (while Pending or Rejected) in the Host Dashboard, and see every submission with its status and the admin's reason under **Applied events** on their account page; both load from the server. Rejecting an event needs a reason (checked on the server).
+- **Older pending submissions** saved only in a browser (before server saving) move to the server automatically, keeping their IDs, the next time their host opens the account page or Host Dashboard in that browser (`/api/me/events/carry-over`: own pending events only, once).
 - Events created before server saving stay in the browser that made them until the events phase moves them; the pages show both kinds.
 
 ### Admin panel (central management interface)

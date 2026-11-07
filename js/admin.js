@@ -324,7 +324,11 @@
       ] : [['Host', row.hostName]]));
       body.appendChild(el('p', 'app-card__label', 'Description'));
       body.appendChild(el('p', 'app-card__text', e.description));
-      var note = noteField(body, 'Note to the host (optional)');
+      var note = noteField(body, 'Note to the host (required to reject: the host sees it)');
+      var cardAlert = el('p', 'form-alert');
+      cardAlert.setAttribute('role', 'alert');
+      cardAlert.hidden = true;
+      body.appendChild(cardAlert);
       var actions = el('div', 'cluster');
       var ok = button('', 'btn btn--md', function () {
         done(hosting.admin.setEventStatus(row.id, 'approved', note.value), '“' + e.title + '” is approved and now published.');
@@ -333,6 +337,11 @@
       actions.appendChild(ok);
       if (row.source !== 'catalogue') {
         actions.appendChild(armed('Reject', 'Confirm reject', 'btn-ghost btn-danger', function () {
+          if (note.value.trim().length < 5) {
+            F.alert(cardAlert, 'error', 'Give the host a reason for the rejection (at least 5 characters).');
+            note.focus();
+            return;
+          }
           done(hosting.admin.setEventStatus(row.id, 'rejected', note.value), '“' + e.title + '” was rejected.');
         }));
       }
@@ -386,7 +395,12 @@
     if (row.note) { info.appendChild(el('p', 'app-card__label', 'Admin note')); info.appendChild(el('p', 'app-card__text', row.note)); }
     wrap.appendChild(info);
     body.appendChild(wrap);
-    var note = noteField(body, 'Note for this decision (optional, shown to the host)');
+    var note = noteField(body, 'Note for this decision (shown to the host; required to reject)');
+    var dlgAlert = el('p', 'form-alert');
+    dlgAlert.setAttribute('role', 'alert');
+    dlgAlert.setAttribute('data-dialog-alert', '');
+    dlgAlert.hidden = true;
+    body.appendChild(dlgAlert);
     var actions = el('div', 'cluster ad-review__actions');
     actions.appendChild(button('Edit details', 'btn-ghost btn-sm', function () { $('adDialog').close(); openForm(row); }));
     if (row.status === 'approved') {

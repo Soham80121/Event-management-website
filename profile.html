@@ -143,6 +143,17 @@
 
       </div>
 
+      <!-- Event Hosts: the events they submitted, loaded from the server (js/profile.js) -->
+      <section class="panel host-panel" id="applied-events" aria-labelledby="aeTitle" hidden>
+        <div class="host-panel__head">
+          <p class="eyebrow">Your submissions</p>
+          <h2 class="heading-2" id="aeTitle">Applied events</h2>
+        </div>
+        <p class="field__hint" id="aeHint">Every event you submit is reviewed by an admin. Its status updates here.</p>
+        <ul class="host-events" id="aeList" role="list"></ul>
+        <a class="btn-ghost" href="host-dashboard.html">Manage them in your Host Dashboard</a>
+      </section>
+
       <section class="panel host-panel" id="host-application" aria-labelledby="hostTitle">
         <div class="host-panel__head">
           <p class="eyebrow">For organizers</p>

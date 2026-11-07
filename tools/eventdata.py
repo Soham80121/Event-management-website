@@ -536,6 +536,35 @@ class EventData:
             self.audit(u, "event.submitted", ev["id"], title=ev["title"])
             return 200, {"ok": True, "event": ev}
 
+    def carry_over_event(self, token, body):
+        """Move the signed-in host's OWN pending submission that was saved only in
+        their browser (before events lived on the server), keeping its ID. The
+        owner always comes from the session, never from the browser record."""
+        u, err = self.require(token, "host", "admin")
+        if err:
+            return err
+        e = body.get("event")
+        if (not isinstance(e, dict) or e.get("hostId") != u["id"] or e.get("status") != "pending"
+                or not self.valid_hosted(e)):
+            return 400, {"ok": False, "error": "not-allowed",
+                         "message": "Only your own pending submission can be moved to the server."}
+        with self.lock:
+            if self.hosted(e["id"]):
+                return 200, {"ok": True, "status": "already-on-server"}
+            _, value = self.check_event_fields(e, allow_past=True)
+            ev = {"id": e["id"], "hostId": u["id"],
+                  "hostName": "EVENTORA" if self.auth.effective_role(u) == "admin" else u["name"],
+                  "status": "pending", "createdAt": e["createdAt"],
+                  "updatedAt": e.get("updatedAt") if iso_ok(e.get("updatedAt")) else e["createdAt"],
+                  "submittedAt": e.get("submittedAt") if iso_ok(e.get("submittedAt")) else e["createdAt"]}
+            if e.get("createdBy") == "admin" and self.auth.effective_role(u) == "admin":
+                ev["createdBy"] = "admin"
+            ev.update(self._event_record(value))
+            self.events.data["events"].append(ev)
+            self.events.save()
+            self.audit(u, "event.carried-over", ev["id"], title=ev["title"])
+            return 200, {"ok": True, "status": "moved", "event": ev}
+
     def _own_event(self, u, event_id):
         ev = self.hosted(event_id) if isinstance(event_id, str) else None
         if not ev or ev["hostId"] != u["id"]:
@@ -593,6 +622,9 @@ class EventData:
         note = body.get("note") or ""
         if not isinstance(note, str) or len(note.strip()) > 500:
             return 400, {"ok": False, "error": "Keep the note under 500 characters."}
+        if status == "rejected" and len(note.strip()) < 5:
+            return 400, {"ok": False, "field": "note",
+                         "error": "Give the host a reason for the rejection (at least 5 characters)."}
         with self.lock:
             ev = self.hosted(body.get("id")) if isinstance(body.get("id"), str) else None
             if not ev:

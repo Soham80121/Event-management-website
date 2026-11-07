@@ -484,6 +484,34 @@ class EventSubmissionTests(unittest.TestCase):
         regs = e.post("/api/admin/registrations", {"token": self.admin_tok})[1]["registrations"]
         self.assertEqual([r["id"] for r in regs], ["EVR-AAAA-BBBB"])
 
+    def test_carry_over_keeps_id_and_owner(self):
+        e = self.env
+        local = event("h-engine-room-punch-card-ball-5p3c", self.host_id, "pending")
+        status, body = e.post("/api/me/events/carry-over", {"token": self.host_tok, "event": local})
+        self.assertEqual((status, body["status"], body["event"]["id"]), (200, "moved", "h-engine-room-punch-card-ball-5p3c"))
+        self.assertEqual((body["event"]["hostId"], body["event"]["status"], body["event"]["hostName"]),
+                         (self.host_id, "pending", "Ada Host"))
+        again = e.post("/api/me/events/carry-over", {"token": self.host_tok, "event": local})
+        self.assertEqual(again[1]["status"], "already-on-server")                        # no duplicate import
+        self.assertEqual(len(e.post("/api/admin/events", {"token": self.admin_tok})[1]["events"]), 1)
+        # someone else's, an approved one, a normal user, no session: all refused
+        theirs = event("h-not-mine-0000", self.host2_id, "pending")
+        self.assertEqual(e.post("/api/me/events/carry-over", {"token": self.host_tok, "event": theirs})[0], 400)
+        approved = event("h-already-live-0000", self.host_id, "approved")
+        self.assertEqual(e.post("/api/me/events/carry-over", {"token": self.host_tok, "event": approved})[0], 400)
+        self.assertEqual(e.post("/api/me/events/carry-over", {"token": self.user_tok, "event": local})[0], 403)
+        self.assertEqual(e.post("/api/me/events/carry-over", {"token": "x", "event": local})[0], 401)
+
+    def test_event_reject_needs_reason(self):
+        e = self.env
+        ev = self.submit(self.host_tok)[1]["event"]
+        status, body = e.post("/api/admin/events/status", {"token": self.admin_tok, "id": ev["id"], "status": "rejected", "note": ""})
+        self.assertEqual((status, body["field"]), (400, "note"))
+        status, body = e.post("/api/admin/events/status", {"token": self.admin_tok, "id": ev["id"], "status": "rejected", "note": "Please add a venue address."})
+        self.assertEqual((status, body["event"]["status"], body["event"]["note"]), (200, "rejected", "Please add a venue address."))
+        mine = e.post("/api/me/events", {"token": self.host_tok})[1]["events"]
+        self.assertEqual((mine[0]["status"], mine[0]["note"]), ("rejected", "Please add a venue address."))   # host sees why
+
     def test_event_actions_are_audited(self):
         e = self.env
         ev = self.submit(self.host_tok)[1]["event"]

@@ -243,11 +243,62 @@
     });
   }
 
+  /* ---------- Applied events (Event Hosts): their submissions and the admin's decision ---------- */
+  function renderApplied(u) {
+    var sec = $('applied-events');
+    sec.hidden = u.role !== 'host';
+    if (sec.hidden) return;
+    var list = $('aeList'), hosting = Eventora.hosting;
+    list.textContent = '';
+    if (!hosting.applicationsLoaded()) {
+      list.appendChild(el('li', 'dash-empty dash-empty--small', 'Loading your submissions from the server…'));
+      return;
+    }
+    var events = hosting.myEvents().slice().sort(function (a, b) {
+      return (a.submittedAt || a.createdAt) < (b.submittedAt || b.createdAt) ? 1 : -1;
+    });
+    if (!events.length) {
+      var empty = el('li', 'dash-empty dash-empty--small');
+      empty.appendChild(document.createTextNode('No submissions yet. '));
+      var go = el('a', 'auth-link', 'Host an Event');
+      go.href = 'host.html';
+      empty.appendChild(go);
+      list.appendChild(empty);
+      return;
+    }
+    var help = {
+      pending: 'Waiting for an admin to review it. Not public yet.',
+      approved: 'Approved and published on EVENTORA.',
+      rejected: 'Not approved. Edit it in your Host Dashboard to resubmit.',
+      unpublished: 'Taken down by an admin. Not public.',
+      cancelled: 'Cancelled by an admin. Registrations are kept.'
+    };
+    events.forEach(function (e) {
+      var li = el('li', 'host-event host-event--' + e.status);
+      var fig = el('figure', 'host-event__poster');
+      var img = new Image(); img.alt = ''; img.loading = 'lazy'; img.src = Eventora.events.imageUrl(e, 160, 240);
+      fig.appendChild(img);
+      li.appendChild(fig);
+      var body = el('div', 'host-event__body');
+      var chip = el('span', 'app-status app-status--' + e.status);
+      chip.appendChild(el('span', 'app-status__dot'));
+      chip.appendChild(document.createTextNode(hosting.statusLabel(e.status, 'event')));
+      body.appendChild(chip);
+      body.appendChild(el('h3', 'host-event__title', e.title));
+      body.appendChild(el('p', 'host-event__meta', 'Submitted ' + day(e.submittedAt || e.createdAt) + ' · ' + e.id));
+      body.appendChild(el('p', 'host-event__help', help[e.status] || ''));
+      if (e.note) body.appendChild(el('p', 'host-event__note', (e.status === 'rejected' ? 'Reason: ' : 'Admin feedback: ') + '“' + e.note + '”'));
+      li.appendChild(body);
+      list.appendChild(li);
+    });
+  }
+
   function renderAll() {
     var u = auth.current();
     if (!u) { location.replace('login.html?next=profile.html'); return; }
     renderHeader(u);
     renderHost(u);
+    renderApplied(u);
   }
 
   Eventora.profile = {

@@ -167,6 +167,25 @@
     });
   }
 
+  /**
+   * Move the signed-in host's own PENDING submissions that were saved only in
+   * this browser (before events lived on the server) to the server, keeping
+   * their IDs. Each one is removed from browser storage once the server has it.
+   */
+  function carryOverEvents(u) {
+    if (!auth().can('manageOwnEvents')) return Promise.resolve();
+    var local = readHosted().filter(function (e) { return e.hostId === u.id && e.status === 'pending'; });
+    return local.reduce(function (p, e) {
+      return p.then(function () {
+        return auth().request('/api/me/events/carry-over', { event: e }).then(function (res) {
+          if (res.httpStatus === 200) {
+            write(EVENTS_KEY, 'events', read(EVENTS_KEY, 'events').filter(function (x) { return x.id !== e.id; }));
+          }
+        });
+      });
+    }, Promise.resolve());
+  }
+
   /* ---------- ids ---------- */
   var ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
   function rand(n) {
@@ -245,7 +264,7 @@
       var u = me();
       if (!u) { appCache = { mine: [], all: [], loaded: false }; return Promise.resolve(); }
       var hostish = auth().can('manageOwnEvents'), admin = auth().can('reviewApplications');
-      return carryOver(u).then(function () {
+      return carryOver(u).then(function () { return carryOverEvents(u); }).then(function () {
         return Promise.all([
           auth().request('/api/me/applications', {}),
           admin ? auth().request('/api/admin/applications', {}) : null,
