@@ -392,5 +392,105 @@ class ApplicationTests(unittest.TestCase):
         self.assertEqual(entries[2]["details"]["note"], "Not enough detail yet.")
 
 
+
+class EventSubmissionTests(unittest.TestCase):
+    def setUp(self):
+        self.env = Env()
+        e = self.env
+        self.admin_tok, self.admin_id = e.login(ADMIN, "Admin-Start-2026")
+        self.user_tok, self.user_id = e.signup("Plain User", "plain@example.test")
+        self.host_tok, self.host_id = e.signup("Ada Host", "ada.host@example.test")
+        self.host2_tok, self.host2_id = e.signup("Alan Host", "alan.host@example.test")
+        for uid in (self.host_id, self.host2_id):
+            e.post("/api/admin/set-role", {"token": self.admin_tok, "userId": uid, "role": "host"})
+
+    def tearDown(self):
+        self.env.close()
+
+    @staticmethod
+    def fields(**over):
+        f = {"title": "Blue Room Live", "category": "Music", "date": "2030-04-10", "time": "20:00",
+             "venue": {"name": "Blue Room", "city": "Pune"}, "image": {"src": COVER},
+             "description": "Two local bands, one long night of live music.", "price": {"amount": 15}}
+        f.update(over)
+        return f
+
+    def submit(self, tok, **over):
+        return self.env.post("/api/me/events/submit", {"token": tok, "event": self.fields(**over)})
+
+    def test_host_submission_is_pending_and_owned(self):
+        status, body = self.submit(self.host_tok, status="approved", hostId=self.admin_id)   # forged fields ignored
+        self.assertEqual(status, 200, body)
+        ev = body["event"]
+        self.assertRegex(ev["id"], r"^h-blue-room-live-[0-9a-z]{4}$")
+        self.assertEqual((ev["status"], ev["hostId"], ev["hostName"]), ("pending", self.host_id, "Ada Host"))
+        self.assertNotIn("createdBy", ev)
+        self.assertEqual(self.env.post("/api/events/public")[1]["events"], [])        # not public
+        pending = [x["id"] for x in self.env.post("/api/admin/events", {"token": self.admin_tok})[1]["events"]]
+        self.assertEqual(pending, [ev["id"]])                                          # admin sees it
+
+    def test_admin_submission_is_pending_with_admin_ownership(self):
+        ev = self.submit(self.admin_tok)[1]["event"]
+        self.assertEqual((ev["status"], ev["hostId"], ev["hostName"], ev["createdBy"]),
+                         ("pending", self.admin_id, "EVENTORA", "admin"))
+
+    def test_who_may_submit(self):
+        self.assertEqual(self.submit(self.user_tok)[0], 403)
+        self.assertEqual(self.submit("made-up")[0], 401)
+        status, body = self.submit(self.host_tok, category="Hacking", date="2001-01-01")
+        self.assertEqual((status, sorted(body["errors"])), (400, ["category", "date"]))
+
+    def test_duplicate_submission_is_refused(self):
+        self.assertEqual(self.submit(self.host_tok)[0], 200)
+        status, body = self.submit(self.host_tok)
+        self.assertEqual((status, body["error"]), (409, "duplicate"))
+        self.assertEqual(self.submit(self.host_tok, time="21:00")[0], 200)           # a different event is fine
+
+    def test_admin_approval_publishes(self):
+        ev = self.submit(self.host_tok)[1]["event"]
+        e = self.env
+        self.assertEqual(e.post("/api/admin/events/status", {"token": self.host_tok, "id": ev["id"], "status": "approved"})[0], 403)
+        status, body = e.post("/api/admin/events/status", {"token": self.admin_tok, "id": ev["id"], "status": "approved", "note": "Looks great"})
+        self.assertEqual((status, body["event"]["status"]), (200, "approved"))
+        public = e.post("/api/events/public")[1]["events"]
+        self.assertEqual([x["id"] for x in public], [ev["id"]])
+        self.assertNotIn("Looks great", json.dumps(public))
+        e.post("/api/admin/events/status", {"token": self.admin_tok, "id": ev["id"], "status": "cancelled"})
+        self.assertEqual(e.post("/api/events/public")[1]["events"], [])
+
+    def test_host_edits_only_own_pending_or_rejected(self):
+        e = self.env
+        ev = self.submit(self.host_tok)[1]["event"]
+        upd = {"token": self.host2_tok, "id": ev["id"], "event": self.fields(title="Hijacked")}
+        self.assertEqual(e.post("/api/me/events/update", upd)[0], 404)                   # another host's event
+        self.assertEqual(e.post("/api/me/events/delete", {"token": self.host2_tok, "id": ev["id"]})[0], 404)
+        e.post("/api/admin/events/status", {"token": self.admin_tok, "id": ev["id"], "status": "rejected", "note": "Add more detail"})
+        status, body = e.post("/api/me/events/update", {"token": self.host_tok, "id": ev["id"], "event": self.fields(price=None)})
+        self.assertEqual((status, body["event"]["status"]), (200, "pending"))           # resubmitted
+        self.assertNotIn("note", body["event"])
+        self.assertNotIn("price", body["event"])
+        e.post("/api/admin/events/status", {"token": self.admin_tok, "id": ev["id"], "status": "approved"})
+        self.assertEqual(e.post("/api/me/events/update", {"token": self.host_tok, "id": ev["id"], "event": self.fields()})[0], 409)
+        self.assertEqual(e.post("/api/me/events/delete", {"token": self.host_tok, "id": ev["id"]})[0], 409)
+
+    def test_admin_edit_and_remove_keep_registrations(self):
+        e = self.env
+        ev = self.submit(self.host_tok)[1]["event"]
+        e.post("/api/admin/import", {"token": self.admin_tok, "data": {"registrations": [reg("EVR-AAAA-BBBB", ev["id"], "x@example.test")]}})
+        status, body = e.post("/api/admin/events/update", {"token": self.admin_tok, "id": ev["id"], "event": self.fields(title="Blue Room Live (renamed)")})
+        self.assertEqual((status, body["event"]["title"], body["event"]["status"]), (200, "Blue Room Live (renamed)", "pending"))
+        self.assertEqual(e.post("/api/admin/events/update", {"token": self.host_tok, "id": ev["id"], "event": self.fields()})[0], 403)
+        self.assertEqual(e.post("/api/admin/events/remove", {"token": self.admin_tok, "id": ev["id"]})[0], 200)
+        regs = e.post("/api/admin/registrations", {"token": self.admin_tok})[1]["registrations"]
+        self.assertEqual([r["id"] for r in regs], ["EVR-AAAA-BBBB"])
+
+    def test_event_actions_are_audited(self):
+        e = self.env
+        ev = self.submit(self.host_tok)[1]["event"]
+        e.post("/api/admin/events/status", {"token": self.admin_tok, "id": ev["id"], "status": "approved"})
+        actions = [(x["action"], x["actor"]) for x in e.post("/api/admin/audit", {"token": self.admin_tok})[1]["entries"][:2]]
+        self.assertEqual(actions, [("event.approved", self.admin_id), ("event.submitted", self.host_id)])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

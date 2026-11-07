@@ -12,7 +12,14 @@
      application from before (saved only in eventora:host-applications in
      this browser) is moved to the server once, keeping its ID.
 
-   eventora:hosted-events
+   EVENTS SUBMITTED NOW are saved on the dev server (tools/eventdata.py):
+     always Pending, owned by the signed-in host or admin; only an admin
+     approval publishes them. sync() loads the signed-in person's (admins:
+     all) server events; loadPublic() loads the published ones for the
+     public pages before they render. Every function below works on both
+     kinds and sends each action to wherever the event lives.
+
+   eventora:hosted-events  (events created before server saving; unchanged)
      { version, events: [{ ...catalogue event fields, id: 'h-<slug>-<4>',
        hostId, status: 'pending'|'approved'|'rejected'|'unpublished',
        createdAt, updatedAt, submittedAt, decidedAt?, note? }] }
@@ -132,6 +139,34 @@
     }, Promise.resolve());
   }
 
+  /* ---------- events on the server ---------- */
+  var PUBLIC_CACHE = 'eventora:public-events-cache';     // last published list (offline fallback only)
+  var evCache = { mine: [], all: [], pub: [] };
+  try { evCache.pub = (JSON.parse(window.localStorage.getItem(PUBLIC_CACHE) || 'null') || {}).events || []; }
+  catch (err) { evCache.pub = []; }
+  function byDate(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : (a.time < b.time ? -1 : a.time > b.time ? 1 : 0); }
+  function serverEvent(id) {
+    return evCache.mine.concat(evCache.all).filter(function (e) { return e.id === id; })[0] || null;
+  }
+  function putEvent(ev) {
+    var u = me();
+    [['mine', u && ev.hostId === u.id], ['all', auth().can('reviewEvents')]].forEach(function (k) {
+      var list = evCache[k[0]], at = -1;
+      list.forEach(function (x, i) { if (x.id === ev.id) at = i; });
+      if (at !== -1) list[at] = ev; else if (k[1]) list.push(ev);
+    });
+  }
+  function dropEvent(id) {
+    ['mine', 'all', 'pub'].forEach(function (k) { evCache[k] = evCache[k].filter(function (e) { return e.id !== id; }); });
+  }
+  function eventCall(path, body, fallback) {
+    return auth().request(path, body).then(function (res) {
+      if (res.httpStatus === 200 && res.event) { putEvent(res.event); return { ok: true, event: res.event }; }
+      if (res.httpStatus === 200) return { ok: true };
+      return serverError(res, fallback);
+    });
+  }
+
   /* ---------- ids ---------- */
   var ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
   function rand(n) {
@@ -209,17 +244,41 @@
     sync: function () {
       var u = me();
       if (!u) { appCache = { mine: [], all: [], loaded: false }; return Promise.resolve(); }
+      var hostish = auth().can('manageOwnEvents'), admin = auth().can('reviewApplications');
       return carryOver(u).then(function () {
-        var jobs = [auth().request('/api/me/applications', {})];
-        if (auth().can('reviewApplications')) jobs.push(auth().request('/api/admin/applications', {}));
-        return Promise.all(jobs);
+        return Promise.all([
+          auth().request('/api/me/applications', {}),
+          admin ? auth().request('/api/admin/applications', {}) : null,
+          hostish ? auth().request('/api/me/events', {}) : null,
+          admin ? auth().request('/api/admin/events', {}) : null
+        ]);
       }).then(function (res) {
         if (res[0].httpStatus === 200) appCache.mine = res[0].applications.sort(byNewest);
         if (res[1] && res[1].httpStatus === 200) appCache.all = res[1].applications.sort(byNewest);
         appCache.loaded = res[0].httpStatus === 200;
         appCache.status = res[0].httpStatus;
+        evCache.mine = res[2] && res[2].httpStatus === 200 ? res[2].events : [];
+        evCache.all = res[3] && res[3].httpStatus === 200 ? res[3].events : [];
       });
     },
+    /**
+     * Published events from the server, for the public pages. main.js waits
+     * for this (briefly) before rendering; if the server can't be reached the
+     * last list this browser saw is used.
+     */
+    loadPublic: function (timeoutMs) {
+      var req = fetch('/api/events/public', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: '{}', cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; });
+      var timeout = new Promise(function (resolve) { setTimeout(function () { resolve(null); }, timeoutMs || 2500); });
+      return Promise.race([req, timeout]).then(function (data) {
+        if (data && Array.isArray(data.events)) {
+          evCache.pub = data.events;
+          try { window.localStorage.setItem(PUBLIC_CACHE, JSON.stringify({ events: data.events })); } catch (err) { /* ignore */ }
+        }
+      }, function () { /* offline: keep the cached list */ });
+    },
+    isServerEvent: function (id) { return !!serverEvent(id); },
+
     /** Whether the last sync reached the server (false: show "couldn't load"). */
     applicationsLoaded: function () { return appCache.loaded; },
 
@@ -246,42 +305,44 @@
     },
 
     /* ----- hosted events (host) ----- */
+    /** The signed-in host's events: server-saved ones plus older browser-saved ones. */
     myEvents: function () {
       var u = me();
       if (!u) return [];
-      return readHosted().filter(function (e) { return e.hostId === u.id; })
-        .sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+      var server = evCache.mine.slice();
+      var ids = {}; server.forEach(function (e) { ids[e.id] = true; });
+      return server.concat(readHosted().filter(function (e) { return e.hostId === u.id && !ids[e.id]; })).sort(byDate);
     },
 
     checkEvent: checkEvent,
 
+    /**
+     * Submit an event (Event Host or Admin). Saved on the server, always
+     * Pending, owned by the signed-in account. Resolves to { ok, event } or
+     * { ok:false, errors|error }.
+     */
     createEvent: function (f) {
       var u = me();
-      if (!u || !auth().can('manageOwnEvents')) return deny('Only Event Hosts can create events.');
+      if (!u || !auth().can('manageOwnEvents')) return Promise.resolve(deny('Only Event Hosts and admins can submit events.'));
       var c = checkEvent(f);
-      if (Object.keys(c.errors).length) return { ok: false, errors: c.errors };
-      var list = readHosted();
-      var id; do { id = 'h-' + slug(c.value.title) + '-' + rand(4).toLowerCase(); }
-      while (cat().isCatalogue(id) || list.some(function (e) { return e.id === id; }));
-      var now = new Date().toISOString();
-      var ev = Object.assign({ id: id, hostId: u.id, hostName: u.name, status: 'pending',
-        createdAt: now, updatedAt: now, submittedAt: now }, c.value);
-      if (!ev.price) delete ev.price;
-      list.push(ev);
-      if (!write(EVENTS_KEY, 'events', list)) return deny('The event couldn’t be saved in this browser.');
-      return { ok: true, event: ev };
+      if (Object.keys(c.errors).length) return Promise.resolve({ ok: false, errors: c.errors });
+      return eventCall('/api/me/events/submit', { event: c.value }, 'The event couldn’t be submitted. Please try again.');
     },
 
     /** Hosts edit their own events while pending or rejected (re-submits it). */
     updateEvent: function (id, f) {
       var u = me();
+      var c = checkEvent(f);
+      if (serverEvent(id)) {
+        if (Object.keys(c.errors).length) return Promise.resolve({ ok: false, errors: c.errors });
+        return eventCall('/api/me/events/update', { id: id, event: c.value }, 'Your changes couldn’t be saved.');
+      }
       var list = readHosted();
       var ev = list.filter(function (e) { return e.id === id; })[0];
       if (!u || !ev || ev.hostId !== u.id) return deny('You can only edit your own events.');
       if (ev.status !== 'pending' && ev.status !== 'rejected') {
         return deny('Approved and unpublished events are locked. Ask an admin if something needs to change.');
       }
-      var c = checkEvent(f);
       if (Object.keys(c.errors).length) return { ok: false, errors: c.errors };
       Object.assign(ev, c.value);
       if (!c.value.price) delete ev.price;
@@ -293,6 +354,12 @@
     },
 
     deleteEvent: function (id) {
+      if (serverEvent(id)) {
+        return auth().request('/api/me/events/delete', { id: id }).then(function (res) {
+          if (res.httpStatus === 200) { dropEvent(id); return { ok: true }; }
+          return serverError(res, 'The event couldn’t be deleted.');
+        });
+      }
       var u = me();
       var list = readHosted();
       var ev = list.filter(function (e) { return e.id === id; })[0];
@@ -306,15 +373,17 @@
     registrationsFor: function (eventId) {
       var u = me();
       if (!u) return null;
-      var ev = readHosted().filter(function (e) { return e.id === eventId; })[0];
+      var ev = serverEvent(eventId) || readHosted().filter(function (e) { return e.id === eventId; })[0];
       var allowed = auth().can('viewAllRegistrations') || (ev && ev.hostId === u.id);
       if (!allowed || !Eventora.registrations) return null;
       return Eventora.registrations.all().filter(function (r) { return r.eventId === eventId; });
     },
 
-    /** Public, approved host events (catalogue source). */
+    /** Public events: approved browser-saved ones plus the server's published list. */
     publicEvents: function () {
-      return readHosted().filter(function (e) { return e.status === 'approved'; }).map(publicShape);
+      var server = evCache.pub.slice();
+      var ids = {}; server.forEach(function (e) { ids[e.id] = true; });
+      return server.concat(readHosted().filter(function (e) { return e.status === 'approved' && !ids[e.id]; }).map(publicShape));
     },
 
     /* ----- admin review ----- */
@@ -341,7 +410,9 @@
 
       events: function () {
         this._require('reviewEvents');
-        return readHosted().sort(function (a, b) { return a.submittedAt < b.submittedAt ? 1 : -1; });
+        var ids = {}; evCache.all.forEach(function (e) { ids[e.id] = true; });
+        return evCache.all.concat(readHosted().filter(function (e) { return !ids[e.id]; }))
+          .sort(function (a, b) { return a.submittedAt < b.submittedAt ? 1 : -1; });
       },
 
       /**
@@ -358,7 +429,7 @@
           return { id: orig.id, source: 'catalogue', status: o.status || 'approved', event: view,
             hostId: null, hostName: 'EVENTORA (built-in)', submittedAt: '', note: o.note || '' };
         });
-        readHosted().forEach(function (e) {
+        this.events().forEach(function (e) {
           rows.push({ id: e.id, source: e.createdBy === 'admin' ? 'admin' : 'host', status: e.status,
             event: publicShape(e), raw: e, hostId: e.hostId, hostName: e.hostName || '',
             submittedAt: e.submittedAt || e.createdAt, note: e.note || '' });
@@ -389,6 +460,10 @@
       updateEvent: function (id, f) {
         this._require('reviewEvents');
         var c = checkEvent(f, { allowPast: true });
+        if (serverEvent(id)) {
+          if (Object.keys(c.errors).length) return Promise.resolve({ ok: false, errors: c.errors });
+          return eventCall('/api/admin/events/update', { id: id, event: c.value }, 'The event couldn’t be saved.');
+        }
         if (Object.keys(c.errors).length) return { ok: false, errors: c.errors };
         if (cat().isCatalogue(id)) {
           var ov = readOverrides();
@@ -413,6 +488,10 @@
       setEventStatus: function (id, status, note) {
         this._require('reviewEvents');
         if (!EV_STATUS[status] || status === 'pending') return deny('Unknown status.');
+        if (serverEvent(id)) {
+          return eventCall('/api/admin/events/status', { id: id, status: status, note: String(note || '') },
+            'That change couldn’t be saved.');
+        }
         if (cat().isCatalogue(id)) {
           if (status === 'rejected') return deny('Built-in events can’t be rejected.');
           var ov = readOverrides();
@@ -438,6 +517,12 @@
       removeEvent: function (id) {
         this._require('reviewEvents');
         if (cat().isCatalogue(id)) return deny('Built-in events can’t be removed. Cancel or unpublish them instead.');
+        if (serverEvent(id)) {
+          return auth().request('/api/admin/events/remove', { id: id }).then(function (res) {
+            if (res.httpStatus === 200) { dropEvent(id); return { ok: true }; }
+            return serverError(res, 'The event couldn’t be removed.');
+          });
+        }
         var list = readHosted();
         if (!list.some(function (e) { return e.id === id; })) return deny('Event not found.');
         write(EVENTS_KEY, 'events', list.filter(function (e) { return e.id !== id; }));
@@ -454,7 +539,7 @@
       eventTitle: function (id) {
         var e = cat().byId(id);
         if (e) return e.title;
-        var h = readHosted().filter(function (x) { return x.id === id; })[0];
+        var h = serverEvent(id) || readHosted().filter(function (x) { return x.id === id; })[0];
         if (h) return h.title;
         var c = cat().catalogue().filter(function (x) { return x.id === id; })[0];
         return c ? c.title : 'Event no longer listed (' + id + ')';

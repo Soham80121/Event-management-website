@@ -32,6 +32,12 @@ Same as `python -m http.server`, but:
      /api/me/applications/apply      {token, reason, organization?, info?}   User applies to host
      /api/me/applications/carry-over {token, application}   your own pending app from browser storage
      /api/admin/applications/decide  {token, id, decision, note}   approve / reject (reason required)
+     /api/me/events/submit     {token, event}      host / admin: new event, always Pending
+     /api/me/events/update     {token, id, event}  owner: edit a Pending/Rejected event (resubmits)
+     /api/me/events/delete     {token, id}         owner: delete a Pending/Rejected event
+     /api/admin/events/status  {token, id, status, note}   approve / reject / unpublish / cancel
+     /api/admin/events/update  {token, id, event}  admin edit (status unchanged)
+     /api/admin/events/remove  {token, id}         admin delete (registrations kept)
      /api/me/events            {token}             your events (host / admin)
      /api/me/registrations     {token}             your bookings
      /api/host/registrations   {token, eventId?}   bookings for your own events (host; admin: any)
@@ -80,6 +86,8 @@ ROUTES = {
     "/api/host/registrations", "/api/admin/applications", "/api/admin/events",
     "/api/admin/registrations", "/api/admin/audit", "/api/admin/import",
     "/api/me/applications/apply", "/api/me/applications/carry-over", "/api/admin/applications/decide",
+    "/api/me/events/submit", "/api/me/events/update", "/api/me/events/delete",
+    "/api/admin/events/status", "/api/admin/events/update", "/api/admin/events/remove",
 }
 LARGE_ROUTES = {"/api/account/update", "/api/auth/migrate"}
 
@@ -163,6 +171,12 @@ class DevHandler(http.server.SimpleHTTPRequestHandler):
                 "/api/me/applications/apply": lambda: d.apply_host(token, body),
                 "/api/me/applications/carry-over": lambda: d.carry_over_application(token, body),
                 "/api/admin/applications/decide": lambda: d.decide_application(token, body),
+                "/api/me/events/submit": lambda: d.submit_event(token, body),
+                "/api/me/events/update": lambda: d.host_update_event(token, body),
+                "/api/me/events/delete": lambda: d.host_delete_event(token, body),
+                "/api/admin/events/status": lambda: d.admin_set_event_status(token, body),
+                "/api/admin/events/update": lambda: d.admin_update_event(token, body),
+                "/api/admin/events/remove": lambda: d.admin_remove_event(token, body),
             }[path]()
         except Exception as err:  # noqa: BLE001 - never leak internals to the browser
             self.log_error("API error on %s: %r", path, err)

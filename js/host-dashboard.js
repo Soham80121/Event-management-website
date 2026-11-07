@@ -1,23 +1,16 @@
 /* =========================================================================
-   HOST DASHBOARD — host-dashboard.html, for Event Hosts and the Admin.
-
-   Event Host: their own events (hostId = their user id). New and edited
-     events are "Pending" until an admin approves them; only approved events
-     are public. Edit / delete while pending or rejected.
-   Admin ("Host an Event" in the admin navbar): the events the admin created
-     (createdBy: 'admin', hostId = the admin's id), using the existing admin
-     permissions: create (optionally "Publish immediately", unticked by
-     default), edit, publish / unpublish / cancel, remove. Approving OTHER
-     hosts' events stays in the Admin Panel.
-
-   Both: overview stats, status filters, registrations per event.
-   (Events are still browser-stored until the events phase — js/hosting.js.)
+   HOST DASHBOARD — host-dashboard.html, for Event Hosts.
+   A host sees and manages only their own events: overview stats, status
+   filters, registrations per event, and edit / delete while an event is
+   Pending or Rejected (an edit resubmits it). New events go through
+   "Host an Event" (host.html) or the form below; both save on the server as
+   Pending, and only an admin approval publishes them.
+   Admins manage events in the Admin panel; their "Host an Event" is host.html.
    ========================================================================= */
 (function (Eventora) {
   'use strict';
 
   var auth, hosting, cat, F;
-  var isAdmin = false;
   var filter = 'all';
   function $(id) { return document.getElementById(id); }
   function el(tag, cls, text) {
@@ -58,14 +51,7 @@
     return b;
   }
 
-  /* ---------- whose events ---------- */
-  function myEvents() {
-    if (!isAdmin) return hosting.myEvents();
-    var me = auth.current();
-    // the admin's own events: created through the admin path, owned by this admin
-    return hosting.admin.events().filter(function (e) { return e.hostId === me.id; })
-      .sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
-  }
+  function myEvents() { return hosting.myEvents(); }
 
   var FILTERS = [['all', 'All'], ['pending', 'Pending'], ['approved', 'Published'], ['rejected', 'Rejected'],
     ['off', 'Unpublished & cancelled']];
@@ -75,10 +61,13 @@
     return e.status === f;
   }
 
+  /** Result of an action: plain (older browser-saved events) or a Promise (server). */
   function done(res, okMsg) {
-    F.alert($('hdAlert'), res.ok ? 'success' : 'error', res.ok ? okMsg : res.error);
-    if (res.ok && formApi && formApi.editing() && !myEvents().some(function (e) { return e.id === formApi.editing(); })) formApi.cancel();
-    render();
+    Promise.resolve(res).then(function (r) {
+      F.alert($('hdAlert'), r.ok ? 'success' : 'error', r.ok ? okMsg : r.error);
+      if (r.ok && formApi && formApi.editing() && !myEvents().some(function (e) { return e.id === formApi.editing(); })) formApi.cancel();
+      render();
+    });
   }
 
   /* ---------- list ---------- */
@@ -110,8 +99,7 @@
       var empty = el('li', 'dash-empty');
       empty.appendChild(el('p', 'heading-3', events.length ? 'No events with this status' : 'No events yet'));
       empty.appendChild(el('p', 'dash-empty__text', events.length ? 'Choose another filter above.'
-        : isAdmin ? 'Create your first event below. Publish it straight away, or keep it Pending.'
-        : 'Create your first event below. An admin reviews it before it appears on EVENTORA.'));
+        : 'Create your first event below or from Host an Event. An admin reviews it before it appears on EVENTORA.'));
       list.appendChild(empty);
       return;
     }
@@ -126,14 +114,8 @@
       body.appendChild(el('h3', 'host-event__title', e.title));
       body.appendChild(el('p', 'host-event__meta', e.category + ' · ' + dateLabel(e)));
       body.appendChild(el('p', 'host-event__meta host-event__meta--muted', e.venue.name + ', ' + e.venue.city +
-        ' · ' + (e.price ? '$' + e.price.amount : 'Free') + (isAdmin ? ' · ' + e.id : '')));
-      var help = isAdmin ? {
-        pending: 'Pending: not public. Publish it here, or review it with other submissions in the Admin panel.',
-        approved: 'Published on EVENTORA.',
-        rejected: 'Rejected: not public.',
-        unpublished: 'Unpublished: hidden from the public. Registrations are kept.',
-        cancelled: 'Cancelled: hidden from the public. Registrations and QR codes are kept.'
-      }[e.status] : {
+        ' · ' + (e.price ? '$' + e.price.amount : 'Free')));
+      var help = {
         pending: 'Waiting for admin approval. Not public yet.',
         approved: 'Live on EVENTORA. Approved events are locked; ask an admin for changes.',
         rejected: 'Not approved. Edit it to resubmit.',
@@ -157,29 +139,8 @@
       actions.appendChild(pub);
     }
     var t = '“' + e.title + '”';
-    if (isAdmin) {
-      // the existing admin permissions, applied to the admin's own events
-      actions.appendChild(button('Edit', 'btn-ghost', function () { openEdit(e); }));
-      if (e.status !== 'approved' && e.status !== 'cancelled') {
-        actions.appendChild(button('Publish', 'btn-ghost btn-ok', function () {
-          done(hosting.admin.setEventStatus(e.id, 'approved', ''), t + ' is published.');
-        }));
-      }
-      if (e.status === 'approved') {
-        actions.appendChild(armed('Unpublish', 'Confirm unpublish', 'btn-ghost', function () {
-          done(hosting.admin.setEventStatus(e.id, 'unpublished', ''), t + ' is unpublished. Registrations are kept.');
-        }));
-      }
-      if (e.status !== 'cancelled') {
-        actions.appendChild(armed('Cancel event', 'Confirm cancel', 'btn-ghost btn-danger', function () {
-          done(hosting.admin.setEventStatus(e.id, 'cancelled', ''), t + ' is cancelled. Registrations and QR codes are kept.');
-        }));
-      }
-      actions.appendChild(armed('Remove', 'Confirm remove', 'btn-ghost btn-danger', function () {
-        done(hosting.admin.removeEvent(e.id), t + ' was removed. Its registrations are kept.');
-      }));
-    } else if (e.status === 'pending' || e.status === 'rejected') {
-      actions.appendChild(button('Edit', 'btn-ghost', function () { openEdit(e); }));
+    if (e.status === 'pending' || e.status === 'rejected') {
+      actions.appendChild(button('Edit', 'btn-ghost', function () { formApi.edit(e); }));
       actions.appendChild(armed('Delete', 'Confirm delete', 'btn-ghost btn-danger', function () {
         done(hosting.deleteEvent(e.id), t + ' was deleted.');
       }));
@@ -211,44 +172,20 @@
 
   /* ---------- create / edit (shared component: js/event-form.js) ---------- */
   var formApi = null;
-  var publishRow = null;
-  function showPublish(on) { if (publishRow) publishRow.hidden = !on; }
-  function openEdit(e) {
-    formApi.edit(e);
-    showPublish(false);                         // an edit keeps the event's status
-  }
-
   function bindForm() {
-    var form = Eventora.eventForm.render($('eventForm'), {
-      prefix: 'ev', publish: isAdmin, create: isAdmin ? 'Create event' : 'Submit for approval'
-    });
-    publishRow = form.querySelector('[data-publish-row]');
+    var form = Eventora.eventForm.render($('eventForm'), { prefix: 'ev', create: 'Submit for approval' });
     formApi = Eventora.eventForm.create(form, {
-      labels: isAdmin
-        ? { create: 'Create event', edit: 'Save changes', createTitle: 'Create a new event', editTitle: 'Edit “{title}”' }
-        : { create: 'Submit for approval', edit: 'Save and resubmit', createTitle: 'Create a new event', editTitle: 'Edit “{title}”' },
+      labels: { create: 'Submit for approval', edit: 'Save and resubmit', createTitle: 'Create a new event', editTitle: 'Edit “{title}”' },
       submit: function (v, editingId) {
-        if (isAdmin) {
-          return editingId ? hosting.admin.updateEvent(editingId, v)
-            : hosting.admin.createEvent(v, !!(form.elements.publish && form.elements.publish.checked));
-        }
         return editingId ? hosting.updateEvent(editingId, v) : hosting.createEvent(v);
       },
       saved: function (res, wasEditing) {
-        var t = '“' + res.event.title + '”';
-        var msg = isAdmin
-          ? (wasEditing ? t + ' was updated. Its status didn’t change.'
-            : res.event.status === 'approved' ? t + ' was created and published.'
-            : t + ' was created as Pending. Publish it from the list when it’s ready.')
-          : t + ' was ' + (wasEditing ? 'updated and resubmitted' : 'submitted') + '. It’s Pending until an admin approves it.';
-        F.alert($('hdAlert'), 'success', msg);
-        showPublish(true);
+        F.alert($('hdAlert'), 'success', '“' + res.event.title + '” was ' + (wasEditing ? 'updated and resubmitted' : 'submitted') +
+          '. It’s Pending until an admin approves it.');
         render();
         $('hdAlert').scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     });
-    var cancel = form.querySelector('[data-cancel]');
-    if (cancel) cancel.addEventListener('click', function () { showPublish(true); });
   }
 
   function deny(u) {
@@ -257,33 +194,23 @@
     $('dashBody').hidden = true;
   }
 
-  function adminCopy() {
-    $('hdEyebrow').textContent = 'Admin';
-    $('hdHeading').textContent = 'Admin events';
-    $('hdLead').textContent = 'Create and manage the events you host as EVENTORA. Other hosts’ submissions are reviewed in the Admin panel.';
-    $('hdListTitle').textContent = 'My events';
-    $('hdFormHint').textContent = 'Leave “Publish immediately” unticked to keep the event Pending (not public) until you publish it.';
-    document.title = 'Admin events — EVENTORA';
-    var back = document.querySelector('.back-link');
-    if (back) { back.href = 'admin.html'; back.lastChild.textContent = ' Admin panel'; }
-  }
-
   Eventora.hostDashboard = {
     init: function () {
       if (!$('hdList') || !Eventora.auth || !Eventora.hosting) return;
       auth = Eventora.auth; hosting = Eventora.hosting; cat = Eventora.events; F = Eventora.forms;
       if (!auth.current()) { deny(null); return; }
       auth.ready().then(function (u) {
+        // admins: "Host an Event" is host.html; events are managed in the Admin panel
+        if (u && u.role === 'admin') { location.replace('host.html'); return; }
         if (!u || !auth.can('manageOwnEvents')) { deny(u); return; }
-        isAdmin = u.role === 'admin';
-        if (isAdmin) adminCopy();
         $('dashBody').hidden = false;
         $('hdWho').textContent = u.name;
         bindForm();
         render();
+        hosting.sync().then(render);                       // the host's events saved on the server
         if (location.hash === '#create') $('create').scrollIntoView({ block: 'start' });
         $('regsDialog').querySelector('[data-close]').addEventListener('click', function () { $('regsDialog').close(); });
-        auth.onChange(function (x) { if (!x || !auth.can('manageOwnEvents') || (x.role === 'admin') !== isAdmin) location.reload(); });
+        auth.onChange(function (x) { if (!x || !auth.can('manageOwnEvents')) location.reload(); });
       });
     }
   };

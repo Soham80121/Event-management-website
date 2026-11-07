@@ -8,15 +8,15 @@
    | Event Host | "Host Dashboard" → own events    | My Profile          |
    | Admin      | "Admin Panel" → admin.html       | Admin account page  |
 
-   Admins also get a "Host an Event" text link after Contact, which opens
-   their own events dashboard (host-dashboard.html in admin mode: create,
-   edit and manage the events the admin hosts).
+   Admins also get a "Host an Event" text link after Contact. It opens
+   host.html, which for Event Hosts and the Admin is the simple event
+   submission form (js/host-page.js; events are saved as Pending).
 
-   Account page (profile.html), Admin Panel (admin.html) and the events
-   dashboard are three separate destinations. The button sits in the hero's
+   Account page (profile.html), Admin Panel (admin.html) and Host an Event
+   (host.html) are separate destinations. The button sits in the hero's
    fitted nav; when its label changes, js/layout.js re-fits it.
-   host.html routes signed-in people: users to the host application, hosts
-   to their dashboard, admins to their events dashboard.
+   host.html: visitors see the sign-in intro, users are sent to the host
+   application, hosts and the admin stay on it (the submission form).
    Admins are recognised from the account the server-verified admin sign-in
    created, so the right destination is set before the server re-confirms
    the admin session (the Admin Dashboard itself still waits for it).
@@ -41,8 +41,8 @@
   var DEST = {
     visitor: { cta: 'login.html?next=host.html', label: 'Host an Event', host: 'login.html?next=host.html', account: null },
     user: { cta: 'profile.html#host-application', label: 'Host an Event', host: 'profile.html#host-application', account: 'profile.html' },
-    host: { cta: 'host-dashboard.html', label: 'Host Dashboard', host: 'host-dashboard.html#create', account: 'profile.html' },
-    admin: { cta: 'admin.html', label: 'Admin Panel', host: 'host-dashboard.html', account: 'profile.html' }
+    host: { cta: 'host-dashboard.html', label: 'Host Dashboard', host: 'host.html', account: 'profile.html' },
+    admin: { cta: 'admin.html', label: 'Admin Panel', host: 'host.html', account: 'profile.html' }
   };
 
   function renderCta(role) {
@@ -74,7 +74,7 @@
       link.id = 'navHostLink';
       link.href = DEST.admin.host;
       link.textContent = 'Host an Event';
-      link.setAttribute('aria-label', 'Host an Event: your events dashboard');
+      link.setAttribute('aria-label', 'Host an Event: submit an event');
       if (page() === DEST.admin.host) link.setAttribute('aria-current', 'page');
       row.appendChild(link);
     } else {
@@ -128,7 +128,8 @@
   function routeHostPage() {
     if (page() !== 'host.html' || !Eventora.auth) return;
     var role = navRole(Eventora.auth.current());
-    if (role !== 'visitor') location.replace(DEST[role].host);
+    // users apply to host; hosts and the admin use this page's submission form
+    if (role === 'user') location.replace(DEST.user.host);
   }
 
   Eventora.accountNav = {

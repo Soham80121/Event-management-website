@@ -256,8 +256,8 @@
       auth = Eventora.auth; F = Eventora.forms; V = Eventora.validate;
       var u = auth.current();
       if (!u) { location.replace('login.html?next=profile.html'); return; }
-      // old link: an admin's event form now lives on the events dashboard
-      if (location.hash === '#create-event' && isAdmin(u)) { location.replace('host-dashboard.html#create'); return; }
+      // old link: an admin's event form is now Host an Event (host.html)
+      if (location.hash === '#create-event' && isAdmin(u)) { location.replace('host.html'); return; }
       document.getElementById('main').hidden = false;
       fillProfileForm(u);
       bindProfileForm();

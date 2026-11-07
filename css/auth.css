@@ -520,3 +520,12 @@ td.cell-actions > * { margin: 2px 4px 2px 0; }
 .form-alert .fp-linkbtn { margin-left: 4px; color: inherit; }
 @media (max-width: 380px) { .otp__digit { height: 52px; font-size: 22px; } }
 @media (prefers-reduced-motion: reduce) { .fp-step.is-entering { animation: none; } }
+
+/* ---------- Host an Event: the submission form (host.html, js/host-page.js) ---------- */
+.host-submit { padding-block: calc(var(--nav-offset, 96px) + var(--space-8)) var(--space-20); }
+.host-submit[hidden] { display: none; }
+.host-submit .container { max-width: 880px; display: grid; gap: var(--space-6); }
+.host-submit__panel { padding: clamp(20px, 3.5vw, 36px); }
+.host-submit__done { padding: clamp(24px, 4vw, 40px); }
+.host-submit__done[hidden], .host-submit__panel[hidden] { display: none; }
+.host-submit__done .mono { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; color: var(--c-cyan-pale); }

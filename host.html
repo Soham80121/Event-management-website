@@ -18,6 +18,9 @@
   <link rel="stylesheet" href="css/components.css">
   <link rel="stylesheet" href="css/utilities.css">
   <link rel="stylesheet" href="css/sections.css">
+  <link rel="stylesheet" href="css/events.css">
+  <link rel="stylesheet" href="css/registration.css">
+  <link rel="stylesheet" href="css/auth.css">
   <link rel="stylesheet" href="css/responsive.css">
 </head>
 <body>
@@ -82,7 +85,7 @@
   <!-- BRANDED SHELL: organizer tools are built in a later phase. -->
   <div class="page-shell">
   <main id="main" tabindex="-1" class="page-hero-wrap">
-    <section class="page-hero" aria-labelledby="host-title">
+    <section class="page-hero" id="hostIntro" aria-labelledby="host-title">
       <div class="container">
         <div class="page-hero__inner">
           <p class="eyebrow">For organizers</p>
@@ -93,6 +96,28 @@
             <a class="btn-ghost" href="signup.html?next=host.html">Create an account</a>
           </div>
           <p class="body-copy host-steps">Sign in or create a free account, then apply to become an Event Host. Once an admin approves you, you create events from your host dashboard. Every new event is reviewed before it goes live. (Signed-in visitors are taken straight to the right place.)</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Signed-in Event Hosts and the Admin: the event submission form (js/host-page.js) -->
+    <section class="host-submit" id="hostSubmit" aria-labelledby="hsTitle" hidden>
+      <div class="container">
+        <header class="dash-head">
+          <h1 class="heading-1" id="hsTitle">Host an Event</h1>
+          <p class="lead">Tell us about your event. It’s saved as <strong>Pending</strong> and stays private until an EVENTORA admin approves it.</p>
+        </header>
+        <div class="panel host-submit__panel" id="hsFormPanel">
+          <form id="hsForm"><!-- fields: js/event-form.js render() --></form>
+        </div>
+        <div class="panel auth-done host-submit__done" id="hsDone" tabindex="-1" hidden>
+          <span class="register__check" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
+          <h2 class="heading-3">Event submitted</h2>
+          <p class="auth-done__text"><strong data-a="title"></strong> is saved with ID <span class="mono" data-a="id"></span> and status <strong>Pending</strong>. It isn’t public until an admin approves it.</p>
+          <div class="cluster">
+            <button class="btn btn--md" type="button" data-a="again"><span>Submit another event</span></button>
+            <a class="btn-ghost" href="host-dashboard.html" data-a="track" hidden>Track it in your Host Dashboard</a>
+          </div>
         </div>
       </div>
     </section>
@@ -113,7 +138,10 @@
   <script src="js/registrations.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/hosting.js"></script>
+  <script src="js/forms.js"></script>
   <script src="js/account-nav.js"></script>
+  <script src="js/event-form.js"></script>
+  <script src="js/host-page.js"></script>
   <script src="js/starfield.js"></script>
   <script src="js/fitter.js"></script>
   <script src="js/layout.js"></script>

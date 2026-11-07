@@ -25,10 +25,10 @@ Use it for anything involving accounts. Opening `index.html` directly still work
 | `my-registrations.html` | My Registrations: the signed-in user's bookings (Upcoming / Past), details with the QR code, print, cancel |
 | `signup.html` · `login.html` · `forgot-password.html` | Create an account, sign in (with remember-me), and reset a forgotten password with a 6-digit email code |
 | `profile.html` | Account page. Users and hosts: details, photo, role, My registrations, Host dashboard link (hosts), *Become an Event Host* (users). Admins: the **Admin account** page (profile only) |
-| `host-dashboard.html` | Event Host dashboard: create, edit and track **your own** events; see their registrations. For the Admin it is the **Admin events** dashboard ("Host an Event" in the admin navbar) |
+| `host-dashboard.html` | Event Host dashboard: create, edit and track **your own** events; see their registrations (admins are sent to Host an Event) |
 | `admin.html` | Admin panel, the central management interface: overview, host applications, event approvals, all events, users, registrations |
 | `index.html` | The scrolling home page: a full-screen hero, Explore events (curved poster carousel), Upcoming events (the full programme, searchable, filterable and sortable), Event categories, then About, Contact and the footer (placeholders until later phases) |
-| `host.html` | The "Host an Event" page, which explains how to become a host |
+| `host.html` | **Host an Event**. Event Hosts and the Admin: a simple submission form (saved on the server as Pending). Visitors: how to start (sign in). Users: sent to *Become an Event Host* |
 | `event.html?id=<event id>` | Redirect only: old links open the event-details panel (`index.html#event=<id>`) |
 | `styleguide.html` | Internal design-system reference that renders the live tokens and reusable recipes. It is `noindex` and not linked from the site |
 
@@ -190,7 +190,7 @@ There is a single event-details experience: the panel that grows out of the post
   - open My registrations;
   - Event Hosts: open the Host dashboard;
   - Users: apply to become an Event Host.
-- **Admin account page** (`profile.html` for admins, reached from the account icon). It keeps the profile parts (photo, name, email, **Admin** badge, member since, user ID, sign out, profile editing, My registrations) It has no event form, no Host dashboard card, no host application, no Change Password form and no admin-dashboard card: the Admin panel and the admin's events dashboard are their own navbar items.
+- **Admin account page** (`profile.html` for admins, reached from the account icon). It keeps the profile parts (photo, name, email, **Admin** badge, member since, user ID, sign out, profile editing, My registrations) It has no event form, no Host dashboard card, no host application, no Change Password form and no admin-dashboard card: the Admin panel and *Host an Event* are their own navbar items.
 - **Nav: role-based navigation** (`js/account-nav.js`). The nav button's label and destination depend on the role; when the label changes, `js/layout.js` re-fits it in the hero's fitted nav (same type size as *Host an Event*):
 
   | Role | Nav button | Account icon goes to |
@@ -200,9 +200,9 @@ There is a single event-details experience: the panel that grows out of the post
   | Event Host | *Host Dashboard* → their own events | My Profile |
   | Admin | *Admin Panel* → `admin.html` | Admin account page |
 
-  Admins also get a **Host an Event** text link after *Contact*, which opens the **Admin events** dashboard (`host-dashboard.html` in admin mode, see *Admin events dashboard* below). On desktop the five standard links keep their size and the pill grows by the extra link's width on both sides, staying centred (`--nav-extra`, set by `js/layout.js`); on tablet and phone it is one more menu row.
+  Admins also get a **Host an Event** text link after *Contact*, which opens the **Host an Event** submission form (`host.html`, see *Host an Event* below). On desktop the five standard links keep their size and the pill grows by the extra link's width on both sides, staying centred (`--nav-extra`, set by `js/layout.js`); on tablet and phone it is one more menu row.
 
-  `host.html` explains hosting to visitors and routes signed-in people: users to the application, hosts to their dashboard, admins to their Admin events dashboard (never to the host application). The account entry sits in the gap between the link row and *Host an Event*: a person icon when signed out, your initial or photo when signed in. On tablet and phone it becomes a row in the menu.
+  `host.html` explains hosting to visitors, sends users to the application, and shows hosts and the admin the event submission form (never the host application). The account entry sits in the gap between the link row and *Host an Event*: a person icon when signed out, your initial or photo when signed in. On tablet and phone it becomes a row in the menu.
 - **Registering for events now needs an account.** Visitors see *Sign in to register* / *Create an account*. The form is prefilled from the profile and the booking is saved with your `userId`.
   - If someone types an email that another account has already booked for that event, they get a plain error and never see that booking.
   - The "You're registered" note and My Registrations show only your own bookings.
@@ -284,16 +284,13 @@ Sign in at http://localhost:5500/login.html. The role badge reads **Admin**, the
 - **Your events.** Stats show events, pending, live and registrations. Each event card shows its status: Pending, Published, Rejected (with the admin's note), Unpublished or Cancelled.
 - **Creating an event.** Fields: title, category, date (today or later), time, venue, city, whole-dollar price (0 means free), a description of 20–400 characters, and a cover chosen from the catalogue's photography. New events are **Pending** and private. The form is one shared component (`js/event-form.js`): `render()` builds the fields and `create()` wires validation, cover picking, editing and submit. The host dashboard (hosts and the admin's events) and the Admin panel (edit) use it.
 
-### Admin events dashboard
-*Host an Event* in the admin navbar opens `host-dashboard.html` in admin mode (the same page and code as the host dashboard, no separate page):
-- **Overview** of the events the admin created (`createdBy: 'admin'`, owned by the admin's user ID): totals, pending, live and registrations.
-- **My events** with status filters: All, Pending, Published, Rejected, Unpublished & cancelled. Each event shows its registrations (attendee list).
-- **Create event**: the shared form and validation. *Publish immediately* is **unticked by default**; unticked, the event is saved as Pending and also appears under *Admin panel → Event approvals*.
-- **Manage** with the existing admin permissions: Edit (status unchanged), Publish, Unpublish, Cancel event and Remove (two-click confirm for the last three); registrations and QR codes are kept.
-- Other hosts' events are reviewed in the Admin panel, not here. Old links (`profile.html#create-event`, `admin.html#create`) open this dashboard.
-- **Editing and deleting.** Only while an event is Pending or Rejected; an edit resubmits it. Approved events are locked until an admin unpublishes them.
-- **Registrations.** You can see who registered for **your** events only. Another host's events, edits, deletes and attendee lists are refused.
-- **Going public.** An approved event joins the public programme through `Eventora.events.addSource()`: the homepage carousel, Upcoming, categories and the event-details panel (`index.html#event=h-…`). Host event IDs start with `h-` and never collide with catalogue IDs; the built-in catalogue is unchanged.
+### Host an Event (event submission)
+`host.html` for a signed-in **Event Host or Admin** is a simple page: the *Host an Event* heading, a short introduction, the shared event form (same fields and validation, `js/event-form.js`) and **Submit Event**. No stats, lists, admin controls or back button; the navbar handles navigation.
+- **Saving.** `POST /api/me/events/submit` saves the event on the dev server (`.data/events.json`): always **Pending**, owned by the signed-in account (`hostId`; admin submissions also get `createdBy: 'admin'` and host name EVENTORA). Nothing is published automatically. The same event (title, date and time) can't be submitted twice while it's pending.
+- **Confirmation.** The page shows the event's title, ID and Pending status, with *Submit another event* (hosts also get *Track it in your Host Dashboard*).
+- **Review.** Submissions appear in *Admin panel → Event approvals* in any browser. Approving publishes the event on the server; the public pages load published events from the server (`/api/events/public`) before they render, so it shows up for everyone.
+- **Hosts** see and edit their submissions (while Pending or Rejected) in the Host Dashboard, which loads them from the server.
+- Events created before server saving stay in the browser that made them until the events phase moves them; the pages show both kinds.
 
 ### Admin panel (central management interface)
 Reached from *Admin Panel* in the navbar. Admins never apply to host; they create events on their account page and review and manage everything here. Sections are tabs (arrow keys, Home and End work; on tablet and phone the tab row scrolls sideways).
@@ -349,7 +346,7 @@ Server side (`.data/accounts.json`, git-ignored, never served): `users` (id, ema
 
 ```
 index.html              home page (hero + section placeholders + footer)
-host.html               Host an Event page shell
+host.html               Host an Event: submission form (hosts, admin) or sign-in intro
 event.html              redirect stub: old event.html?id=… links → index.html#event=<id>
 my-registrations.html   My Registrations (your bookings, details, print, cancel)
 signup.html             create an account
@@ -406,6 +403,7 @@ js/                     each file attaches to the single `window.Eventora` names
   auth-pages.js         sign up / sign in / forgot password pages
   profile.js            profile page
   host-dashboard.js     host dashboard
+  host-page.js          Host an Event submission page (host.html)
   admin.js              Admin panel: overview, applications, approvals, events, users, registrations
   my-registrations.js   My Registrations page: tabs, cards, details dialog, print, cancel
   registration-form.js  Register CTA, form validation, submission, confirmation (attaches to the panel)

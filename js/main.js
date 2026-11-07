@@ -16,21 +16,31 @@
     if (mod && typeof mod[method] === 'function') safely(name, function () { mod[method](); });
   }
 
-  start('starfield', 'init');
-  start('carousel',  'init');
-  start('mock',      'init');
-  start('eventCards', 'mount');   // before sections: deep links need the final page height
-  start('eventFilters', 'init');
-  start('exploreCarousel', 'init');
-  start('eventDetail', 'init');     // after the carousel: it grows from its posters
-  start('nav',       'init');
-  start('accountNav', 'init');
-  start('layout',    'init');
-  start('sections',  'init');
-  start('myRegistrations', 'init');
-  start('authPages', 'init');
-  start('profile', 'init');
-  start('hostDashboard', 'init');
-  start('admin', 'init');
-  start('intro',     'run');
+  function boot() {
+    start('starfield', 'init');
+    start('carousel',  'init');
+    start('mock',      'init');
+    start('eventCards', 'mount');   // before sections: deep links need the final page height
+    start('eventFilters', 'init');
+    start('exploreCarousel', 'init');
+    start('eventDetail', 'init');     // after the carousel: it grows from its posters
+    start('nav',       'init');
+    start('accountNav', 'init');
+    start('layout',    'init');
+    start('sections',  'init');
+    start('myRegistrations', 'init');
+    start('authPages', 'init');
+    start('profile', 'init');
+    start('hostDashboard', 'init');
+    start('hostPage', 'init');
+    start('admin', 'init');
+    start('intro',     'run');
+  }
+
+  // Published events live on the server: fetch them (briefly) before the
+  // pages render the programme. Offline, the last list this browser saw is used.
+  var booted = false;
+  function once() { if (!booted) { booted = true; boot(); } }
+  if (Eventora.hosting && Eventora.hosting.loadPublic) Eventora.hosting.loadPublic(2500).then(once, once);
+  else once();
 })(window.Eventora);

@@ -87,6 +87,7 @@
   display: flex; align-items: center;
   padding-block: calc(var(--nav-offset, 96px) + var(--space-12)) var(--space-20);
 }
+.page-hero[hidden] { display: none; }
 .page-hero__inner { max-width: 720px; }
 .page-hero .display { margin-top: var(--space-3); }
 .page-hero .lead { margin-top: var(--space-5); max-width: 560px; }

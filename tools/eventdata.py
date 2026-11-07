@@ -47,6 +47,12 @@ REG_STATUS = ("confirmed", "cancelled")
 MAX_IMPORT = 5000
 
 
+def unicodedata_norm(title: str) -> str:
+    """Strip accents like the browser's slug(): NFKD, then drop combining marks."""
+    import unicodedata
+    return "".join(c for c in unicodedata.normalize("NFKD", str(title)) if not unicodedata.combining(c))
+
+
 def iso_ok(v) -> bool:
     if not isinstance(v, str) or not 10 <= len(v) <= 40:
         return False
@@ -479,6 +485,160 @@ class EventData:
             if user:
                 out["user"] = user
             return 200, out
+
+    # ----- events: submit (host / admin), host edit & delete, admin review -----
+    def _slug(self, title: str) -> str:
+        s = unicodedata_norm(title).lower()
+        s = re.sub(r"[^a-z0-9]+", "-", s).strip("-")[:40].strip("-")
+        return s or "event"
+
+    def _new_event_id(self, title: str) -> str:
+        taken = {e["id"] for e in self.events.data["events"]}
+        base = "h-" + self._slug(title) + "-"
+        while True:
+            eid = base + "".join(accounts.secrets.choice(accounts.ID_ALPHABET) for _ in range(4)).lower()
+            if eid not in taken and not self.cat.is_builtin(eid):
+                return eid
+
+    def _event_record(self, value: dict) -> dict:
+        rec = {k: v for k, v in value.items() if v is not None}
+        if not value.get("price"):
+            rec.pop("price", None)
+        return rec
+
+    def submit_event(self, token, body):
+        """An Event Host or the Admin submits an event. It is ALWAYS saved as
+        Pending, owned by the signed-in account; only an admin approval publishes it."""
+        u, err = self.require(token, "host", "admin")
+        if err:
+            return err
+        errors, value = self.check_event_fields(body.get("event"))
+        if errors:
+            return 400, {"ok": False, "errors": errors}
+        is_admin = self.auth.effective_role(u) == "admin"
+        with self.lock:
+            evs = self.events.data["events"]
+            dup = next((e for e in evs if e["hostId"] == u["id"] and e["status"] == "pending"
+                        and e["title"].lower() == value["title"].lower()
+                        and e["date"] == value["date"] and e["time"] == value["time"]), None)
+            if dup:
+                return 409, {"ok": False, "error": "duplicate", "event": dup,
+                             "message": "You already submitted this event; it’s waiting for approval."}
+            now = accounts.iso(self.clock())
+            ev = {"id": self._new_event_id(value["title"]), "hostId": u["id"],
+                  "hostName": "EVENTORA" if is_admin else u["name"], "status": "pending",
+                  "createdAt": now, "updatedAt": now, "submittedAt": now}
+            if is_admin:
+                ev["createdBy"] = "admin"
+            ev.update(self._event_record(value))
+            evs.append(ev)
+            self.events.save()
+            self.audit(u, "event.submitted", ev["id"], title=ev["title"])
+            return 200, {"ok": True, "event": ev}
+
+    def _own_event(self, u, event_id):
+        ev = self.hosted(event_id) if isinstance(event_id, str) else None
+        if not ev or ev["hostId"] != u["id"]:
+            return None, (404, {"ok": False, "error": "You can only change your own events."})
+        return ev, None
+
+    def host_update_event(self, token, body):
+        """A host edits their own Pending or Rejected event; the edit resubmits it as Pending."""
+        u, err = self.require(token, "host", "admin")
+        if err:
+            return err
+        errors, value = self.check_event_fields(body.get("event"))
+        if errors:
+            return 400, {"ok": False, "errors": errors}
+        with self.lock:
+            ev, err = self._own_event(u, body.get("id"))
+            if err:
+                return err
+            if ev["status"] not in ("pending", "rejected"):
+                return 409, {"ok": False, "error": "Approved and unpublished events are locked. Ask an admin if something needs to change."}
+            for k in ("price",):
+                ev.pop(k, None)
+            ev.update(self._event_record(value))
+            now = accounts.iso(self.clock())
+            ev.update({"status": "pending", "updatedAt": now, "submittedAt": now})
+            ev.pop("decidedAt", None)
+            ev.pop("note", None)
+            self.events.save()
+            self.audit(u, "event.resubmitted", ev["id"])
+            return 200, {"ok": True, "event": ev}
+
+    def host_delete_event(self, token, body):
+        u, err = self.require(token, "host", "admin")
+        if err:
+            return err
+        with self.lock:
+            ev, err = self._own_event(u, body.get("id"))
+            if err:
+                return err
+            if ev["status"] not in ("pending", "rejected"):
+                return 409, {"ok": False, "error": "Only pending or rejected events can be deleted."}
+            self.events.data["events"] = [e for e in self.events.data["events"] if e["id"] != ev["id"]]
+            self.events.save()
+            self.audit(u, "event.deleted", ev["id"])
+            return 200, {"ok": True}
+
+    def admin_set_event_status(self, token, body):
+        """Admin: approve (publish) / reject / unpublish / cancel a server-stored event."""
+        admin, err = self.require(token, "admin")
+        if err:
+            return err
+        status = body.get("status")
+        if status not in ("approved", "rejected", "unpublished", "cancelled"):
+            return 400, {"ok": False, "error": "Unknown status."}
+        note = body.get("note") or ""
+        if not isinstance(note, str) or len(note.strip()) > 500:
+            return 400, {"ok": False, "error": "Keep the note under 500 characters."}
+        with self.lock:
+            ev = self.hosted(body.get("id")) if isinstance(body.get("id"), str) else None
+            if not ev:
+                return 404, {"ok": False, "error": "Event not found."}
+            ev["status"] = status
+            ev["decidedAt"] = accounts.iso(self.clock())
+            if note.strip():
+                ev["note"] = note.strip()
+            else:
+                ev.pop("note", None)
+            self.events.save()
+            self.audit(admin, "event." + status, ev["id"], note=note.strip())
+            return 200, {"ok": True, "event": ev}
+
+    def admin_update_event(self, token, body):
+        """Admin edits any server-stored event in place (status unchanged)."""
+        admin, err = self.require(token, "admin")
+        if err:
+            return err
+        errors, value = self.check_event_fields(body.get("event"), allow_past=True)
+        if errors:
+            return 400, {"ok": False, "errors": errors}
+        with self.lock:
+            ev = self.hosted(body.get("id")) if isinstance(body.get("id"), str) else None
+            if not ev:
+                return 404, {"ok": False, "error": "Event not found."}
+            ev.pop("price", None)
+            ev.update(self._event_record(value))
+            ev["updatedAt"] = accounts.iso(self.clock())
+            self.events.save()
+            self.audit(admin, "event.edited", ev["id"])
+            return 200, {"ok": True, "event": ev}
+
+    def admin_remove_event(self, token, body):
+        """Admin deletes a server-stored event record; its registrations are kept."""
+        admin, err = self.require(token, "admin")
+        if err:
+            return err
+        with self.lock:
+            ev = self.hosted(body.get("id")) if isinstance(body.get("id"), str) else None
+            if not ev:
+                return 404, {"ok": False, "error": "Event not found."}
+            self.events.data["events"] = [e for e in self.events.data["events"] if e["id"] != ev["id"]]
+            self.events.save()
+            self.audit(admin, "event.removed", ev["id"], title=ev["title"])
+            return 200, {"ok": True}
 
     # ----- one-time import of browser-stored data (admin only) -----
     def admin_import(self, token, body):

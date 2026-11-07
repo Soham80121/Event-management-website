@@ -126,18 +126,27 @@
     });
     form.addEventListener('change', function (ev) { if (ev.target.name === 'image') coverError.hidden = true; });
     cancelBtn.addEventListener('click', cancel);
+    var sending = false;
     form.addEventListener('submit', function (ev) {
       ev.preventDefault();
+      if (sending) return;                       // no double submissions while the server answers
       clearErrors();
       var wasEditing = editingId;
-      var res = opts.submit(values(), editingId, ev.submitter);
-      if (!res.ok) {
-        if (res.errors) { showErrors(res.errors); F.alert(alertEl, 'error', 'Please fix the highlighted fields.'); }
-        else F.alert(alertEl, 'error', res.error);
-        return;
-      }
-      cancel();
-      if (opts.saved) opts.saved(res, wasEditing);
+      var out = opts.submit(values(), editingId, ev.submitter);
+      // submit() may answer at once (browser data) or with a Promise (the server)
+      var restore = out && typeof out.then === 'function' ? F.busy(submitBtn, wasEditing ? 'Saving…' : 'Submitting…') : null;
+      sending = !!restore;
+      Promise.resolve(out).then(function (res) {
+        sending = false;
+        if (restore) restore();
+        if (!res.ok) {
+          if (res.errors) { showErrors(res.errors); F.alert(alertEl, 'error', 'Please fix the highlighted fields.'); }
+          else F.alert(alertEl, 'error', res.error);
+          return;
+        }
+        cancel();
+        if (opts.saved) opts.saved(res, wasEditing);
+      });
     });
     setLabels();
     return { edit: edit, cancel: cancel, editing: function () { return editingId; } };
