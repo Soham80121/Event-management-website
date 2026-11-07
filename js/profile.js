@@ -43,12 +43,13 @@
 
     var regs = Eventora.registrations ? Eventora.registrations.forUser(u.id).filter(function (r) { return r.status !== 'cancelled'; }).length : 0;
     $('pfRegCount').textContent = regs === 1 ? '1 active booking' : regs + ' active bookings';
-    // Admin account page: profile only. No Host Dashboard card, no host
-    // application, no event form: the Admin Panel and the admin's events
-    // dashboard ("Host an Event") are their own navbar destinations.
+    // No Host Dashboard card for anyone: hosts reach it from the navbar.
+    // Admin account page: profile only (no host application, no event form);
+    // the Admin Panel and "Host an Event" are their own navbar destinations.
     var admin = isAdmin(u);
-    $('pfHostLink').hidden = admin || u.role !== 'host';
-    $('host-application').hidden = admin;
+    // "Become an Event Host" is for Users; an approved host's only link from it
+    // was "Open host dashboard", which the navbar already provides
+    $('host-application').hidden = admin || u.role === 'host';
 
     var check = auth.adminCheckStatus();
     $('pfAdminCheck').textContent = {
@@ -269,7 +270,7 @@
     var help = {
       pending: 'Waiting for an admin to review it. Not public yet.',
       approved: 'Approved and published on EVENTORA.',
-      rejected: 'Not approved. Edit it in your Host Dashboard to resubmit.',
+      rejected: 'Not approved. You can edit it and resubmit from the Host Dashboard (in the navbar).',
       unpublished: 'Taken down by an admin. Not public.',
       cancelled: 'Cancelled by an admin. Registrations are kept.'
     };

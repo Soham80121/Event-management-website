@@ -188,7 +188,7 @@ There is a single event-details experience: the panel that grows out of the post
 - **Account page** (`profile.html`). Shows user ID, name, email, phone, *Member since*, role badge and an optional photo (resized in the browser to 160 px JPEG). You can:
   - edit your name, email and phone (emails stay unique);
   - open My registrations;
-  - Event Hosts: open the Host dashboard;
+  - Event Hosts: see their submitted events (*Applied events*); the Host dashboard is in the navbar;
   - Users: apply to become an Event Host.
 - **Admin account page** (`profile.html` for admins, reached from the account icon). It keeps the profile parts (photo, name, email, **Admin** badge, member since, user ID, sign out, profile editing, My registrations) It has no event form, no Host dashboard card, no host application, no Change Password form and no admin-dashboard card: the Admin panel and *Host an Event* are their own navbar items.
 - **Nav: role-based navigation** (`js/account-nav.js`). The nav button's label and destination depend on the role; when the label changes, `js/layout.js` re-fits it in the hero's fitted nav (same type size as *Host an Event*):
