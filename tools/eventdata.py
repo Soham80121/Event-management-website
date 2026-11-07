@@ -672,6 +672,118 @@ class EventData:
             self.audit(admin, "event.removed", ev["id"], title=ev["title"])
             return 200, {"ok": True}
 
+    # ----- registrations: create / cancel / carry-over (signed-in attendee) -----
+    def _new_reg_id(self) -> str:
+        taken = {r["id"] for r in self.regs.data["registrations"]}
+        while True:
+            c = "".join(accounts.secrets.choice(accounts.ID_ALPHABET) for _ in range(8))
+            rid = "EVR-%s-%s" % (c[:4], c[4:])
+            if rid not in taken:
+                return rid
+
+    def registration_kind(self, event_id):
+        """-> ('registration'|'waitlist', None) or (None, error message). Decided
+        on the server from the catalogue / server event, never from the browser."""
+        if not isinstance(event_id, str):
+            return None, "This event isn’t open for registration."
+        if self.cat.is_builtin(event_id):
+            o = self.overrides.data["overrides"].get(event_id) or {}
+            if o.get("status") in OVERRIDE_STATUS:
+                return None, "This event isn’t open for registration."
+            status = self.cat.events[event_id]["registration"]
+            if status == "sold-out":
+                return None, "Registration is closed — this event is sold out."
+            return ("waitlist" if status == "waitlist" else "registration"), None
+        ev = self.hosted(event_id)
+        if ev and ev["status"] == "approved":
+            return "registration", None
+        return None, "This event isn’t open for registration."
+
+    def create_registration(self, token, body):
+        """A signed-in person books an event. The account (userId) always comes
+        from the session. One active booking per account and per email for an event."""
+        u, err = self.require(token)
+        if err:
+            return err
+        errors = {"name": accounts.name_problem(body.get("name")), "email": accounts.email_problem(body.get("email")),
+                  "phone": accounts.phone_problem(body.get("phone"))}
+        if any(errors.values()):
+            return 400, {"ok": False, "errors": {k: v for k, v in errors.items() if v}}
+        event_id = body.get("eventId")
+        kind, why = self.registration_kind(event_id)
+        if not kind:
+            return 409, {"ok": False, "error": "closed", "message": why}
+        email = accounts.norm_email(body.get("email"))
+        name, phone = accounts.norm_name(body.get("name")), accounts.norm_phone(body.get("phone"))
+        with self.lock:
+            regs = self.regs.data["registrations"]
+            mine = next((r for r in regs if r["eventId"] == event_id and r.get("userId") == u["id"]
+                         and r.get("status", "confirmed") != "cancelled"), None)
+            if mine:
+                return 200, {"ok": True, "status": "duplicate", "record": mine}
+            same = next((r for r in regs if r["eventId"] == event_id and r["email"] == email), None)
+            if same and same.get("userId") not in (None, u["id"]):
+                # another account booked this email: say so, never reveal their booking
+                return 409, {"ok": False, "error": "email-taken", "field": "email",
+                             "message": "This email is already registered for this event by another account."}
+            now = accounts.iso(self.clock())
+            if same and same.get("status", "confirmed") == "cancelled":
+                same.update({"status": "confirmed", "name": name, "phone": phone, "userId": u["id"]})
+                same.pop("cancelledAt", None)
+                self.regs.save()
+                return 200, {"ok": True, "status": "reinstated", "record": same}
+            if same:                                         # an older guest booking with this email
+                same["userId"] = u["id"]
+                self.regs.save()
+                return 200, {"ok": True, "status": "duplicate", "record": same}
+            rec = {"id": self._new_reg_id(), "eventId": event_id, "type": kind, "name": name, "email": email,
+                   "phone": phone, "createdAt": now, "status": "confirmed", "userId": u["id"]}
+            regs.append(rec)
+            self.regs.save()
+            return 200, {"ok": True, "status": "created", "record": rec}
+
+    def cancel_registration(self, token, body):
+        """The attendee cancels their own booking (kept, marked cancelled)."""
+        u, err = self.require(token)
+        if err:
+            return err
+        with self.lock:
+            r = next((r for r in self.regs.data["registrations"] if r["id"] == body.get("id")), None)
+            if not r or r.get("userId") != u["id"]:
+                return 404, {"ok": False, "error": "That registration could not be found."}
+            if r.get("status", "confirmed") != "cancelled":
+                r["status"] = "cancelled"
+                r["cancelledAt"] = accounts.iso(self.clock())
+                self.regs.save()
+            return 200, {"ok": True, "record": r}
+
+    def carry_over_registration(self, token, body):
+        """Move the signed-in person's OWN booking that was saved only in their
+        browser to the server, keeping its ID (and so its QR code)."""
+        u, err = self.require(token)
+        if err:
+            return err
+        r = body.get("registration")
+        if not self.valid_reg(r):
+            return 400, {"ok": False, "error": "not-allowed", "message": "That booking can’t be moved."}
+        email = accounts.norm_email(r["email"])
+        if r.get("userId") != u["id"] and not (r.get("userId") is None and email == u["email"]):
+            return 400, {"ok": False, "error": "not-allowed", "message": "Only your own bookings can be moved."}
+        with self.lock:
+            regs = self.regs.data["registrations"]
+            if any(x["id"] == r["id"] for x in regs):
+                return 200, {"ok": True, "status": "already-on-server"}
+            if any(x["eventId"] == r["eventId"] and x["email"] == email for x in regs):
+                return 409, {"ok": False, "error": "duplicate", "message": "This booking is already on the server."}
+            rec = {"id": r["id"], "eventId": r["eventId"], "type": r["type"], "name": accounts.norm_name(r["name"]),
+                   "email": email, "phone": r["phone"], "createdAt": r["createdAt"],
+                   "status": r.get("status", "confirmed"), "userId": u["id"]}
+            if rec["status"] == "cancelled" and r.get("cancelledAt"):
+                rec["cancelledAt"] = r["cancelledAt"]
+            regs.append(rec)
+            self.regs.save()
+            return 200, {"ok": True, "status": "moved", "record": rec}
+
     # ----- one-time import of browser-stored data (admin only) -----
     def admin_import(self, token, body):
         """Move data that so far lived only in a browser to the server, keeping IDs.

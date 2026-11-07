@@ -232,19 +232,18 @@
 
   function normEmail(v) { return String(v || '').trim().toLowerCase(); }
 
-  function claimRegistrations(u) {
-    if (Eventora.registrations && Eventora.registrations.claim) Eventora.registrations.claim(u.email, u.id);
-  }
-
   function fail(field, error) { return { ok: false, field: field, error: error }; }
 
   /** After a successful server sign-in / sign-up / move. */
   function signedIn(res, remember) {
     writeSession(res, remember);
-    claimRegistrations(res.user);
     check.promise = null;
     var u = cached(res.user.id);
-    return refresh(u).then(function () { return { ok: true, user: publicUser(cached(res.user.id)) }; });
+    // then load this account's bookings from the server (older browser-only
+    // ones booked with this email or account are moved there first)
+    return refresh(u).then(function () {
+      return Eventora.registrations && Eventora.registrations.sync ? Eventora.registrations.sync() : null;
+    }).then(function () { return { ok: true, user: publicUser(cached(res.user.id)) }; });
   }
 
   function serverError(res, fallback) {

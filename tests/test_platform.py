@@ -520,5 +520,111 @@ class EventSubmissionTests(unittest.TestCase):
         self.assertEqual(actions, [("event.approved", self.admin_id), ("event.submitted", self.host_id)])
 
 
+class RegistrationTests(unittest.TestCase):
+    def setUp(self):
+        self.env = Env()
+        e = self.env
+        self.admin_tok, self.admin_id = e.login(ADMIN, "Admin-Start-2026")
+        self.user_tok, self.user_id = e.signup("Grace Hopper", "grace@example.test")
+        self.user2_tok, self.user2_id = e.signup("Other User", "other@example.test")
+        self.host_tok, self.host_id = e.signup("Ada Host", "ada.host@example.test")
+        self.host2_tok, self.host2_id = e.signup("Alan Host", "alan.host@example.test")
+        for uid in (self.host_id, self.host2_id):
+            e.post("/api/admin/set-role", {"token": self.admin_tok, "userId": uid, "role": "host"})
+        f = EventSubmissionTests.fields()
+        self.ev = e.post("/api/me/events/submit", {"token": self.host_tok, "event": f})[1]["event"]["id"]
+        e.post("/api/admin/events/status", {"token": self.admin_tok, "id": self.ev, "status": "approved"})
+
+    def tearDown(self):
+        self.env.close()
+
+    def book(self, tok, event_id, email="grace@example.test", **extra):
+        body = {"token": tok, "eventId": event_id, "name": "Grace Hopper", "email": email, "phone": "+44 20 7946 0958"}
+        body.update(extra)
+        return self.env.post("/api/me/registrations/create", body)
+
+    def test_booking_is_saved_on_server_with_session_owner(self):
+        status, body = self.book(self.user_tok, self.ev, userId=self.admin_id, type="waitlist", status="cancelled")
+        self.assertEqual((status, body["status"]), (200, "created"), body)
+        r = body["record"]
+        self.assertRegex(r["id"], r"^EVR-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$")
+        self.assertEqual((r["userId"], r["eventId"], r["type"], r["status"]), (self.user_id, self.ev, "registration", "confirmed"))
+        mine = self.env.post("/api/me/registrations", {"token": self.user_tok})[1]["registrations"]
+        self.assertEqual([x["id"] for x in mine], [r["id"]])
+        everyone = self.env.post("/api/admin/registrations", {"token": self.admin_tok})[1]["registrations"]
+        self.assertEqual([x["id"] for x in everyone], [r["id"]])
+
+    def test_type_and_availability_come_from_the_server(self):
+        self.assertEqual(self.book(self.user_tok, "jazz-nights")[1]["record"]["type"], "waitlist")
+        status, body = self.book(self.user_tok, "design-sprint-workshop")
+        self.assertEqual((status, body["error"]), (409, "closed"))
+        self.assertEqual(self.book(self.user_tok, "no-such-event")[0], 409)
+        pending = self.env.post("/api/me/events/submit", {"token": self.host_tok,
+                                "event": EventSubmissionTests.fields(title="Not yet live")})[1]["event"]["id"]
+        self.assertEqual(self.book(self.user_tok, pending)[0], 409)
+
+    def test_duplicates_and_reinstating(self):
+        first = self.book(self.user_tok, self.ev)[1]["record"]
+        status, body = self.book(self.user_tok, self.ev)
+        self.assertEqual((body["status"], body["record"]["id"]), ("duplicate", first["id"]))
+        self.assertEqual(self.book(self.user_tok, self.ev, email="grace.second@example.test")[1]["status"], "duplicate")
+        status, body = self.book(self.user2_tok, self.ev)
+        self.assertEqual((status, body["error"]), (409, "email-taken"))
+        self.assertNotIn(first["id"], json.dumps(body))
+        self.env.post("/api/me/registrations/cancel", {"token": self.user_tok, "id": first["id"]})
+        status, body = self.book(self.user_tok, self.ev)
+        self.assertEqual((body["status"], body["record"]["id"], body["record"]["status"]), ("reinstated", first["id"], "confirmed"))
+        regs = self.env.post("/api/admin/registrations", {"token": self.admin_tok})[1]["registrations"]
+        self.assertEqual(len(regs), 1)
+
+    def test_cancel_only_own_and_status_shows_to_attendee(self):
+        r = self.book(self.user_tok, self.ev)[1]["record"]
+        self.assertEqual(self.env.post("/api/me/registrations/cancel", {"token": self.user2_tok, "id": r["id"]})[0], 404)
+        self.assertEqual(self.env.post("/api/me/registrations/cancel", {"token": self.admin_tok, "id": r["id"]})[0], 404)
+        status, body = self.env.post("/api/me/registrations/cancel", {"token": self.user_tok, "id": r["id"]})
+        self.assertEqual((status, body["record"]["status"]), (200, "cancelled"))
+        mine = self.env.post("/api/me/registrations", {"token": self.user_tok})[1]["registrations"]
+        self.assertEqual(mine[0]["status"], "cancelled")
+
+    def test_privacy_between_users_and_hosts(self):
+        r = self.book(self.user_tok, self.ev)[1]["record"]
+        e = self.env
+        self.assertEqual(e.post("/api/me/registrations", {"token": self.user2_tok})[1]["registrations"], [])
+        self.assertEqual(e.post("/api/admin/registrations", {"token": self.user2_tok})[0], 403)
+        self.assertEqual(e.post("/api/host/registrations", {"token": self.user2_tok})[0], 403)
+        own = e.post("/api/host/registrations", {"token": self.host_tok})[1]["registrations"]
+        self.assertEqual([x["id"] for x in own], [r["id"]])
+        self.assertEqual(e.post("/api/host/registrations", {"token": self.host2_tok})[1]["registrations"], [])
+        self.assertEqual(e.post("/api/host/registrations", {"token": self.host2_tok, "eventId": self.ev})[0], 403)
+        self.assertEqual(self.book("made-up", self.ev)[0], 401)
+
+    def test_carry_over_keeps_id_once(self):
+        local = reg("EVR-1FHM-1W3E", self.ev, "grace@example.test")
+        e = self.env
+        status, body = e.post("/api/me/registrations/carry-over", {"token": self.user_tok, "registration": local})
+        self.assertEqual((status, body["record"]["id"], body["record"]["userId"]), (200, "EVR-1FHM-1W3E", self.user_id))
+        self.assertEqual(e.post("/api/me/registrations/carry-over", {"token": self.user_tok, "registration": local})[1]["status"],
+                         "already-on-server")
+        theirs = reg("EVR-AAAA-BBBB", self.ev, "someone@example.test", user_id=self.user2_id)
+        self.assertEqual(e.post("/api/me/registrations/carry-over", {"token": self.user_tok, "registration": theirs})[0], 400)
+        other_email = reg("EVR-CCCC-DDDD", self.ev, "not-mine@example.test")
+        self.assertEqual(e.post("/api/me/registrations/carry-over", {"token": self.user_tok, "registration": other_email})[0], 400)
+        self.assertEqual(len(e.post("/api/admin/registrations", {"token": self.admin_tok})[1]["registrations"]), 1)
+
+    def test_registration_survives_restart(self):
+        r = self.book(self.user_tok, self.ev)[1]["record"]
+        e = self.env
+        e.close(remove=False)
+        e2 = Env(data_dir=e.dir)
+        try:
+            tok = e2.login("grace@example.test", "Pass2026xx")[0]
+            mine = e2.post("/api/me/registrations", {"token": tok})[1]["registrations"]
+            self.assertEqual([(x["id"], x["status"]) for x in mine], [(r["id"], "confirmed")])
+        finally:
+            e2.close(remove=False)
+            shutil.rmtree(e.dir, ignore_errors=True)
+            self.env = type("Closed", (), {"close": lambda *a, **k: None})()
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

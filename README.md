@@ -203,7 +203,11 @@ There is a single event-details experience: the panel that grows out of the post
   Admins also get a **Host an Event** text link after *Contact*, which opens the **Host an Event** submission form (`host.html`, see *Host an Event* below). On desktop the five standard links keep their size and the pill grows by the extra link's width on both sides, staying centred (`--nav-extra`, set by `js/layout.js`); on tablet and phone it is one more menu row.
 
   `host.html` explains hosting to visitors, sends users to the application, and shows hosts and the admin the event submission form (never the host application). The account entry sits in the gap between the link row and *Host an Event*: a person icon when signed out, your initial or photo when signed in. On tablet and phone it becomes a row in the menu.
-- **Registering for events now needs an account.** Visitors see *Sign in to register* / *Create an account*. The form is prefilled from the profile and the booking is saved with your `userId`.
+- **Registering for events now needs an account.** Visitors see *Sign in to register* / *Create an account*. The form is prefilled from the profile.
+- **Registrations are saved on the server** (`POST /api/me/registrations/create`, `.data/registrations.json`). The confirmation appears only after the server has saved the booking. The server sets the owning account from the session, decides registration vs waitlist from the event (sold-out, unpublished, cancelled and unapproved events can't be booked), keeps one active booking per account and per email for an event (registering again reinstates a cancelled booking under the same ID), and refuses an email another account already booked without revealing that booking.
+- **Who sees what** (enforced by the server): you see only your own bookings (*My registrations*, on any device); an Event Host sees the bookings for their own events (Host Dashboard); the admin sees every booking (*Admin panel → Registrations*, with attendee search and event/status filters). Cancelling your booking keeps the record and its ID; the admin sees the new status on the next refresh (returning to the tab refreshes).
+- **Tickets.** My registrations can print the booking or **Download ticket** (an SVG with the event, attendee, registration ID and QR code). The QR code encodes the registration ID, so IDs that move to the server keep the same QR code.
+- **Older bookings** saved only in a browser move to the server automatically, keeping their IDs: your own when you sign in or open a page there; in the admin's browser, every booking it holds (admin import, idempotent). Each is removed from the browser after the server confirms it.
   - If someone types an email that another account has already booked for that event, they get a plain error and never see that booking.
   - The "You're registered" note and My Registrations show only your own bookings.
 
@@ -305,7 +309,7 @@ Reached from *Admin Panel* in the navbar. Admins never apply to host; they creat
   - Status actions: Approve, Reject, Publish, Unpublish, Cancel event (hidden from the public, registrations kept) and Remove (host or admin events only; the record is deleted, registrations are kept).
   - Built-in events can't be rejected or removed, only edited, unpublished or cancelled. Their edits and statuses are stored as overrides (`eventora:catalogue-overrides`), so the frozen catalogue and its IDs never change.
 - **E. Users.** User ID, name, email, role, status, registration date and bookings. *View* shows contact details, registrations, host applications and hosted events. Actions: *Make host* / *Revoke host*, *Suspend* / *Reactivate*. The initial Admin account is **protected**: no actions in the table, and the data layer refuses to suspend it, demote it or give it the Host role.
-- **F. Registrations.** Every booking with registration ID, attendee, event, status (Confirmed, Completed or Cancelled) and booked date, filtered by event and status. *QR code* shows the check-in QR (VOID when cancelled) and the linked account.
+- **F. Registrations.** Every booking from every browser (loaded from the server) with registration ID, attendee, event, event ID, status (Confirmed, Completed or Cancelled) and booked date, with an attendee search (name, email or registration ID) and event and status filters. *QR code* shows the check-in QR (VOID when cancelled) and the linked account.
 - **Confirmations.** Destructive actions (reject, unpublish, cancel, remove, revoke, suspend) need a second click within 4 seconds.
 
 ### Data (localStorage, all versioned)
@@ -318,7 +322,7 @@ eventora:host-applications  { version, applications: [{ id: 'APP-…', userId, n
 eventora:hosted-events      { version, events: [{ …catalogue fields, id: 'h-…', hostId, createdBy?: 'admin',
                               status: 'pending'|'approved'|'rejected'|'unpublished'|'cancelled', … }] }
 eventora:catalogue-overrides { version, overrides: { <built-in id>: { status?, fields?, note?, updatedAt } } }
-eventora:registrations      records gained userId (Phase 6/7 IDs and event IDs unchanged)
+eventora:registrations      only bookings made before server saving, until they move to the server (IDs unchanged)
 ```
 Server side (`.data/accounts.json`, git-ignored, never served): `users` (id, email, name, phone, avatar, role, status, createdAt, updatedAt, scrypt `password` hash) and `sessions` (SHA-256 of each token, userId, expiry). Password-reset codes and reset tokens are kept only in the server's memory, so restarting the server cancels any recovery in progress.
 

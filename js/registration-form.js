@@ -19,7 +19,8 @@
      of creating another.
    - Confirmation: event, registration ID with a check-in QR code, and the
      booking details.
-   Storage lives in js/registrations.js.
+   Bookings are saved by the server (js/registrations.js → /api/me/registrations/create);
+   the confirmation appears only after the server has saved the booking.
    ========================================================================= */
 (function (Eventora) {
   'use strict';
@@ -184,29 +185,34 @@
     $(submitBtn, 'span').textContent = 'Saving…';
     status.textContent = 'Saving your registration.';
 
-    var result;
-    try {
-      result = store.create({
-        eventId: event.id,
-        type: kind,
-        name: fields.name.input.value,
-        email: fields.email.input.value,
-        phone: fields.phone.input.value,
-        userId: u.id
-      });
-    } catch (err) {
+    // the account comes from the session on the server, never from this page
+    store.create({
+      eventId: event.id,
+      name: fields.name.input.value,
+      email: fields.email.input.value,
+      phone: fields.phone.input.value
+    }).then(function (result) {
+      busy = false;
+      resetSubmit();
+      if (result.status === 'error') {
+        if (result.errors) {
+          Object.keys(result.errors).forEach(function (n) { if (fields[n]) showError(n, result.errors[n]); });
+          status.textContent = 'Please check the highlighted fields.';
+          return;
+        }
+        if (result.field && fields[result.field]) {
+          showError(result.field, result.error);
+          fields[result.field].input.focus();
+        }
+        status.textContent = result.error;
+        return;
+      }
+      showDone(result);
+    }, function () {
       busy = false;
       resetSubmit();
       status.textContent = 'Something went wrong. Please try again.';
-      return;
-    }
-
-    // a short, visible "saving" beat; the button stays locked throughout
-    setTimeout(function () {
-      showDone(result);
-      busy = false;
-      resetSubmit();
-    }, reduced() ? 0 : 450);
+    });
   }
 
   function resetSubmit() {
@@ -252,9 +258,7 @@
     d('venue').textContent = event.venue.name + ', ' + event.venue.city;
     d('name').textContent = r.name;
     d('email').textContent = r.email;
-    d('note').textContent = result.saved
-      ? 'Demo site: no email is sent. This booking is saved in this browser on this device.'
-      : 'Demo site: this browser isn’t allowing storage, so this booking will be lost when you leave the page.';
+    d('note').textContent = 'Saved to your EVENTORA account, so it’s on every device you sign in on. Demo site: no email is sent.';
     renderQr(d('qr'), r.id);
     d('mine').href = 'my-registrations.html#' + r.id;
 

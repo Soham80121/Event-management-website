@@ -295,19 +295,72 @@
     if (on) m('keep').focus();
   }
 
+  var cancelling = false;
   function doCancel() {
-    var res = store.cancel(openId);
-    if (!res.ok) { els.status.textContent = 'That registration could not be found.'; return; }
+    if (cancelling) return;
+    cancelling = true;
+    var btn = m('confirmCancel');
+    btn.setAttribute('aria-disabled', 'true');
+    store.cancel(openId).then(function (res) {           // saved on the server first
+      cancelling = false;
+      btn.removeAttribute('aria-disabled');
+      if (!res.ok) { els.status.textContent = res.error || 'That registration could not be found.'; return; }
+      afterCancel(res);
+    });
+  }
+  function afterCancel(res) {
     var refocusId = returnFocus && returnFocus.getAttribute ? returnFocus.getAttribute('data-open') : null;
     render();
     if (refocusId) returnFocus = document.querySelector('[data-open="' + refocusId + '"]');
     fillDetails(describe(res.record));
-    els.status.textContent = 'Registration ' + res.record.id + ' cancelled.' +
-      (res.saved ? '' : ' This browser is not allowing storage, so the change will be lost when you leave.');
+    els.status.textContent = 'Registration ' + res.record.id + ' cancelled.';
     var st = m('status');
     st.setAttribute('tabindex', '-1');
     st.focus();
     if (!reduced() && st.animate) st.animate([{ transform: 'scale(.92)', opacity: .4 }, { transform: 'none', opacity: 1 }], { duration: 360, easing: 'cubic-bezier(.16,1,.3,1)' });
+  }
+
+  /* ---------- download ticket: a self-contained SVG (QR = the registration ID) ---------- */
+  function downloadTicket(x) {
+    var NS = 'http://www.w3.org/2000/svg', r = x.r;
+    var svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('xmlns', NS);
+    svg.setAttribute('width', '480'); svg.setAttribute('height', '700'); svg.setAttribute('viewBox', '0 0 480 700');
+    function node(tag, attrs, text) {
+      var n = document.createElementNS(NS, tag);
+      Object.keys(attrs).forEach(function (k) { n.setAttribute(k, attrs[k]); });
+      if (text !== undefined) n.textContent = text;          // text, never markup
+      svg.appendChild(n);
+      return n;
+    }
+    var font = 'Poppins, Segoe UI, Helvetica, Arial, sans-serif';
+    node('rect', { width: 480, height: 700, rx: 28, fill: '#05070b' });
+    node('rect', { x: 1, y: 1, width: 478, height: 698, rx: 27, fill: 'none', stroke: '#1d4a63' });
+    node('text', { x: 40, y: 64, fill: '#ffffff', 'font-family': font, 'font-size': 26, 'font-weight': 900, 'letter-spacing': 1 }, 'EVENTORA');
+    node('text', { x: 40, y: 92, fill: '#35d8ff', 'font-family': font, 'font-size': 12, 'font-weight': 700, 'letter-spacing': 2 },
+      (r.type === 'waitlist' ? 'WAITLIST' : 'TICKET') + ' · ' + x.label.toUpperCase());
+    node('text', { x: 40, y: 136, fill: '#ffffff', 'font-family': font, 'font-size': 22, 'font-weight': 700 }, x.title.length > 34 ? x.title.slice(0, 33) + '…' : x.title);
+    node('text', { x: 40, y: 164, fill: '#c9d6e0', 'font-family': font, 'font-size': 14 }, x.when);
+    node('text', { x: 40, y: 186, fill: '#c9d6e0', 'font-family': font, 'font-size': 14 }, x.where);
+    node('rect', { x: 100, y: 214, width: 280, height: 280, rx: 18, fill: '#ffffff' });
+    try {
+      var qr = Eventora.qr.svg(r.id, { label: 'QR code for registration ' + r.id, dark: '#05070b' });
+      qr.setAttribute('x', 116); qr.setAttribute('y', 230); qr.setAttribute('width', 248); qr.setAttribute('height', 248);
+      svg.appendChild(qr);
+    } catch (err) { /* QR unavailable: the ID below still identifies the booking */ }
+    node('text', { x: 240, y: 534, fill: '#bff6ff', 'font-family': 'Consolas, Menlo, monospace', 'font-size': 24, 'font-weight': 700, 'text-anchor': 'middle', 'letter-spacing': 2 }, r.id);
+    node('text', { x: 40, y: 584, fill: '#8fa3b3', 'font-family': font, 'font-size': 12 }, 'ATTENDEE');
+    node('text', { x: 40, y: 606, fill: '#ffffff', 'font-family': font, 'font-size': 16 }, r.name);
+    node('text', { x: 40, y: 628, fill: '#c9d6e0', 'font-family': font, 'font-size': 13 }, r.email);
+    node('text', { x: 40, y: 668, fill: '#6f8597', 'font-family': font, 'font-size': 11 }, 'Show this QR code at check-in. Demo booking from EVENTORA.');
+    var blob = new Blob(['<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(svg)], { type: 'image/svg+xml' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'EVENTORA-ticket-' + r.id + '.svg';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    els.status.textContent = 'Ticket ' + r.id + ' downloaded.';
   }
 
   /* ---------- wiring ---------- */
@@ -340,16 +393,25 @@
     els.dialog.addEventListener('cancel', function (e) { e.preventDefault(); closeDetails(); });   // Escape
     els.dialog.addEventListener('click', function (e) { if (e.target === els.dialog) closeDetails(); });   // backdrop
     m('print').addEventListener('click', function () { window.print(); });
+    m('download').addEventListener('click', function () { var x = find(openId); if (x) downloadTicket(x); });
     m('cancel').addEventListener('click', function () { showConfirm(true); });
     m('keep').addEventListener('click', function () { showConfirm(false); m('cancel').focus(); });
     m('confirmCancel').addEventListener('click', doCancel);
 
-    // another tab registered, cancelled or switched guest → stay in sync
-    window.addEventListener('storage', function (e) {
-      if (e.key !== store.KEY && e.key !== identity.KEY) return;
-      render();
-      if (openId) { var x = find(openId); if (x) fillDetails(x); else closeDetails(); }
-    });
+    // bookings live on the server: refresh when the person comes back to this
+    // tab (they may have booked or cancelled on another device or tab)
+    var refreshing = false;
+    function refresh() {
+      if (refreshing || !store.sync) return;
+      refreshing = true;
+      store.sync().then(function () {
+        refreshing = false;
+        render();
+        if (openId) { var x = find(openId); if (x) fillDetails(x); else closeDetails(); }
+      }, function () { refreshing = false; });
+    }
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) refresh(); });
     window.addEventListener('hashchange', openFromHash);
   }
 

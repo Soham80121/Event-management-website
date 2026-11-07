@@ -37,10 +37,12 @@
     start('intro',     'run');
   }
 
-  // Published events live on the server: fetch them (briefly) before the
-  // pages render the programme. Offline, the last list this browser saw is used.
+  // Published events and the signed-in person's bookings live on the server:
+  // fetch them (briefly) before the pages render. Offline, pages still render.
   var booted = false;
   function once() { if (!booted) { booted = true; boot(); } }
-  if (Eventora.hosting && Eventora.hosting.loadPublic) Eventora.hosting.loadPublic(2500).then(once, once);
-  else once();
+  var jobs = [];
+  if (Eventora.hosting && Eventora.hosting.loadPublic) jobs.push(Eventora.hosting.loadPublic(2500));
+  if (Eventora.registrations && Eventora.registrations.sync) jobs.push(Eventora.registrations.sync());
+  Promise.race([Promise.all(jobs), new Promise(function (r) { setTimeout(r, 3000); })]).then(once, once);
 })(window.Eventora);

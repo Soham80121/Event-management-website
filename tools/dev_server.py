@@ -36,6 +36,9 @@ Same as `python -m http.server`, but:
      /api/me/events/update     {token, id, event}  owner: edit a Pending/Rejected event (resubmits)
      /api/me/events/delete     {token, id}         owner: delete a Pending/Rejected event
      /api/me/events/carry-over {token, event}      owner: own pending browser-only submission -> server
+     /api/me/registrations/create     {token, eventId, name, email, phone}   book an event (server decides type)
+     /api/me/registrations/cancel     {token, id}                            cancel your own booking
+     /api/me/registrations/carry-over {token, registration}                  your own browser-only booking -> server
      /api/admin/events/status  {token, id, status, note}   approve / reject / unpublish / cancel
      /api/admin/events/update  {token, id, event}  admin edit (status unchanged)
      /api/admin/events/remove  {token, id}         admin delete (registrations kept)
@@ -88,6 +91,7 @@ ROUTES = {
     "/api/admin/registrations", "/api/admin/audit", "/api/admin/import",
     "/api/me/applications/apply", "/api/me/applications/carry-over", "/api/admin/applications/decide",
     "/api/me/events/submit", "/api/me/events/update", "/api/me/events/delete", "/api/me/events/carry-over",
+    "/api/me/registrations/create", "/api/me/registrations/cancel", "/api/me/registrations/carry-over",
     "/api/admin/events/status", "/api/admin/events/update", "/api/admin/events/remove",
 }
 LARGE_ROUTES = {"/api/account/update", "/api/auth/migrate", "/api/me/events/carry-over"}
@@ -176,6 +180,9 @@ class DevHandler(http.server.SimpleHTTPRequestHandler):
                 "/api/me/events/update": lambda: d.host_update_event(token, body),
                 "/api/me/events/delete": lambda: d.host_delete_event(token, body),
                 "/api/me/events/carry-over": lambda: d.carry_over_event(token, body),
+                "/api/me/registrations/create": lambda: d.create_registration(token, body),
+                "/api/me/registrations/cancel": lambda: d.cancel_registration(token, body),
+                "/api/me/registrations/carry-over": lambda: d.carry_over_registration(token, body),
                 "/api/admin/events/status": lambda: d.admin_set_event_status(token, body),
                 "/api/admin/events/update": lambda: d.admin_update_event(token, body),
                 "/api/admin/events/remove": lambda: d.admin_remove_event(token, body),

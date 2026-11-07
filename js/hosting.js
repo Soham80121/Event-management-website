@@ -269,7 +269,8 @@
           auth().request('/api/me/applications', {}),
           admin ? auth().request('/api/admin/applications', {}) : null,
           hostish ? auth().request('/api/me/events', {}) : null,
-          admin ? auth().request('/api/admin/events', {}) : null
+          admin ? auth().request('/api/admin/events', {}) : null,
+          Eventora.registrations && Eventora.registrations.sync ? Eventora.registrations.sync() : null
         ]);
       }).then(function (res) {
         if (res[0].httpStatus === 200) appCache.mine = res[0].applications.sort(byNewest);

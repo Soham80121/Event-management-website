@@ -100,7 +100,7 @@
       </section>
 
       <div id="dashBody" hidden>
-        <p class="proto-note"><strong>Development prototype.</strong> Accounts, roles and host applications (Make host, Suspend, approving or rejecting an application) are changed on the dev server and need your admin session; every decision is recorded in an audit log. Event submissions are saved on the server too, so approvals work from any browser. Registrations and events created before server saving are still browser data; that arrives in the next phases.</p>
+        <p class="proto-note"><strong>Development prototype.</strong> Accounts, roles and host applications (Make host, Suspend, approving or rejecting an application) are changed on the dev server and need your admin session; every decision is recorded in an audit log. Event submissions and registrations are saved on the server too, so approvals and bookings show up in any browser. Events created before server saving are still browser data until they are moved.</p>
         <p class="form-alert" id="adAlert" role="status" hidden></p>
 
         <div class="dash-tabs" role="tablist" aria-label="Admin sections">
@@ -179,6 +179,10 @@
         <section class="dash-panel" role="tabpanel" id="panel-regs" aria-labelledby="tab-regs" tabindex="0" hidden>
           <div class="dash-toolbar">
             <div class="field dash-select">
+              <label class="field__label" for="regSearch">Attendee</label>
+              <input class="field__input" id="regSearch" type="search" placeholder="Name, email or registration ID" autocomplete="off" spellcheck="false">
+            </div>
+            <div class="field dash-select">
               <label class="field__label" for="regEventFilter">Event</label>
               <select class="field__input" id="regEventFilter"><option value="">All events</option></select>
             </div>
@@ -195,7 +199,7 @@
           </div>
           <div class="table-wrap">
             <table class="data-table">
-              <thead><tr><th scope="col">Registration ID</th><th scope="col">Attendee</th><th scope="col">Event</th><th scope="col">Status</th><th scope="col">Booked</th><th scope="col">Check-in</th></tr></thead>
+              <thead><tr><th scope="col">Registration ID</th><th scope="col">Attendee</th><th scope="col">Event</th><th scope="col">Event ID</th><th scope="col">Status</th><th scope="col">Booked</th><th scope="col">Check-in</th></tr></thead>
               <tbody id="regsBody"></tbody>
             </table>
           </div>

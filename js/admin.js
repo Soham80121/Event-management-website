@@ -529,7 +529,11 @@
       .forEach(function (p) { var o = el('option', '', p[1]); o.value = p[0]; evSel.appendChild(o); });
     if (keep && ids[keep]) evSel.value = keep;
     var status = $('regStatusFilter').value;
-    var rows = all.filter(function (r) { return (!evSel.value || r.eventId === evSel.value) && (!status || regState(r) === status); })
+    var q = $('regSearch').value.trim().toLowerCase();
+    var rows = all.filter(function (r) {
+      return (!evSel.value || r.eventId === evSel.value) && (!status || regState(r) === status) &&
+        (!q || (r.name + ' ' + r.email + ' ' + r.id).toLowerCase().indexOf(q) !== -1);
+    })
       .sort(function (a, b) { return a.createdAt < b.createdAt ? 1 : -1; });
     $('regCount').textContent = rows.length === all.length ? all.length + ' registrations' : rows.length + ' of ' + all.length + ' registrations';
     var tbody = $('regsBody');
@@ -543,6 +547,7 @@
       who.appendChild(el('div', 'cell-sub', r.email));
       tr.appendChild(who);
       tr.appendChild(el('td', '', hosting.admin.eventTitle(r.eventId)));
+      tr.appendChild(el('td', 'mono cell-sub', r.eventId));
       var s = regState(r);
       var st = el('td');
       st.appendChild(chip(s === 'confirmed' ? 'approved' : s === 'cancelled' ? 'rejected' : 'unpublished', { confirmed: 'Confirmed', completed: 'Completed', cancelled: 'Cancelled' }[s]));
@@ -564,7 +569,7 @@
     wrap.appendChild(qr);
     var owner = r.userId ? auth.userById(r.userId) : null;
     wrap.appendChild(facts([
-      ['Event', hosting.admin.eventTitle(r.eventId)], ['Attendee', r.name], ['Email', r.email], ['Phone', r.phone],
+      ['Event', hosting.admin.eventTitle(r.eventId)], ['Event ID', r.eventId], ['Attendee', r.name], ['Email', r.email], ['Phone', r.phone],
       ['Type', r.type === 'waitlist' ? 'Waitlist' : 'Registration'], ['Booked', day(r.createdAt)],
       ['Account', owner ? owner.name + ' (' + owner.email + ')' : 'Not linked to an account']
     ]));
@@ -635,6 +640,7 @@
     });
     $('regEventFilter').addEventListener('change', renderRegs);
     $('regStatusFilter').addEventListener('change', renderRegs);
+    $('regSearch').addEventListener('input', renderRegs);
     $('adDialog').querySelector('[data-close]').addEventListener('click', function () { $('adDialog').close(); });
     $('adDialog').addEventListener('click', function (e) { if (e.target === $('adDialog')) $('adDialog').close(); });
   }
