@@ -92,6 +92,7 @@
   margin-top: var(--space-2);
   font-size: 19px; font-weight: var(--fw-bold); line-height: var(--lh-snug);
   letter-spacing: var(--tracking-tight); color: var(--c-ink);
+  overflow-wrap: anywhere;
 }
 .event-card__line {
   display: flex; align-items: center; gap: var(--space-2);
@@ -306,6 +307,12 @@
   .event-card--row .date-tile__day { font-size: 26px; }
   .event-card--row .event-card__desc { -webkit-line-clamp: 3; line-clamp: 3; }
   .event-card--row .event-card__reveal .event-card__line { font-size: 12.5px; }
+}
+
+@media (max-width: 380px) {
+  .event-card--row { padding: 12px; gap: 12px; }
+  .event-card--row .date-tile { width: 56px; padding: var(--space-2) 0; }
+  .event-card--row .date-tile__day { font-size: 22px; }
 }
 
 /* =========================================================================

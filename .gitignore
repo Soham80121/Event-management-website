@@ -13,3 +13,7 @@ node_modules/
 # Server-side account store (dev server; never served, never committed)
 .data/
 __pycache__/
+
+# Local backup directories
+backups/
+

@@ -101,15 +101,47 @@ LARGE_ROUTES = {"/api/account/update", "/api/auth/migrate", "/api/me/events/carr
 class DevHandler(http.server.SimpleHTTPRequestHandler):
     service = None   # accounts.Accounts, set in main()
     data = None      # eventdata.EventData, set in main()
+    server_version = "EvAtlasServer"
+    sys_version = ""
+
+    def version_string(self):
+        return "EvAtlasServer"
 
     def end_headers(self):
         self.send_header("Cache-Control", "no-store, max-age=0")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
+        self.send_header("Permissions-Policy", "camera=(self), microphone=(), geolocation=()")
+        self.send_header(
+            "Content-Security-Policy",
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline'; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "font-src 'self' https://fonts.gstatic.com data:; "
+            "img-src 'self' data: blob: https://images.unsplash.com; "
+            "connect-src 'self'; "
+            "frame-ancestors 'none'; "
+            "base-uri 'self'; "
+            "form-action 'self';"
+        )
         super().end_headers()
 
-    # ---- static files: refuse anything under a dot-segment ----
+    # ---- static files: refuse hidden paths, tools, tests, and sensitive file extensions ----
     def _hidden_path(self) -> bool:
         path = urllib.parse.unquote(urllib.parse.urlsplit(self.path).path)
-        return any(part.startswith(".") for part in path.split("/") if part)
+        parts = [part for part in path.split("/") if part]
+        # Disallow dot-segments (.env, .data, .git, etc.)
+        if any(part.startswith(".") for part in parts):
+            return True
+        # Disallow direct access to server-side code, tests, or backups
+        if any(part.lower() in ("tools", "tests", "backups") for part in parts):
+            return True
+        # Disallow raw python source and audit log files
+        clean_path = path.lower().split("?")[0].split("#")[0]
+        if clean_path.endswith((".py", ".pyc", ".jsonl", ".env")):
+            return True
+        return False
 
     def do_GET(self):
         if self._hidden_path():
@@ -144,6 +176,11 @@ class DevHandler(http.server.SimpleHTTPRequestHandler):
         path = urllib.parse.urlsplit(self.path).path
         if path not in ROUTES:
             self._json(404, {"error": "Not found"})
+            return
+        ctype = self.headers.get("Content-Type", "")
+        # Require application/json (ignoring optional parameters like charset)
+        if not ctype.lower().split(";")[0].strip() == "application/json":
+            self._json(415, {"ok": False, "error": "Unsupported Media Type: application/json required"})
             return
         body = self._body(IMPORT_BODY if path == "/api/admin/import" else LARGE_BODY if path in LARGE_ROUTES else SMALL_BODY)
         if body is None:

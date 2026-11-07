@@ -204,8 +204,13 @@
   .register__summary { grid-template-columns: 1fr; gap: 2px; }
   .register__summary dd + dt { margin-top: var(--space-3); }
   .register__id { flex-direction: column; align-items: flex-start; }
-  .register__qr { align-self: center; width: 168px; }
+  .register__qr { align-self: center; width: 168px; max-width: 100%; }
   .register__done-actions > * { flex: 1 1 100%; }
+}
+
+@media (max-width: 360px) {
+  .register__qr { width: 140px; }
+  .register__id-code { font-size: 20px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

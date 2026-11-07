@@ -138,7 +138,7 @@
 .mrd-poster.is-missing::after, .mrd-poster.is-broken::after { font-size: 30px; }
 
 .mr-card__body { display: grid; gap: 4px; min-width: 0; justify-items: start; }
-.mr-card__title { font-size: var(--fs-h3); font-weight: var(--fw-bold); line-height: var(--lh-snug); letter-spacing: var(--tracking-tight); margin-top: 2px; }
+.mr-card__title { font-size: var(--fs-h3); font-weight: var(--fw-bold); line-height: var(--lh-snug); letter-spacing: var(--tracking-tight); margin-top: 2px; overflow-wrap: anywhere; }
 .mr-card__open {
   padding: 0; border: 0; background: none; color: inherit;
   font: inherit; text-align: left; cursor: pointer;
@@ -230,7 +230,7 @@ html.mr-locked { overflow: hidden; scrollbar-gutter: stable; }
 .mrd-grid { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: clamp(20px, 3.5vw, 44px); align-items: start; }
 .mrd-poster { border-radius: var(--radius-lg); box-shadow: var(--shadow-card); position: sticky; top: 0; }
 .mrd-body { display: grid; gap: var(--space-3); justify-items: start; min-width: 0; padding-top: var(--space-2); }
-.mrd-title { padding-right: 90px; }
+.mrd-title { padding-right: 90px; overflow-wrap: anywhere; word-break: break-word; }
 .mrd-missing { font-size: var(--fs-small); color: var(--c-muted); }
 .mrd-facts {
   width: 100%;
@@ -244,7 +244,7 @@ html.mr-locked { overflow: hidden; scrollbar-gutter: stable; }
   font-size: var(--fs-caption); font-weight: var(--fw-semibold);
   letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-cyan);
 }
-.mrd-facts dd { grid-row: 2; font-size: var(--fs-body); }
+.mrd-facts dd { grid-row: 2; font-size: var(--fs-body); overflow-wrap: anywhere; }
 .mrd-desc { color: var(--c-muted); max-width: 60ch; }
 .mrd-ticket { margin-top: var(--space-2); }
 .mrd-ticket .register__summary dt[hidden], .mrd-ticket .register__summary dd[hidden] { display: none; }
@@ -303,6 +303,12 @@ html.mr-locked { overflow: hidden; scrollbar-gutter: stable; }
   .mrd-facts { grid-template-columns: 1fr 1fr; gap: var(--space-1) var(--space-4); }
   .mrd-actions > * { flex: 1 1 100%; }
   .mrd-confirm .cluster > * { flex: 1 1 100%; }
+}
+
+@media (max-width: 440px) {
+  .mr-dialog__sheet { padding-inline: 16px; padding-bottom: 24px; }
+  .mrd-facts { grid-template-columns: 1fr; gap: var(--space-1); }
+  .mrd-facts dd + dt { margin-top: var(--space-2); }
 }
 
 @media (prefers-reduced-motion: reduce) {

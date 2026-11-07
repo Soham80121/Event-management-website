@@ -283,9 +283,11 @@
       var st = el('td'); st.appendChild(eventChip(row.status)); tr.appendChild(st);
       tr.appendChild(el('td', 'num', String(activeRegs(row.id))));
       var act = el('td', 'cell-actions');
-      act.appendChild(button('Review', 'btn-ghost btn-sm', function () { reviewEvent(row); }));
-      act.appendChild(button('Edit', 'btn-ghost btn-sm', function () { openForm(row); }));
-      eventActions(row).forEach(function (b) { act.appendChild(b); });
+      var wrap = el('div', 'cell-actions__wrap');
+      wrap.appendChild(button('Review', 'btn-ghost btn-sm', function () { reviewEvent(row); }));
+      wrap.appendChild(button('Edit', 'btn-ghost btn-sm', function () { openForm(row); }));
+      eventActions(row).forEach(function (b) { wrap.appendChild(b); });
+      act.appendChild(wrap);
       tr.appendChild(act);
       tbody.appendChild(tr);
     });
