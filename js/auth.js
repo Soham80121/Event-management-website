@@ -1,52 +1,39 @@
 /* =========================================================================
-   AUTH — accounts, sessions, roles (Phase 8).
+   AUTH — accounts, sessions, roles. A client of the dev server's account
+   API (tools/dev_server.py + tools/accounts.py).
 
    ┌───────────────────────────────────────────────────────────────────────┐
-   │ PROTOTYPE, NOT SECURE. Everything here runs in the browser and stores │
-   │ data in localStorage, which any visitor can read and edit in DevTools.│
+   │ DEVELOPMENT PROTOTYPE. Accounts, password hashes (scrypt), sessions   │
+   │ and roles now live on the dev server, not in the browser. But the     │
+   │ server is a local development server (one JSON file, no HTTPS), and   │
+   │ events, registrations and host applications are still in browser      │
+   │ storage, so the admin's actions on THOSE are not server-enforced.     │
    │ Role checks in this file shape the UI; they are NOT authorization.    │
-   │ Phase 11 moves every function below behind a real backend with the   │
-   │ same shapes (see README → "Authentication & roles").                  │
+   │ Phase 11 replaces the dev server with the production backend.         │
    └───────────────────────────────────────────────────────────────────────┘
 
-   What IS done properly even in the prototype:
-   - Passwords are never stored: PBKDF2-SHA256 (600,000 iterations, 16-byte
-     random salt) via Web Crypto; only salt + hash are kept.
-   - The Admin role is never stored and never comes from browser state. The
-     dev server (tools/dev_server.py) verifies the admin EMAIL AND PASSWORD
-     against its own configuration (ADMIN_EMAIL + a PBKDF2 ADMIN_PASSWORD_HASH)
-     and issues a short-lived admin token it tracks in memory. Every page load
-     asks the server whether that token is still valid. Editing localStorage
-     or forging a session can't grant Admin without the password.
-   - The password goes to the server only on the admin path: when a local
-     sign-in fails (so the server can recognise the admin), or when the
-     account was created by the server-verified admin sign-in. Ordinary
-     users' successful sign-ins never send their password anywhere.
-   - New accounts always get the "user" role. Only an admin operation can
-     set "host" (and the host-application approval uses it).
+   What the browser keeps (never a password, hash or OTP):
+     eventora:auth   { version: 2, token, userId, expiresAt }
+                     server session token. localStorage with "Remember me"
+                     (30 days), otherwise sessionStorage.
+     eventora:users  { version: 2, users: [public profiles], legacy: [...] }
+                     a cache of what the server returned (your own profile;
+                     for admins, every account). `legacy` holds accounts
+                     from the old browser-only prototype that haven't
+                     signed in since; the first sign-in moves each one to
+                     the server (same user ID, creation date and role) and
+                     deletes its old local password hash.
 
-   Storage (all versioned envelopes):
-     eventora:users  { version, users: [{ id, name, email, phone, createdAt,
-                       updatedAt, role: 'user'|'host', status: 'active'|'suspended',
-                       avatar?: data:image/jpeg (≤160px), password: {algo, iterations, salt, hash} }] }
-     eventora:auth   { version, userId, createdAt, expiresAt }
-                     in localStorage with "Remember me" (30 days),
-                     otherwise in sessionStorage (ends with the browser session).
-
-   Roles: visitor (signed out) · user · host · admin (server-verified).
+   Roles: visitor (signed out) · user · host · admin. The server decides
+   them; "admin" counts only once the server confirms it on this page load.
    ========================================================================= */
 (function (Eventora) {
   'use strict';
 
   var USERS = 'eventora:users';
   var SESSION = 'eventora:auth';
-  var LEGACY_GUEST = 'eventora:session';     // Phase 7 guest identity
-  var ADMIN_TOKEN = 'eventora:admin-session'; // { email, token, expiresAt } from the dev server
-  var ITERATIONS = 600000;
-  var REMEMBER_MS = 30 * 24 * 3600 * 1000;
-  var SESSION_MS = 12 * 3600 * 1000;
+  var LEGACY_KEYS = ['eventora:session', 'eventora:admin-session'];   // retired guest identity / old admin token
   var ID_RE = /^usr_[0-9A-HJKMNP-TV-Z]{12}$/;
-  var ROLES = { user: true, host: true };
 
   var PERMISSIONS = {
     visitor: ['browse'],
@@ -56,9 +43,11 @@
       'manageUsers', 'reviewApplications', 'reviewEvents', 'viewAllRegistrations']
   };
   var ROLE_LABELS = { visitor: 'Visitor', user: 'User', host: 'Event Host', admin: 'Admin' };
+  var SERVER_DOWN = 'The EVENTORA server can’t be reached. Start the site with: python tools/dev_server.py';
 
   var listeners = [];
-  var adminState = { userId: null, email: null, verified: false, status: 'unknown', promise: null };
+  // status: ok | not-configured | unavailable | checking | signed-out
+  var check = { userId: null, verified: false, status: 'unknown', promise: null };
 
   /* ---------- storage helpers ---------- */
   function storageOf(kind) {
@@ -79,112 +68,80 @@
     catch (err) { return false; }
   }
 
-  function validUser(u) {
-    return !!u && typeof u === 'object' &&
-      typeof u.id === 'string' && ID_RE.test(u.id) &&
-      typeof u.name === 'string' && u.name.length > 0 && u.name.length <= 80 &&
-      typeof u.email === 'string' && u.email.length > 0 && u.email.length <= 254 &&
-      typeof u.phone === 'string' && u.phone.length <= 16 &&
-      typeof u.createdAt === 'string' && !isNaN(Date.parse(u.createdAt)) &&
-      ROLES[u.role] === true &&
-      (u.status === 'active' || u.status === 'suspended') &&
-      (u.adminAccount === undefined || u.adminAccount === true) &&
-      (u.avatar === undefined || (typeof u.avatar === 'string' && /^data:image\/(jpeg|png|webp);base64,/.test(u.avatar) && u.avatar.length < 250000)) &&
-      !!u.password && typeof u.password.salt === 'string' && typeof u.password.hash === 'string' &&
-      typeof u.password.iterations === 'number';
+  /* ---------- profile cache (public fields only) ---------- */
+  function validProfile(u) {
+    return !!u && typeof u === 'object' && typeof u.id === 'string' && ID_RE.test(u.id) &&
+      typeof u.name === 'string' && typeof u.email === 'string' &&
+      ['user', 'host', 'admin'].indexOf(u.role) !== -1;
   }
-
-  function readUsers() {
+  function validLegacy(u) {
+    return validProfile(u) && u.role !== 'admin' && !u.adminAccount && !!u.password &&
+      typeof u.password.salt === 'string' && typeof u.password.hash === 'string' && typeof u.password.iterations === 'number';
+  }
+  function readCache() {
     var data = readJSON(storageOf('localStorage'), USERS);
-    if (!data || !Array.isArray(data.users)) return [];
-    return data.users.filter(validUser);
+    if (!data || !Array.isArray(data.users)) return { version: 2, users: [], legacy: [] };
+    if (data.version !== 2) {
+      // Old browser-only accounts: keep the ones that can move to the server
+      // on their next sign-in. The old development admin is dropped: the
+      // admin account is now initialised on the server (tools/init_admin.py).
+      data = { version: 2, users: [], legacy: data.users.filter(validLegacy) };
+      writeJSON(storageOf('localStorage'), USERS, data);
+    }
+    data.users = data.users.filter(validProfile);
+    data.legacy = Array.isArray(data.legacy) ? data.legacy.filter(validLegacy) : [];
+    return data;
   }
-  function writeUsers(list) {
-    return writeJSON(storageOf('localStorage'), USERS, { version: 1, users: list });
+  function writeCache(data) {
+    var store = storageOf('localStorage');
+    var next = JSON.stringify(data);
+    try { if (store && store.getItem(USERS) === next) return true; } catch (err) { /* write below */ }
+    return writeJSON(store, USERS, data);
   }
-
-  /* ---------- crypto ---------- */
-  var ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
-  function randomId(prefix, n) {
-    var bytes = new Uint8Array(n), out = '';
-    window.crypto.getRandomValues(bytes);
-    for (var i = 0; i < n; i++) out += ALPHABET[bytes[i] % 32];
-    return prefix + out;
-  }
-  function b64(buf) {
-    var s = '', bytes = new Uint8Array(buf);
-    for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
-    return btoa(s);
-  }
-  function unb64(str) {
-    var s = atob(str), out = new Uint8Array(s.length);
-    for (var i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);
-    return out;
-  }
-  function derive(password, saltBytes, iterations) {
-    var enc = new TextEncoder();
-    return window.crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits'])
-      .then(function (key) {
-        return window.crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: saltBytes, iterations: iterations }, key, 256);
-      })
-      .then(b64);
-  }
-  function hashPassword(password) {
-    var salt = new Uint8Array(16);
-    window.crypto.getRandomValues(salt);
-    return derive(password, salt, ITERATIONS).then(function (hash) {
-      return { algo: 'PBKDF2-SHA256', iterations: ITERATIONS, salt: b64(salt), hash: hash };
+  function cacheUsers(list, replaceAll) {
+    var data = readCache();
+    if (replaceAll) data.users = [];
+    list.forEach(function (u) {
+      if (!validProfile(u)) return;
+      var rec = { id: u.id, name: u.name, email: u.email, phone: u.phone || '', createdAt: u.createdAt,
+        updatedAt: u.updatedAt || u.createdAt, avatar: u.avatar || '', status: u.status || 'active', role: u.role };
+      var at = -1;
+      data.users.forEach(function (x, i) { if (x.id === u.id) at = i; });
+      if (at === -1) data.users.push(rec); else data.users[at] = rec;
     });
+    writeCache(data);
   }
-  function verifyPassword(password, rec) {
-    return derive(password, unb64(rec.salt), rec.iterations).then(function (hash) {
-      // compare full strings; timing isn't meaningful for a local prototype
-      return hash === rec.hash;
-    });
-  }
+  function cached(id) { return readCache().users.filter(function (x) { return x.id === id; })[0] || null; }
 
   /* ---------- session ---------- */
   function readSession() {
     var stores = [storageOf('localStorage'), storageOf('sessionStorage')];
     for (var i = 0; i < stores.length; i++) {
       var s = readJSON(stores[i], SESSION);
-      if (s && typeof s.userId === 'string' && Date.parse(s.expiresAt) > Date.now()) return s;
+      if (s && s.version === 2 && typeof s.token === 'string' && Date.parse(s.expiresAt) > Date.now()) return s;
     }
     return null;
   }
-  function writeSession(userId, remember) {
+  function writeSession(res, remember) {
     clearSession();
-    var now = Date.now();
-    var s = { version: 1, userId: userId, createdAt: new Date(now).toISOString(),
-      expiresAt: new Date(now + (remember ? REMEMBER_MS : SESSION_MS)).toISOString() };
-    return writeJSON(storageOf(remember ? 'localStorage' : 'sessionStorage'), SESSION, s);
+    writeJSON(storageOf(remember ? 'localStorage' : 'sessionStorage'), SESSION,
+      { version: 2, token: res.token, userId: res.user.id, expiresAt: res.expiresAt });
+    cacheUsers([res.user]);
   }
   function clearSession() {
     ['localStorage', 'sessionStorage'].forEach(function (k) {
       var s = storageOf(k);
-      if (s) try { s.removeItem(SESSION); s.removeItem(ADMIN_TOKEN); } catch (err) { /* ignore */ }
+      if (s) try { s.removeItem(SESSION); } catch (err) { /* ignore */ }
     });
   }
+  function token() { var s = readSession(); return s ? s.token : ''; }
 
-  /* ---------- admin token (issued by the dev server after a password check) ---------- */
-  function readAdminToken() {
-    var stores = [storageOf('localStorage'), storageOf('sessionStorage')];
-    for (var i = 0; i < stores.length; i++) {
-      var t = readJSON(stores[i], ADMIN_TOKEN);
-      if (t && typeof t.token === 'string' && Date.parse(t.expiresAt) > Date.now()) return t;
-    }
-    return null;
-  }
-  function writeAdminToken(email, data, remember) {
-    writeJSON(storageOf(remember ? 'localStorage' : 'sessionStorage'), ADMIN_TOKEN,
-      { email: email, token: data.token, expiresAt: data.expiresAt });
-  }
-
+  /* ---------- server API ---------- */
   function api(path, body) {
     return fetch(path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      body: JSON.stringify(body || {}),
       credentials: 'same-origin',
       cache: 'no-store'
     }).then(function (res) {
@@ -192,56 +149,77 @@
     }, function () { return { httpStatus: 0 }; });       // server not reachable
   }
 
-  /** Ask the dev server to verify admin email + password. */
-  function serverAdminLogin(email, password) {
-    return api('/api/auth/admin-login', { email: email, password: password });
+  /* ---------- legacy (browser-only) password check, for the one-time move ---------- */
+  function unb64(str) {
+    var s = atob(str), out = new Uint8Array(s.length);
+    for (var i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);
+    return out;
+  }
+  function legacyVerify(password, rec) {
+    var enc = new TextEncoder();
+    return window.crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits'])
+      .then(function (key) {
+        return window.crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: unb64(rec.salt), iterations: rec.iterations }, key, 256);
+      })
+      .then(function (bits) {
+        var s = '', bytes = new Uint8Array(bits);
+        for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+        return btoa(s) === rec.hash;
+      }, function () { return false; });
+  }
+  function dropLegacy(email) {
+    var data = readCache();
+    data.legacy = data.legacy.filter(function (x) { return x.email !== email; });
+    writeCache(data);
   }
 
+  /* ---------- current user ---------- */
   function userRecord() {
     var s = readSession();
     if (!s) return null;
-    var u = readUsers().filter(function (x) { return x.id === s.userId; })[0];
-    if (!u || u.status !== 'active') return null;
-    return u;
+    var u = cached(s.userId);
+    return u && u.status === 'active' ? u : null;
   }
 
-  /** The public view of a user (never includes the password record). */
+  /** Public view. "admin" only once the server confirmed it on this page load. */
   function publicUser(u) {
     if (!u) return null;
-    var admin = adminState.verified && adminState.userId === u.id && adminState.email === u.email;
+    var serverAdmin = u.role === 'admin';
+    var admin = serverAdmin && check.verified && check.userId === u.id;
     return {
-      id: u.id, name: u.name, email: u.email, phone: u.phone,
+      id: u.id, name: u.name, email: u.email, phone: u.phone || '',
       createdAt: u.createdAt, updatedAt: u.updatedAt || u.createdAt,
       avatar: u.avatar || '', status: u.status,
-      baseRole: u.role,
-      adminAccount: !!u.adminAccount,
-      role: admin ? 'admin' : u.role
+      baseRole: serverAdmin ? 'user' : u.role,
+      adminAccount: serverAdmin,
+      role: admin ? 'admin' : (serverAdmin ? 'user' : u.role)
     };
   }
 
-  /* ---------- trusted admin check (dev server; Phase 11 backend) ----------
-     Admin = the server still holds a live token for this email, issued after
-     it verified the admin password. No token → not admin. */
-  function checkAdmin(u) {
+  /** Ask the server who is signed in (and, for admins, load every account). */
+  function refresh(u) {
     if (!u) {
-      adminState = { userId: null, email: null, verified: false, status: 'signed-out', promise: Promise.resolve(false) };
-      return adminState.promise;
+      check = { userId: null, verified: false, status: 'signed-out', promise: Promise.resolve(false) };
+      return check.promise;
     }
-    if (adminState.userId === u.id && adminState.email === u.email && adminState.promise) return adminState.promise;
-    var state = { userId: u.id, email: u.email, verified: false, status: 'checking', promise: null };
-    adminState = state;
-    var t = readAdminToken();
-    var token = t && t.email === u.email ? t.token : '';
-    state.promise = api('/api/auth/admin-check', { email: u.email, token: token }).then(function (data) {
-      if (data.httpStatus !== 200) {
-        state.verified = false;           // no server → no admin
-        state.status = 'unavailable';
+    if (check.userId === u.id && check.promise) return check.promise;
+    var state = { userId: u.id, verified: false, status: 'checking', promise: null };
+    check = state;
+    state.promise = api('/api/auth/me', { token: token() }).then(function (data) {
+      if (data.httpStatus === 401) {                     // session ended on the server
+        clearSession();
+        state.status = 'signed-out';
         return false;
       }
-      state.verified = data.isAdmin === true;
-      state.status = !data.configured ? 'not-configured'
-        : (!state.verified && u.adminAccount ? 'admin-relogin' : 'ok');
-      return state.verified;
+      if (data.httpStatus !== 200 || !data.user) { state.status = 'unavailable'; return false; }
+      cacheUsers([data.user]);
+      state.verified = data.user.role === 'admin';
+      state.status = data.adminConfigured === false ? 'not-configured' : 'ok';
+      if (!state.verified) return false;
+      return api('/api/admin/users', { token: token() }).then(function (list) {
+        if (list.httpStatus === 200 && Array.isArray(list.users)) cacheUsers(list.users, true);
+        return true;
+      });
     }).then(function (v) { emit(); return v; });
     return state.promise;
   }
@@ -253,11 +231,6 @@
   }
 
   function normEmail(v) { return String(v || '').trim().toLowerCase(); }
-  function normName(v) { return String(v || '').trim().replace(/\s+/g, ' '); }
-  function normPhone(v) {
-    var s = String(v || '').trim();
-    return (s.charAt(0) === '+' ? '+' : '') + s.replace(/\D/g, '');
-  }
 
   function claimRegistrations(u) {
     if (Eventora.registrations && Eventora.registrations.claim) Eventora.registrations.claim(u.email, u.id);
@@ -265,33 +238,19 @@
 
   function fail(field, error) { return { ok: false, field: field, error: error }; }
 
-  /**
-   * Controlled initialisation of the development admin account. Runs ONLY
-   * after the server has verified the admin email and password. Creates the
-   * browser-side account record on first sign-in, or takes over an existing
-   * record with that email (e.g. one created through public sign-up) and
-   * re-hashes the server-verified password into it. The stored role stays
-   * 'user': Admin is never stored, it comes from the live server token.
-   */
-  function adoptAdmin(existing, email, password) {
-    return hashPassword(password).then(function (pw) {
-      var list = readUsers();
-      var now = new Date().toISOString();
-      var rec = existing ? list.filter(function (x) { return x.id === existing.id; })[0] : null;
-      if (!rec) {
-        var taken = {};
-        list.forEach(function (x) { taken[x.id] = true; });
-        var id; do { id = randomId('usr_', 12); } while (taken[id]);
-        rec = { id: id, name: 'EVENTORA Admin', email: email, phone: '', createdAt: now, role: 'user', status: 'active' };
-        list.push(rec);
-      }
-      rec.password = pw;
-      rec.adminAccount = true;
-      rec.status = 'active';
-      rec.updatedAt = now;
-      writeUsers(list);
-      return rec;
-    });
+  /** After a successful server sign-in / sign-up / move. */
+  function signedIn(res, remember) {
+    writeSession(res, remember);
+    claimRegistrations(res.user);
+    check.promise = null;
+    var u = cached(res.user.id);
+    return refresh(u).then(function () { return { ok: true, user: publicUser(cached(res.user.id)) }; });
+  }
+
+  function serverError(res, fallback) {
+    if (res.httpStatus === 0) return fail('form', SERVER_DOWN);
+    if (res.errors) return { ok: false, errors: res.errors };
+    return fail(res.field || 'form', res.error || fallback);
   }
 
   var V = function () { return Eventora.validate; };
@@ -301,13 +260,13 @@
     PERMISSIONS: PERMISSIONS,
     KEYS: { users: USERS, session: SESSION },
 
-    /** Signed-in user (public fields), or null for a visitor. Sync. */
+    /** Signed-in user (public fields), or null for a visitor. Sync (cached). */
     current: function () { return publicUser(userRecord()); },
 
-    /** Resolves once the server-side admin check for the current user is done. */
+    /** Resolves once the server has confirmed the session (and the role). */
     ready: function () {
       var u = userRecord();
-      return checkAdmin(u).then(function () { return publicUser(u); });
+      return refresh(u).then(function () { return publicUser(userRecord()); });
     },
 
     /** 'visitor' | 'user' | 'host' | 'admin' (admin only once verified). */
@@ -318,8 +277,8 @@
       return (PERMISSIONS[this.role()] || []).indexOf(permission) !== -1;
     },
 
-    /** How the last admin check went: ok | not-configured | unavailable | checking | signed-out. */
-    adminCheckStatus: function () { return adminState.status; },
+    /** How the last server check went: ok | not-configured | unavailable | checking | signed-out. */
+    adminCheckStatus: function () { return check.status; },
 
     onChange: function (fn) { listeners.push(fn); },
 
@@ -332,25 +291,14 @@
       var bad = Object.keys(errs).filter(function (k) { return errs[k]; });
       if (bad.length) return Promise.resolve({ ok: false, errors: errs });
       var email = normEmail(input.email);
-      if (readUsers().some(function (u) { return u.email === email; })) {
+      if (readCache().legacy.some(function (x) { return x.email === email; })) {
         return Promise.resolve(fail('email', 'An account with this email already exists. Sign in instead.'));
       }
-      return hashPassword(input.password).then(function (pw) {
-        var list = readUsers();
-        if (list.some(function (u) { return u.email === email; })) {      // re-check after the slow hash
-          return fail('email', 'An account with this email already exists. Sign in instead.');
-        }
-        var taken = {};
-        list.forEach(function (u) { taken[u.id] = true; });
-        var id; do { id = randomId('usr_', 12); } while (taken[id]);
-        var now = new Date().toISOString();
-        var user = { id: id, name: normName(input.name), email: email, phone: normPhone(input.phone),
-          createdAt: now, updatedAt: now, role: 'user', status: 'active', password: pw };
-        list.push(user);
-        if (!writeUsers(list)) return fail('form', 'This browser isn’t allowing storage, so the account couldn’t be saved.');
-        writeSession(user.id, input.remember !== false);
-        claimRegistrations(user);
-        return checkAdmin(user).then(function () { emit(); return { ok: true, user: publicUser(user) }; });
+      var remember = input.remember !== false;
+      return api('/api/auth/signup', { name: input.name, email: input.email, phone: input.phone,
+        password: input.password, remember: remember }).then(function (res) {
+        if (res.httpStatus === 200 && res.token) return signedIn(res, remember);
+        return serverError(res, 'The account couldn’t be created. Please try again.');
       });
     },
 
@@ -358,45 +306,31 @@
       var e = normEmail(email);
       var generic = fail('form', 'That email and password don’t match an account. Check them and try again.');
       if (!e || !password) return Promise.resolve(generic);
-      var u = readUsers().filter(function (x) { return x.email === e; })[0];
-      // still run the hash for unknown emails so both paths take similar time
-      var rec = u ? u.password : { salt: 'AAAAAAAAAAAAAAAAAAAAAA==', hash: '', iterations: ITERATIONS };
-      return verifyPassword(password, rec).then(function (match) {
-        if (u && match && u.status === 'suspended') return fail('form', 'This account is suspended. Contact an EVENTORA admin.');
-
-        // Ordinary account, password matches locally: done. Its password never
-        // leaves the browser.
-        if (u && match && !u.adminAccount) return finish(u, null);
-
-        // Admin path: the server verifies email + password against its own
-        // configuration. Asked when the local check failed (the server may
-        // know this account) or for the server-initialised admin account.
-        return serverAdminLogin(e, password).then(function (res) {
-          if (res.httpStatus === 200 && res.ok && res.token) {
-            return adoptAdmin(u, e, password).then(function (rec) { return finish(rec, res); });
-          }
-          if (u && match) return finish(u, null);          // admin account, server says no / unreachable
-          if (res.httpStatus === 429) {
-            return fail('form', 'Too many sign-in attempts. Wait ' + (res.retryAfter || 60) + ' seconds and try again.');
-          }
-          return generic;
+      return api('/api/auth/login', { email: e, password: password, remember: !!remember }).then(function (res) {
+        if (res.httpStatus === 200 && res.token) return signedIn(res, !!remember);
+        if (res.httpStatus !== 401) return serverError(res, generic.error);
+        // Not on the server: maybe an account from the old browser-only
+        // prototype. Check its old local hash, then move it to the server.
+        var old = readCache().legacy.filter(function (x) { return x.email === e; })[0];
+        if (!old) return fail('form', res.error || generic.error);
+        return legacyVerify(password, old.password).then(function (match) {
+          if (!match) return fail('form', res.error || generic.error);
+          var account = { id: old.id, name: old.name, email: old.email, phone: old.phone, createdAt: old.createdAt,
+            role: old.role, status: old.status, avatar: old.avatar || '' };
+          return api('/api/auth/migrate', { account: account, password: password, remember: !!remember }).then(function (m) {
+            if (m.httpStatus === 200 && m.token) { dropLegacy(e); return signedIn(m, !!remember); }
+            if (m.httpStatus === 409) dropLegacy(e);
+            return serverError(m, generic.error);
+          });
         });
       });
-
-      function finish(rec, adminLogin) {
-        writeSession(rec.id, !!remember);
-        if (adminLogin) writeAdminToken(rec.email, adminLogin, !!remember);
-        claimRegistrations(rec);
-        adminState.promise = null;
-        return checkAdmin(rec).then(function () { emit(); return { ok: true, user: publicUser(rec) }; });
-      }
     },
 
     signOut: function () {
-      var t = readAdminToken();
-      if (t) api('/api/auth/admin-logout', { token: t.token });   // the server forgets the token
+      var t = token();
+      if (t) api('/api/auth/logout', { token: t });       // the server forgets the session
       clearSession();
-      checkAdmin(null);
+      refresh(null);
       emit();
     },
 
@@ -406,107 +340,81 @@
       var v = V();
       var errs = { name: v.name(changes.name), email: v.email(changes.email), phone: v.phone(changes.phone) };
       if (errs.name || errs.email || errs.phone) return Promise.resolve({ ok: false, errors: errs });
-      var email = normEmail(changes.email);
-      var list = readUsers();
-      if (list.some(function (x) { return x.email === email && x.id !== u.id; })) {
-        return Promise.resolve(fail('email', 'Another account already uses this email.'));
-      }
-      var rec = list.filter(function (x) { return x.id === u.id; })[0];
-      if (rec.adminAccount && rec.email !== email) {
-        return Promise.resolve(fail('email', 'The development admin’s email is set on the server (tools/init_admin.py), so it can’t be changed here.'));
-      }
-      var emailChanged = rec.email !== email;
-      rec.name = normName(changes.name);
-      rec.email = email;
-      rec.phone = normPhone(changes.phone);
-      if (changes.avatar === null) delete rec.avatar;
-      else if (typeof changes.avatar === 'string' && changes.avatar) rec.avatar = changes.avatar;
-      rec.updatedAt = new Date().toISOString();
-      if (!validUser(rec)) return Promise.resolve(fail('avatar', 'That image is too large. Try a smaller one.'));
-      if (!writeUsers(list)) return Promise.resolve(fail('form', 'Your changes couldn’t be saved in this browser.'));
-      if (emailChanged) adminState.promise = null;       // the admin answer depends on the email
-      return checkAdmin(rec).then(function () { emit(); return { ok: true, user: publicUser(rec) }; });
-    },
-
-    changePassword: function (current, next, confirm) {
-      var u = userRecord();
-      if (!u) return Promise.resolve(fail('form', 'Sign in again to change your password.'));
-      if (u.adminAccount) {
-        return Promise.resolve(fail('form', 'The development admin’s password is set on the server. Change it with: python tools/init_admin.py'));
-      }
-      var v = V();
-      var errs = { current: current ? '' : 'Enter your current password.', next: v.password(next), confirm: v.confirm(confirm, next) };
-      if (!errs.next && next === current) errs.next = 'Choose a password you haven’t used for this account.';
-      if (errs.current || errs.next || errs.confirm) return Promise.resolve({ ok: false, errors: errs });
-      return verifyPassword(current, u.password).then(function (ok) {
-        if (!ok) return { ok: false, errors: { current: 'That isn’t your current password.' } };
-        return hashPassword(next).then(function (pw) {
-          var list = readUsers();
-          var rec = list.filter(function (x) { return x.id === u.id; })[0];
-          rec.password = pw;
-          rec.updatedAt = new Date().toISOString();
-          return writeUsers(list) ? { ok: true } : fail('form', 'The new password couldn’t be saved.');
-        });
+      var body = { token: token(), name: changes.name, email: changes.email, phone: changes.phone,
+        avatar: changes.avatar === null ? null : (changes.avatar || '') };
+      return api('/api/account/update', body).then(function (res) {
+        if (res.httpStatus === 200 && res.user) {
+          cacheUsers([res.user]);
+          emit();
+          return { ok: true, user: publicUser(cached(res.user.id)) };
+        }
+        if (res.httpStatus === 401) { clearSession(); emit(); }
+        return serverError(res, 'Your changes couldn’t be saved.');
       });
     },
 
-    /* ---------- admin operations (UI-gated prototype; Phase 11: server-enforced) ---------- */
+    /* ---------- password recovery (forgot-password.html) ---------- */
+    recovery: {
+      /** Step 1: request a code. Same answer whether or not the email has an account. */
+      request: function (email) { return api('/api/auth/forgot', { email: normEmail(email) }); },
+      /** Step 2: check the 6-digit code; success returns a one-time reset token (kept in memory only). */
+      verify: function (email, otp) { return api('/api/auth/verify-otp', { email: normEmail(email), otp: String(otp) }); },
+      /** Step 3: set the new password. Signs every session of that account out. */
+      reset: function (resetToken, password) { return api('/api/auth/reset-password', { resetToken: resetToken, password: password }); }
+    },
+
+    /* ---------- admin operations (server-enforced for accounts and roles) ---------- */
     admin: {
       _require: function () {
         if (!Eventora.auth.can('manageUsers')) throw new Error('Admin only');
       },
       listUsers: function () {
         this._require();
-        return readUsers().map(publicUserForAdmin);
+        return readCache().users.map(publicUserForAdmin);
       },
-      /** Grant or revoke Event Host. Admin itself is server-configured, never set here. */
+      /** Grant or revoke Event Host. Resolves to { ok, error? }. Admin itself is server-configured. */
       setHost: function (userId, isHost) {
         this._require();
-        var list = readUsers();
-        var rec = list.filter(function (x) { return x.id === userId; })[0];
-        if (!rec) return { ok: false, error: 'User not found.' };
-        if (rec.adminAccount) return { ok: false, error: 'The initial Admin account is protected and can’t be changed here.' };
-        rec.role = isHost ? 'host' : 'user';
-        rec.updatedAt = new Date().toISOString();
-        writeUsers(list);
-        emit();
-        return { ok: true };
+        return api('/api/admin/set-role', { token: token(), userId: userId, role: isHost ? 'host' : 'user' }).then(update);
       },
       setStatus: function (userId, status) {
         this._require();
-        if (status !== 'active' && status !== 'suspended') return { ok: false, error: 'Unknown status.' };
-        var me = Eventora.auth.current();
-        if (me && me.id === userId) return { ok: false, error: 'You can’t suspend your own account.' };
-        var list = readUsers();
-        var rec = list.filter(function (x) { return x.id === userId; })[0];
-        if (!rec) return { ok: false, error: 'User not found.' };
-        if (rec.adminAccount) return { ok: false, error: 'The initial Admin account is protected and can’t be suspended.' };
-        rec.status = status;
-        rec.updatedAt = new Date().toISOString();
-        writeUsers(list);
-        emit();
-        return { ok: true };
+        return api('/api/admin/set-status', { token: token(), userId: userId, status: status }).then(update);
       }
     },
 
-    /** Look up a user's public card (name/email) — used by host & admin views. */
-    userById: function (id) {
-      return publicUserForAdmin(readUsers().filter(function (x) { return x.id === id; })[0]);
-    }
+    /** A user's public card (name/email) from the cache — used by host & admin views. */
+    userById: function (id) { return publicUserForAdmin(cached(id)); }
   };
+
+  function update(res) {
+    if (res.httpStatus === 200 && res.user) {
+      cacheUsers([res.user]);
+      emit();
+      return { ok: true, user: publicUserForAdmin(res.user) };
+    }
+    return { ok: false, error: res.httpStatus === 0 ? SERVER_DOWN : (res.error || 'That change couldn’t be saved.') };
+  }
 
   function publicUserForAdmin(u) {
     if (!u) return null;
-    var isAdmin = adminState.verified && adminState.userId === u.id && adminState.email === u.email;
-    return { id: u.id, name: u.name, email: u.email, phone: u.phone, createdAt: u.createdAt,
-      role: isAdmin || u.adminAccount ? 'admin' : u.role, baseRole: u.role, status: u.status, avatar: u.avatar || '',
-      protected: !!u.adminAccount };
+    return { id: u.id, name: u.name, email: u.email, phone: u.phone || '', createdAt: u.createdAt,
+      role: u.role, baseRole: u.role === 'admin' ? 'user' : u.role, status: u.status, avatar: u.avatar || '',
+      protected: u.role === 'admin' };
   }
 
   /* ---------- start-up ---------- */
-  try { window.localStorage.removeItem(LEGACY_GUEST); } catch (err) { /* Phase 7 guest identity retired */ }
-  window.addEventListener('storage', function (e) {
-    if (e.key === USERS || e.key === SESSION) { adminState.promise = null; Eventora.auth.ready(); emit(); }
+  LEGACY_KEYS.forEach(function (k) {
+    ['localStorage', 'sessionStorage'].forEach(function (kind) {
+      var s = storageOf(kind);
+      if (s) try { s.removeItem(k); } catch (err) { /* ignore */ }
+    });
   });
-  Eventora.auth.ready();          // start the admin check early
+  window.addEventListener('storage', function (e) {
+    // another tab signed in or out: re-check with the server. A profile-cache
+    // update only needs a re-render (re-checking would bounce between tabs).
+    if (e.key === SESSION) { check.promise = null; Eventora.auth.ready(); emit(); }
+    else if (e.key === USERS) emit();
+  });
+  Eventora.auth.ready();          // confirm the session with the server early
 })(window.Eventora);

@@ -55,11 +55,10 @@
     var check = auth.adminCheckStatus();
     $('pfAdminCheck').textContent = {
       ok: u.role === 'admin'
-        ? 'Admin access verified by the server for this sign-in (email and password checked; expires after 12 hours or a server restart).'
-        : 'The server answered the admin check for this account.',
-      'admin-relogin': 'Your admin session has ended (it lasts 12 hours and ends when the dev server restarts). Sign out and sign in again with the admin password to restore Admin.',
-      'not-configured': 'The server has no admin sign-in configured (run python tools/init_admin.py), so no account is Admin.',
-      unavailable: 'The admin check server couldn’t be reached, so Admin features are off for this session.',
+        ? 'Admin role confirmed by the server for this session (ADMIN_EMAIL account, password checked on sign-in).'
+        : 'Your account and role are confirmed by the server.',
+      'not-configured': 'The server has no admin account yet (run python tools/init_admin.py), so no account is Admin.',
+      unavailable: 'The EVENTORA server couldn’t be reached, so your role couldn’t be confirmed and Admin features are off.',
       checking: 'Checking with the server…'
     }[check] || '';
   }

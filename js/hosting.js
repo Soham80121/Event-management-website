@@ -299,16 +299,18 @@
         var app = list.filter(function (a) { return a.id === id; })[0];
         if (!app) return deny('Application not found.');
         if (app.status !== 'pending') return deny('This application was already ' + app.status + '.');
-        if (decision === 'approved') {
-          var r = auth().admin.setHost(app.userId, true);
-          if (!r.ok) return r;
+        function record() {
+          app.status = decision;
+          app.decidedAt = new Date().toISOString();
+          app.decidedBy = me().id;
+          if (note && String(note).trim()) app.note = String(note).trim().slice(0, 500);
+          write(APPS, 'applications', list);
+          return { ok: true, application: app };
         }
-        app.status = decision;
-        app.decidedAt = new Date().toISOString();
-        app.decidedBy = me().id;
-        if (note && String(note).trim()) app.note = String(note).trim().slice(0, 500);
-        write(APPS, 'applications', list);
-        return { ok: true, application: app };
+        if (decision !== 'approved') return Promise.resolve(record());
+        // the Host role is set on the server first; the application is
+        // recorded only once the server has accepted it
+        return auth().admin.setHost(app.userId, true).then(function (r) { return r.ok ? record() : r; });
       },
 
       events: function () {

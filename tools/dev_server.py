@@ -6,155 +6,64 @@ Same as `python -m http.server`, but:
    sends Last-Modified, so browsers heuristically reuse stale CSS/JS after an
    edit, which mixes old and new files and produces misleading test results.
 
-2. Dotfiles and dot-directories (.env, .git, ...) are never served, so the
-   local `.env` holding server configuration can't be downloaded.
+2. Dotfiles and dot-directories (.env, .data, .git, ...) are never served,
+   so server configuration and the account store can't be downloaded.
 
-3. A DEVELOPMENT admin sign-in (Phase 8). Admin access needs the admin email
-   AND its password, verified here on the server:
+3. A DEVELOPMENT account API (tools/accounts.py): accounts, scrypt password
+   hashes, sessions and roles live on this server in .data/accounts.json.
+   All endpoints are POST with a JSON body; signed-in calls send "token".
 
-     POST /api/auth/admin-login   {"email", "password"}
-          -> 200 {"ok": true, "token", "expiresAt"}      (12 h, in-memory)
-          -> 401 {"ok": false}  wrong email or password  (same reply for both)
-          -> 429 {"ok": false, "retryAfter"}  after 5 failures from one client
-     POST /api/auth/admin-check   {"email", "token"}
-          -> {"configured": bool, "isAdmin": bool}       isAdmin needs a live token
-     POST /api/auth/admin-logout  {"token"}  -> {"ok": true}
+     /api/auth/signup          {name, email, phone, password, remember}
+     /api/auth/login           {email, password, remember}
+     /api/auth/me              {token}
+     /api/auth/logout          {token}
+     /api/auth/migrate         {account, password, remember}  browser-only account -> server
+     /api/account/update       {token, name, email, phone, avatar}
+     /api/admin/users          {token}                       admin session only
+     /api/admin/set-role       {token, userId, role}         user | host
+     /api/admin/set-status     {token, userId, status}       active | suspended
+     /api/auth/forgot          {email}            -> always the same reply; emails a 6-digit code
+     /api/auth/verify-otp      {email, otp}       -> {resetToken} on success
+     /api/auth/reset-password  {resetToken, password}
 
    Configuration (environment variables win over the git-ignored `.env`):
-     ADMIN_EMAIL           the admin account's email
-     ADMIN_PASSWORD_HASH   pbkdf2_sha256$<iterations>$<salt b64>$<hash b64>
-                           written by `python tools/init_admin.py`
-   The plaintext password is never stored or logged, and the admin email is
-   never sent to the browser. Tokens live in this process's memory only, so a
-   restart signs the admin out of admin mode.
+     ADMIN_EMAIL       the admin account's email (run tools/init_admin.py)
+     RESEND_API_KEY    Resend API key for password-reset emails
+     EMAIL_FROM        sender, e.g. "EVENTORA <noreply@your-verified-domain.com>"
+                       (default "EVENTORA <onboarding@resend.dev>")
+     LEGACY_IMPORT     "off" to stop importing old browser-only accounts
+   Secrets are never sent to the browser or logged.
 
-   This is still a prototype: there is no database, no HTTPS, and the rest of
-   the app's data is in the browser. Phase 11 replaces this with the real
-   backend (server sessions + server-side authorization on every request).
+   This is still a prototype: one JSON file, no HTTPS, and events,
+   registrations and host applications are still in browser storage.
+   Phase 11 replaces this with the production backend.
 
 Usage:  python tools/dev_server.py [port]      (default 5500, binds 127.0.0.1)
 """
-import base64
 import functools
-import hashlib
-import hmac
 import http.server
 import json
-import os
 import pathlib
-import secrets
 import sys
-import threading
-import time
 import urllib.parse
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import accounts  # noqa: E402
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-MAX_BODY = 4096
-TOKEN_TTL = 12 * 3600
-MAX_FAILURES = 5
-FAILURE_WINDOW = 15 * 60
-LOCKOUT = 60
+SMALL_BODY = 8 * 1024
+LARGE_BODY = 400 * 1024          # profile updates and imports may carry a photo
 
-
-def read_env_file() -> dict:
-    values = {}
-    env_file = ROOT / ".env"
-    if env_file.is_file():
-        for line in env_file.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if line.startswith("#") or "=" not in line:
-                continue
-            key, _, val = line.partition("=")
-            values[key.strip()] = val.strip().strip('"').strip("'")
-    return values
-
-
-def load_config() -> dict:
-    env_file = read_env_file()
-
-    def get(name: str) -> str:
-        return (os.environ.get(name) or env_file.get(name) or "").strip()
-
-    return {"email": get("ADMIN_EMAIL").lower(), "password_hash": get("ADMIN_PASSWORD_HASH")}
-
-
-def parse_hash(value: str):
-    """pbkdf2_sha256$iterations$salt$hash -> (iterations, salt, hash) or None."""
-    try:
-        algo, iterations, salt, digest = value.split("$")
-        if algo != "pbkdf2_sha256":
-            return None
-        return int(iterations), base64.b64decode(salt), base64.b64decode(digest)
-    except (ValueError, TypeError):
-        return None
-
-
-class AdminAuth:
-    """Password check, in-memory tokens and a small per-client lockout."""
-
-    def __init__(self, config: dict):
-        self.email = config["email"]
-        self.hash = parse_hash(config["password_hash"]) if config["password_hash"] else None
-        self.tokens = {}            # token -> (email, expires_at)
-        self.failures = {}          # client -> [timestamps]
-        self.locked_until = {}      # client -> time
-        self.lock = threading.Lock()
-
-    @property
-    def configured(self) -> bool:
-        return bool(self.email and self.hash)
-
-    def _verify(self, email: str, password: str) -> bool:
-        if not self.configured:
-            return False
-        iterations, salt, expected = self.hash
-        digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, iterations)
-        # always run the hash, then compare both parts in constant time
-        email_ok = hmac.compare_digest(email.encode("utf-8"), self.email.encode("utf-8"))
-        return hmac.compare_digest(digest, expected) and email_ok
-
-    def login(self, client: str, email: str, password: str):
-        now = time.time()
-        with self.lock:
-            until = self.locked_until.get(client, 0)
-            if until > now:
-                return 429, {"ok": False, "retryAfter": int(until - now) + 1}
-        ok = self._verify(email, password)
-        with self.lock:
-            if not ok:
-                recent = [t for t in self.failures.get(client, []) if now - t < FAILURE_WINDOW] + [now]
-                self.failures[client] = recent
-                if len(recent) >= MAX_FAILURES:
-                    self.locked_until[client] = now + LOCKOUT
-                    self.failures[client] = []
-                return 401, {"ok": False}
-            self.failures.pop(client, None)
-            token = secrets.token_urlsafe(32)
-            expires = now + TOKEN_TTL
-            self.tokens[token] = (email, expires)
-            return 200, {"ok": True, "token": token,
-                         "expiresAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(expires))}
-
-    def check(self, email: str, token: str) -> bool:
-        if not self.configured or not token:
-            return False
-        with self.lock:
-            entry = self.tokens.get(token)
-            if not entry:
-                return False
-            token_email, expires = entry
-            if expires < time.time():
-                del self.tokens[token]
-                return False
-        return token_email == email == self.email
-
-    def logout(self, token: str) -> None:
-        with self.lock:
-            self.tokens.pop(token, None)
+ROUTES = {
+    "/api/auth/signup", "/api/auth/login", "/api/auth/me", "/api/auth/logout", "/api/auth/migrate",
+    "/api/account/update", "/api/admin/users", "/api/admin/set-role", "/api/admin/set-status",
+    "/api/auth/forgot", "/api/auth/verify-otp", "/api/auth/reset-password",
+}
+LARGE_ROUTES = {"/api/account/update", "/api/auth/migrate"}
 
 
 class DevHandler(http.server.SimpleHTTPRequestHandler):
-    admin = None   # AdminAuth, set in main()
+    service = None   # accounts.Accounts, set in main()
 
     def end_headers(self):
         self.send_header("Cache-Control", "no-store, max-age=0")
@@ -181,12 +90,12 @@ class DevHandler(http.server.SimpleHTTPRequestHandler):
         super().do_HEAD()
 
     # ---- API ----
-    def _body(self):
+    def _body(self, limit: int):
         try:
             length = int(self.headers.get("Content-Length", "0"))
         except ValueError:
             return None
-        if length <= 0 or length > MAX_BODY:
+        if length <= 0 or length > limit:
             return None
         try:
             data = json.loads(self.rfile.read(length).decode("utf-8"))
@@ -196,25 +105,33 @@ class DevHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_POST(self):
         path = urllib.parse.urlsplit(self.path).path
-        routes = {"/api/auth/admin-login", "/api/auth/admin-check", "/api/auth/admin-logout"}
-        if path not in routes:
+        if path not in ROUTES:
             self._json(404, {"error": "Not found"})
             return
-        body = self._body()
+        body = self._body(LARGE_BODY if path in LARGE_ROUTES else SMALL_BODY)
         if body is None:
-            self._json(400, {"error": "Bad request"})
+            self._json(400, {"ok": False, "error": "Bad request"})
             return
-        email = str(body.get("email", "")).strip().lower()
-        token = str(body.get("token", ""))
-        if path == "/api/auth/admin-login":
-            status, payload = self.admin.login(self.client_address[0], email, str(body.get("password", "")))
-            payload["configured"] = self.admin.configured
-            self._json(status, payload)
-        elif path == "/api/auth/admin-check":
-            self._json(200, {"configured": self.admin.configured, "isAdmin": self.admin.check(email, token)})
-        else:
-            self.admin.logout(token)
-            self._json(200, {"ok": True})
+        s, client, token = self.service, self.client_address[0], str(body.get("token") or "")
+        try:
+            status, payload = {
+                "/api/auth/signup": lambda: s.signup(client, body),
+                "/api/auth/login": lambda: s.login(client, body),
+                "/api/auth/me": lambda: s.me(token),
+                "/api/auth/logout": lambda: s.logout(token),
+                "/api/auth/migrate": lambda: s.migrate(client, body),
+                "/api/account/update": lambda: s.update_profile(token, body),
+                "/api/admin/users": lambda: s.admin_users(token),
+                "/api/admin/set-role": lambda: s.admin_set_role(token, body),
+                "/api/admin/set-status": lambda: s.admin_set_status(token, body),
+                "/api/auth/forgot": lambda: s.forgot(client, body),
+                "/api/auth/verify-otp": lambda: s.verify_otp(client, body),
+                "/api/auth/reset-password": lambda: s.reset_password(client, body),
+            }[path]()
+        except Exception as err:  # noqa: BLE001 - never leak internals to the browser
+            self.log_error("API error on %s: %r", path, err)
+            status, payload = 500, {"ok": False, "error": "server-error"}
+        self._json(status, payload)
 
     def _json(self, status: int, payload: dict) -> None:
         data = json.dumps(payload).encode("utf-8")
@@ -224,20 +141,37 @@ class DevHandler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def log_message(self, fmt, *args):
+        # keep the console readable: API calls are logged without bodies
+        sys.stderr.write("%s - %s\n" % (self.address_string(), fmt % args))
+
+
+def build_service(root: pathlib.Path = ROOT, log=print) -> accounts.Accounts:
+    config = accounts.load_config(root)
+    store = accounts.Store(config["data_dir"])
+    mailer = accounts.Mailer(config, log=log)
+    return accounts.Accounts(config, store, mailer, log=log)
+
 
 def main() -> None:
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 5500
-    config = load_config()
-    DevHandler.admin = AdminAuth(config)
+    service = build_service()
+    DevHandler.service = service
     handler = functools.partial(DevHandler, directory=str(ROOT))
     with http.server.ThreadingHTTPServer(("127.0.0.1", port), handler) as httpd:
-        if DevHandler.admin.configured:
-            state = "admin sign-in configured"
-        elif config["email"]:
-            state = "ADMIN_EMAIL set but no ADMIN_PASSWORD_HASH (run: python tools/init_admin.py)"
+        if not service.admin_email:
+            admin = "admin NOT configured (run: python tools/init_admin.py --email ...)"
+        elif service.admin_configured():
+            admin = "admin account ready"
         else:
-            state = "admin NOT configured (run: python tools/init_admin.py)"
-        print(f"EVENTORA dev server: http://localhost:{port}/  (no-store caching; {state})", flush=True)
+            admin = "ADMIN_EMAIL set but no admin account yet (run: python tools/init_admin.py --email %s)" % service.admin_email
+        if service.mailer.test_override:
+            mail = "reset emails go to a LOCAL TEST MOCK (RESEND_API_URL)"
+        elif service.mailer.configured:
+            mail = "reset emails via Resend"
+        else:
+            mail = "reset emails NOT configured (no RESEND_API_KEY): Forgot password will say so"
+        print("EVENTORA dev server: http://localhost:%d/  (no-store caching; %s; %s)" % (port, admin, mail), flush=True)
         httpd.serve_forever()
 
 

@@ -13,17 +13,17 @@ Then open http://localhost:5500.
 `tools/dev_server.py` uses only the Python standard library. It works like `python -m http.server`, but with three differences:
 
 - It sends `Cache-Control: no-store`. The stock server lets browsers reuse stale CSS and JS after you edit a file, which mixes old and new code.
-- It refuses to serve dotfiles and dot-folders (`.env`, `.git`).
-- It runs the development admin sign-in: it checks the admin's email and password and issues admin sessions (see *Admin setup* below).
+- It refuses to serve dotfiles and dot-folders (`.env`, `.data`, `.git`).
+- It runs the development **account API** (`tools/accounts.py`): sign-up, sign-in, sessions, roles and email-OTP password recovery. Accounts and scrypt password hashes live on the server in the git-ignored `.data/accounts.json` (see *Accounts on the dev server* below).
 
-Use it for anything involving accounts. Opening `index.html` directly still works for browsing, but without the server nobody can be an Admin.
+Use it for anything involving accounts. Opening `index.html` directly still works for browsing, but without the server nobody can sign in.
 
 ## Pages
 
 | Page | Purpose |
 |---|---|
 | `my-registrations.html` | My Registrations: the signed-in user's bookings (Upcoming / Past), details with the QR code, print, cancel |
-| `signup.html` · `login.html` · `forgot-password.html` | Create an account, sign in (with remember-me), and a password-reset screen (prototype) |
+| `signup.html` · `login.html` · `forgot-password.html` | Create an account, sign in (with remember-me), and reset a forgotten password with a 6-digit email code |
 | `profile.html` | Account page. Users and hosts: details, photo, role, My registrations, Host dashboard link (hosts), *Become an Event Host* (users). Admins: the **Admin account** page, the same details plus *Create an event* |
 | `host-dashboard.html` | Event Host dashboard: create, edit and track **your own** events; see their registrations (admins are sent to the Admin panel) |
 | `admin.html` | Admin panel, the central management interface: overview, host applications, event approvals, all events, users, registrations |
@@ -179,11 +179,12 @@ There is a single event-details experience: the panel that grows out of the post
   - *Keep me signed in* is on by default.
   - Bookings made before accounts with the same email are linked to the new account. The success screen says how many.
 - **Sign in** (`login.html`). Email and password, with show/hide and *Remember me*.
-  - With *Remember me*, the session lasts 30 days in localStorage. Without it, it lasts for the browser session (sessionStorage, 12 h max).
+  - The server checks the password and issues a session token. With *Remember me*, the session lasts 30 days (token in localStorage). Without it, it lasts for the browser session (sessionStorage, 12 h max).
+  - Five wrong passwords lock sign-in for that email (and that device) for 60 seconds.
   - Wrong credentials get one generic message, so it never reveals whether the email exists. Suspended accounts are told so.
   - `?next=` returns you to where you were. It accepts only same-site page names.
 - **Sign out.** From the profile or *My registrations*.
-- **Forgot password** (`forgot-password.html`, linked from the sign-in page). This is the only password-management screen; the account page has no Change Password form. It's a prototype: no email is sent, the reply is the same whether or not the account exists, and no password is actually reset until the Phase 11 backend can send verified reset emails.
+- **Forgot password** (`forgot-password.html`, linked from the sign-in page). The only password-management screen (the account page has no Change Password form); every account type uses it, the Admin included. See *Password recovery* below.
 - **Account page** (`profile.html`). Shows user ID, name, email, phone, *Member since*, role badge and an optional photo (resized in the browser to 160 px JPEG). You can:
   - edit your name, email and phone (emails stay unique);
   - open My registrations;
@@ -216,52 +217,61 @@ There is a single event-details experience: the panel that grows out of the post
 
 - New accounts are always **User**. No page or setting lets anyone give themselves Host or Admin.
 - **Host** is granted only by an admin action: approving an application, or *Make host* in the admin users table. *Revoke host* takes it away; that host's events are kept.
-- **Admin is never stored, and an email match alone never grants it.**
-  - The dev server checks the admin email **and password** against its own configuration: `ADMIN_EMAIL`, plus a PBKDF2 `ADMIN_PASSWORD_HASH` written by `tools/init_admin.py`.
-  - It then issues a random admin token that it keeps in memory for 12 hours.
-  - On every page load the browser asks whether that token is still valid (`POST /api/auth/admin-check`). With no valid token, the account is a User.
-  - Setting `"role": "admin"` in localStorage, forging a session, or inventing a token grants nothing (all three were tested).
-  - Signing out revokes the token on the server. Restarting the server ends every admin session.
+- **Admin is set only on the server, and an email match alone never grants it.**
+  - `tools/init_admin.py` (run on the server machine) is the only way to create the admin account. It needs the admin password; public sign-up always creates a User, and signing up with the admin email is refused because that account already exists.
+  - The role counts only while the account's email equals the server's `ADMIN_EMAIL`.
+  - Every page load asks the server who is signed in (`POST /api/auth/me`). Editing localStorage, forging a session or inventing a token grants nothing.
+  - Account changes made in the Admin panel (Make host, Revoke host, Suspend, approving a host application) are API calls that need a live admin session; the server refuses them for anyone else.
 
-### Admin setup (development admin account)
+### Accounts on the dev server
+Each account has a unique user ID (`usr_…`), a unique email, its own scrypt password hash, a role and a creation date. They are stored in `.data/accounts.json`: git-ignored, never served, written atomically. The browser keeps only the session token and a cache of public profile fields; never a password, hash or code.
 
-> ⚠ **TEMPORARY DEVELOPMENT CREDENTIALS. Do not use them anywhere real.**
-> | | |
-> |---|---|
-> | Email | `admin@Evpedia.com` (stored and compared in lower case) |
-> | Password | `Evpedia@Admin123` |
-> | Role | Admin, for this development prototype only |
->
-> They exist so the admin features can be built and tested locally. Change the password with `tools/init_admin.py` whenever you like. Production authentication and secure Admin authorization arrive with the **Phase 11 backend**, which replaces this mechanism and these credentials.
+**Accounts from the old browser-only prototype** move to the server on their first sign-in: the browser checks the password against its old local hash, the server creates the account with a fresh scrypt hash and the **same user ID, creation date and role** (User or Event Host), and the old local hash is deleted. Bookings, applications and events keep pointing at the same IDs. The old browser-made admin record is not moved; the admin is created on the server instead. Set `LEGACY_IMPORT=off` in `.env` once everyone has moved.
 
-**1. Initialise the account (one time, or again to change the password).** From the project root:
+### Admin setup
+
+The initial Admin account is `k.soham.025@gmail.com`. From the project root, on the machine that runs the dev server:
 
 ```powershell
-python tools/init_admin.py --email admin@Evpedia.com
+python tools/init_admin.py --email k.soham.025@gmail.com --id usr_W2GDP8QYVAXP
 ```
 
-It asks for the password twice without showing it, checks it (8 or more characters, a letter and a number), and writes two lines to the git-ignored `.env`: `ADMIN_EMAIL=admin@evpedia.com` and `ADMIN_PASSWORD_HASH=pbkdf2_sha256$600000$…`. **Only the hash is stored.** The password is never written to disk, logged or put in frontend code. For scripts you can use `--password-env NAME` to read the password from an environment variable instead of prompting.
+- It asks for the password twice without showing it (8–128 characters, a letter and a number).
+- It writes `ADMIN_EMAIL=k.soham.025@gmail.com` to the git-ignored `.env` and creates the admin in `.data/accounts.json` with a **scrypt hash** of the password. The password is never stored, printed, logged or put in frontend code.
+- `--id` is optional: it reuses the user ID of the earlier browser-only admin, so events that admin created stay linked to the admin account.
+- Run it again any time to set a new admin password. It is also the **trusted recovery path if the admin loses access to the admin mailbox**: it needs no email, only access to the server machine.
+- Then restart `python tools/dev_server.py`. Its first line should say `admin account ready`.
 
-**2. Start the dev server.**
+Sign in at http://localhost:5500/login.html. The role badge reads **Admin**, the navbar shows *Admin Panel*, and the account icon opens the Admin account page. The admin's email can't be changed on the profile page (it is `ADMIN_EMAIL` on the server).
 
-```powershell
-$env:ADMIN_EMAIL="admin@Evpedia.com"
-python tools/dev_server.py
-```
+### Password recovery (email OTP)
+1. **Enter your registered email** on *Forgot password*. Any provider works (Gmail, Outlook, Yahoo, …).
+2. **The server creates a 6-digit code** with Python's `secrets` module and keeps only a salted SHA-256 hash of it, tied to that account. The code is never returned by the API, logged or stored in the browser.
+3. **It emails the code** through Resend (Python `urllib`, on a background thread) to the address registered on the account, and only that address. The email is EVENTORA-branded: *Password Reset Request*, the code, a 5-minute expiry notice and a "didn't request this?" warning.
+4. **Enter the code** in the six boxes (typing, pasting or autofill all work). The server allows **5 wrong attempts**, then the code stops working. Codes expire after **5 minutes** and work **once**. A new code replaces the old one. *Resend code* unlocks after a **60-second** countdown, and each email can get at most 5 codes an hour (20 per device).
+5. **Choose a new password** (with show/hide, the live checklist and a confirmation). The verified code is exchanged for a random **reset token** (10 minutes, single use, kept in page memory only). Resetting changes only that account's password hash: **the role and everything else stay the same**, and every session of that account is signed out. The page confirms, then takes you to sign-in.
 
-Setting `$env:ADMIN_EMAIL` is optional once `.env` exists. The environment variable takes priority over `.env`; the password hash always comes from `.env`, or from an `ADMIN_PASSWORD_HASH` environment variable. The first line of output should end with `admin sign-in configured`.
+**No account probing.** Requests for unknown emails get exactly the same answers (the server tracks a decoy code that can never verify), and nothing is emailed to them.
 
-**3. Sign in** at http://localhost:5500/login.html with the email and password above.
-- **First time in this browser:** the server verifies the password, and only then does the browser create the account record (*EVENTORA Admin*). This is the controlled initialisation; there is no admin sign-up form.
-- **If someone already signed up with that email:** that record is taken over by the verified admin sign-in, and the old password stops working.
-- **Afterwards:** your role badge reads **Admin**, the navbar shows *Admin Panel*, and the account icon opens your Admin account page.
+**Email not set up?** Without `RESEND_API_KEY`, the page says that reset emails aren't set up on this server. Nothing is pretended. If Resend rejects a message, the page still gives its normal answer (so it can't be used to probe accounts), and the server console shows `Password reset email to k***@gmail.com FAILED: …`.
 
-**How it behaves**
-- **Session length.** The admin session lasts 12 hours and ends when the dev server restarts. The account then shows as User with a "sign in again" note; sign out and back in to restore Admin.
-- **Server-managed details.** The admin account's password and email can't be changed on the profile page; they're managed on the server with `init_admin.py`.
-- **Lockout.** Five wrong passwords in a row from one machine lock the admin sign-in for 60 seconds.
-- **Ordinary users.** Their passwords are never sent to the server when they sign in successfully. The server is consulted only when a local sign-in fails, or for the admin account.
-- **Public sign-up.** It always creates a **User**. Signing up with the admin email gives no admin rights.
+### Resend setup (password-reset email)
+1. **Create an account** at https://resend.com/ (free tier). Sign up with `k.soham.025@gmail.com` if you can: see step 3.
+2. **Create an API key**: *API Keys → Create API Key*, permission *Sending access*. Copy it (it's shown once).
+3. **Sending domain.** Without a verified domain Resend only sends from `onboarding@resend.dev`, and **only to the email address that owns your Resend account**. That's enough to test the admin reset if the Resend account is `k.soham.025@gmail.com`. To email any user, verify a domain you own: *Domains → Add Domain*, add the DNS records Resend shows (SPF/DKIM `TXT` and `MX`) at your DNS provider, and wait for *Verified*. Then use a sender on that domain.
+4. **Configure the server**: add to the git-ignored `.env` (see `.env.example`):
+   ```
+   RESEND_API_KEY=re_...
+   EMAIL_FROM=EVENTORA <noreply@your-verified-domain.com>
+   ```
+   Leave `EMAIL_FROM` out to use `EVENTORA <onboarding@resend.dev>`. Restart the dev server; its first line should say `reset emails via Resend`. The key stays on the server: it is never sent to the browser or logged, and `.env` is never committed or served.
+5. **Test delivery**: open http://localhost:5500/forgot-password.html, enter `k.soham.025@gmail.com`, and check that inbox (and Spam). The server console logs `Password reset email sent to k***@gmail.com`, or the reason it failed. Resend's dashboard (*Emails*) shows each message and its delivery status.
+
+### Testing password recovery
+- **Admin:** run `init_admin.py`, configure Resend, then on *Forgot password* enter `k.soham.025@gmail.com`. Type the code from that inbox, set a new password, and sign in with it: the badge still reads **Admin** and the Admin panel opens. The old password no longer works.
+- **User and Event Host:** sign up (or sign in with an old browser account to move it to the server), make one account a host from the Admin panel, then run *Forgot password* for each. With a verified domain the codes arrive in their inboxes; without one, use the local mock below. Each keeps its role, and resetting one account never changes another.
+- **Automated tests:** `python -m unittest tests/test_password_reset.py -v` runs 22 API tests on a throw-away server and data folder: every account type, incorrect, expired, reused and locked codes, resend cooldown and hourly limit, unknown emails, reset-token reuse and expiry, missing API key, delivery failure, independent accounts, role protection, login lockout, migration, and that `.data` and `.env` are never served.
+- **Local mock (test only):** `tools/mock_resend.py` stands in for Resend. Start it with `python tools/mock_resend.py 5599 --outbox outbox.jsonl`, then start a dev server with `RESEND_API_KEY=test-key` and `RESEND_API_URL=http://127.0.0.1:5599/emails` (localhost only; the server announces `LOCAL TEST MOCK`). Every "sent" email lands in the outbox file instead of a real inbox. Never use it for real accounts.
 
 ### Become an Event Host
 1. A **User** opens *Profile → Become an Event Host*. Name, email and phone are prefilled from the profile and read-only. They add an organization (optional), why they want to host (30–1000 characters) and extra information (optional).
@@ -294,10 +304,9 @@ Reached from *Admin Panel* in the navbar. Admins never apply to host; they creat
 
 ### Data (localStorage, all versioned)
 ```
-eventora:users              { version, users: [{ id: 'usr_…', name, email, phone, createdAt, updatedAt,
-                              role: 'user'|'host', status: 'active'|'suspended', avatar?,
-                              password: { algo: 'PBKDF2-SHA256', iterations: 600000, salt, hash } }] }
-eventora:auth               { version, userId, createdAt, expiresAt }   (localStorage or sessionStorage)
+eventora:users              { version: 2, users: [public profile cache: id, name, email, phone, createdAt,
+                              updatedAt, avatar, status, role], legacy: [old browser-only accounts not yet moved] }
+eventora:auth               { version: 2, token, userId, expiresAt }   (localStorage or sessionStorage)
 eventora:host-applications  { version, applications: [{ id: 'APP-…', userId, name, email, phone,
                               organization?, reason, info?, status, createdAt, decidedAt?, decidedBy?, note? }] }
 eventora:hosted-events      { version, events: [{ …catalogue fields, id: 'h-…', hostId, createdBy?: 'admin',
@@ -305,26 +314,28 @@ eventora:hosted-events      { version, events: [{ …catalogue fields, id: 'h-�
 eventora:catalogue-overrides { version, overrides: { <built-in id>: { status?, fields?, note?, updatedAt } } }
 eventora:registrations      records gained userId (Phase 6/7 IDs and event IDs unchanged)
 ```
+Server side (`.data/accounts.json`, git-ignored, never served): `users` (id, email, name, phone, avatar, role, status, createdAt, updatedAt, scrypt `password` hash) and `sessions` (SHA-256 of each token, userId, expiry). Password-reset codes and reset tokens are kept only in the server's memory, so restarting the server cancels any recovery in progress.
 
 ### What's secured and what's a prototype
 | Feature | Status |
 |---|---|
-| Password storage | **Done properly:** PBKDF2-SHA256, 600,000 iterations, random 16-byte salt (Web Crypto). No plaintext anywhere. The hashes still sit in readable browser storage, though, so weak passwords could be cracked offline. |
-| Admin credentials | **Server-side:** `ADMIN_EMAIL` and a PBKDF2 hash of the password live in the git-ignored `.env`, which is never served. The plaintext password isn't stored anywhere, and the email never reaches the browser. |
-| Admin sign-in | **Server-verified (development grade).** Email *and* password are checked on the server (constant-time compare). It issues random 12-hour tokens held in server memory and revoked on sign-out, with a 5-failure lockout per client. Forged sessions and made-up tokens don't grant Admin (tested). Still dev-only: plain HTTP on localhost, the token sits in browser storage, and sessions don't survive a restart. |
-| What an admin can do once signed in | **Prototype.** The admin *actions* (roles, approvals, suspensions) change browser localStorage, so the server doesn't enforce them, and anyone with DevTools could make the same edits directly. |
-| Host and user roles, permissions, approvals | **Prototype.** Stored in localStorage and checked in browser code only. Anyone with DevTools can change them. |
+| Password storage | **Server-side (development grade):** scrypt (N=2^15, r=8, p=1, 16-byte salt) in `.data/accounts.json`. No plaintext anywhere; hashes are never sent to the browser. |
+| Admin account | **Server-side:** created only by `tools/init_admin.py`; the role counts only for `ADMIN_EMAIL`. Public sign-up can't create or claim it, and password recovery keeps the role. |
+| Sign-in and sessions | **Server-verified (development grade).** Random 256-bit tokens (only their hash stored), 5-failure lockout per email and per device, sessions ended by sign-out, suspension or a password reset. Still dev-only: plain HTTP on localhost, the token sits in browser storage (not an HttpOnly cookie), no CSRF tokens. |
+| Account roles and suspension | **Server-enforced:** only an admin session can change them. |
+| Password recovery | **Done as specified (development grade):** 6-digit `secrets` codes, hashed, 5-minute expiry, 5 attempts, single use, 60 s resend cooldown and hourly limits, identical answers for unknown emails, single-use reset tokens. Codes and tokens live in server memory. |
+| Email delivery | **Real once configured:** Resend over HTTPS with the key kept on the server. Without a key the page says so. Delivery failures are logged on the server but not shown to the visitor, so the page can't be used to probe accounts. |
+| Events, applications, registrations | **Prototype.** Still in browser localStorage and checked in browser code only; the admin's actions on *these* aren't server-enforced, and anyone with DevTools can edit them. |
 | Registration privacy between users | **Prototype.** The UI shows only your own bookings, but all bookings are in the same browser storage. |
-| Sessions and remember-me | **Prototype.** Not HttpOnly cookies, no CSRF protection, no rate limiting or lockout. |
-| Email ownership | **Not verified.** Signing up with an email links that email's older bookings, and there is no email confirmation yet. |
-| Forgot password | **UI only.** Nothing is sent. |
+| Email ownership at sign-up | **Not verified.** Signing up with an email links that email's older bookings, and there is no sign-up email confirmation yet. Sign-up necessarily says when an email is already registered. |
+| Old browser account import | **Trusting by design.** An account from the old browser-only prototype moves to the server with the role the browser reports (User or Host, never Admin). Turn it off with `LEGACY_IMPORT=off` once migration is done. |
 
 ### Phase 11 backend (the architecture this is shaped for)
 - The server owns the users, applications, events and registrations tables. Passwords are hashed with Argon2id or bcrypt on the server.
 - Sessions are HttpOnly, Secure, SameSite cookies, with CSRF tokens on state-changing requests and rate limits on sign-in.
 - Roles are checked **on the server for every request**. The browser modules (`Eventora.auth`, `Eventora.hosting`, `Eventora.registrations`) keep their function shapes and call the API instead of localStorage, so the pages don't change.
 - The first admin is seeded on the server (from configuration like today's `ADMIN_EMAIL` and hash) into a real users table. Admin sign-in uses the same server session as everyone else, with secure cookies and MFA recommended. Further admin grants become audited admin-API operations. The temporary development credentials above are retired.
-- New features: email verification before older bookings are claimed, real password-reset emails, and audit logs for role and approval changes.
+- New features: email verification before older bookings are claimed, and audit logs for role and approval changes. Password recovery already follows the production flow; it moves to the real database and HttpOnly-cookie sessions.
 
 ## Structure
 
@@ -335,11 +346,11 @@ event.html              redirect stub: old event.html?id=… links → index.htm
 my-registrations.html   My Registrations (your bookings, details, print, cancel)
 signup.html             create an account
 login.html              sign in (remember me)
-forgot-password.html    password reset (prototype screen)
-profile.html            profile, password, role, Become an Event Host
+forgot-password.html    password reset: email → 6-digit code → new password → done
+profile.html            profile, role, Become an Event Host (admins: Create an event)
 host-dashboard.html     Event Host dashboard
 admin.html              Admin panel
-.env.example            template for the git-ignored .env (ADMIN_EMAIL)
+.env.example            template for the git-ignored .env (ADMIN_EMAIL, RESEND_API_KEY, EMAIL_FROM)
 styleguide.html         internal design-system page
 css/
   tokens.css            ALL design tokens: colour, type, spacing, radii, borders,
@@ -379,7 +390,8 @@ js/                     each file attaches to the single `window.Eventora` names
                         status, cancel, reinstate)
   identity.js           "current user" adapter for registrations (backed by auth.js)
   validate.js           shared field rules (name, email, phone, password, …)
-  auth.js               accounts, PBKDF2 passwords, sessions, roles, server admin check
+  auth.js               client of the account API: sign-up/in/out, sessions, roles, profile,
+                        password recovery, one-time move of old browser accounts
   hosting.js            host applications, host events, admin review, public event source
   forms.js              inline-validation, show/hide password, checklist, alerts, ?next=
   account-nav.js        account entry in the nav (every page)
@@ -403,10 +415,12 @@ js/                     each file attaches to the single `window.Eventora` names
 tests/
   hero-snapshot.js      hero regression snapshot (dev tool, see below)
   ring-visibility.js    checks every visible ring poster is 2:3 and placed correctly
+  test_password_reset.py  22 API tests: accounts, roles, OTP recovery, security cases
 tools/
-  dev_server.py         no-cache local server; blocks dotfiles; dev admin sign-in
-                        (admin-login / admin-check / admin-logout)
-  init_admin.py         initialise the dev admin: writes ADMIN_EMAIL + password hash to .env
+  dev_server.py         no-cache local server; blocks dotfiles; account API routes
+  accounts.py           accounts, scrypt, sessions, roles, OTP recovery, Resend mailer
+  init_admin.py         create/update the admin account (ADMIN_EMAIL + scrypt hash)
+  mock_resend.py        TEST-ONLY local stand-in for the Resend API
 docs/screenshots/       verification screenshots per phase
 ```
 

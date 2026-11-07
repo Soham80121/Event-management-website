@@ -9,3 +9,7 @@ node_modules/
 
 # Local server configuration (never commit, never served)
 .env
+
+# Server-side account store (dev server; never served, never committed)
+.data/
+__pycache__/

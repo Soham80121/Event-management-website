@@ -62,10 +62,13 @@
     });
     return b;
   }
+  /** Result of an admin action: a plain result, or a Promise of one (server-backed account changes). */
   function done(res, okMsg) {
-    F.alert($('adAlert'), res.ok ? 'success' : 'error', res.ok ? okMsg : res.error);
-    renderAll();
-    if (res.ok && $('adDialog').open) $('adDialog').close();
+    Promise.resolve(res).then(function (r) {
+      F.alert($('adAlert'), r.ok ? 'success' : 'error', r.ok ? okMsg : r.error);
+      renderAll();
+      if (r.ok && $('adDialog').open) $('adDialog').close();
+    });
   }
 
   /* ---------- registration helpers ---------- */
@@ -610,9 +613,8 @@
     $('dashDenied').hidden = false;
     $('dashBody').hidden = true;
     var why = {
-      'not-configured': 'No admin sign-in is configured on the server (python tools/init_admin.py), so no account is an Admin yet.',
-      'admin-relogin': 'Your admin session has ended. Sign out and sign in again with the admin email and password.',
-      unavailable: 'The admin check server couldn’t be reached (start the site with tools/dev_server.py).'
+      'not-configured': 'No admin account is set up on the server yet (python tools/init_admin.py), so no account is an Admin.',
+      unavailable: 'The EVENTORA server couldn’t be reached (start the site with tools/dev_server.py).'
     }[auth.adminCheckStatus()];
     if (why) $('deniedWhy').textContent = why;
   }
