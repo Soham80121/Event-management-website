@@ -65,7 +65,10 @@
   /** Result of an admin action: a plain result, or a Promise of one (server-backed account changes). */
   function done(res, okMsg) {
     Promise.resolve(res).then(function (r) {
-      F.alert($('adAlert'), r.ok ? 'success' : 'error', r.ok ? okMsg : r.error);
+      // an error while a dialog is open is shown in the dialog (the panel's banner is behind it)
+      var inDialog = !r.ok && $('adDialog').open && $('adDialog').querySelector('[data-dialog-alert]');
+      if (inDialog) F.alert(inDialog, 'error', r.error);
+      else F.alert($('adAlert'), r.ok ? 'success' : 'error', r.ok ? okMsg : r.error);
       renderAll();
       if (r.ok && $('adDialog').open) $('adDialog').close();
     });
@@ -189,7 +192,8 @@
       act.appendChild(button(a.status === 'pending' ? 'Review' : 'View', 'btn-ghost btn-sm', function () { reviewApp(a); }));
       if (a.status === 'pending') {
         act.appendChild(button('Approve', 'btn-ghost btn-sm btn-ok', function () { decideApp(a, 'approved', ''); }));
-        act.appendChild(armed('Reject', 'Confirm reject', 'btn-ghost btn-sm btn-danger', function () { decideApp(a, 'rejected', ''); }));
+        // rejecting needs a reason for the applicant: it happens in the review dialog
+        act.appendChild(button('Reject…', 'btn-ghost btn-sm btn-danger', function () { reviewApp(a, true); }));
       }
       tr.appendChild(act);
       tbody.appendChild(tr);
@@ -201,7 +205,7 @@
       decision === 'approved' ? a.name + ' is approved and is now an Event Host.' : a.name + '’s application was rejected. They keep the User role.');
   }
 
-  function reviewApp(a) {
+  function reviewApp(a, rejecting) {
     var body = openDialog('Host application', a.name);
     var current = auth.userById(a.userId);
     body.appendChild(facts([
@@ -215,13 +219,26 @@
     if (a.info) { body.appendChild(el('p', 'app-card__label', 'Additional information')); body.appendChild(el('p', 'app-card__text', a.info)); }
     if (a.note) { body.appendChild(el('p', 'app-card__label', 'Admin note')); body.appendChild(el('p', 'app-card__text', a.note)); }
     if (a.status === 'pending') {
-      var note = noteField(body, 'Note to the applicant (optional)');
+      var note = noteField(body, 'Note to the applicant (required to reject: the applicant sees it)');
+      var dlgAlert = el('p', 'form-alert');
+      dlgAlert.setAttribute('role', 'alert');
+      dlgAlert.setAttribute('data-dialog-alert', '');
+      dlgAlert.hidden = true;
+      body.appendChild(dlgAlert);
       var row = el('div', 'cluster');
       var ok = button('', 'btn btn--md', function () { decideApp(a, 'approved', note.value); });
       ok.appendChild(el('span', '', 'Approve'));
       row.appendChild(ok);
-      row.appendChild(armed('Reject', 'Confirm reject', 'btn-ghost btn-danger', function () { decideApp(a, 'rejected', note.value); }));
+      row.appendChild(armed('Reject', 'Confirm reject', 'btn-ghost btn-danger', function () {
+        if (note.value.trim().length < 5) {
+          F.alert(dlgAlert, 'error', 'Give the applicant a reason for the rejection (at least 5 characters).');
+          note.focus();
+          return;
+        }
+        decideApp(a, 'rejected', note.value);
+      }));
       body.appendChild(row);
+      if (rejecting) note.focus();
     }
   }
 
@@ -636,6 +653,17 @@
         var h = location.hash.replace('#', '');
         select(TABS.indexOf(h) !== -1 ? h : 'overview');
         window.addEventListener('storage', function () { if (auth.can('manageUsers')) renderAll(); });
+        // host applications come from the server: load now, and again whenever
+        // the admin comes back to this tab (another browser may have applied)
+        var syncing = false;
+        function syncApps() {
+          if (syncing || !auth.can('manageUsers')) return;
+          syncing = true;
+          hosting.sync().then(function () { syncing = false; renderAll(); }, function () { syncing = false; });
+        }
+        syncApps();
+        window.addEventListener('focus', syncApps);
+        document.addEventListener('visibilitychange', function () { if (!document.hidden) syncApps(); });
       });
     }
   };

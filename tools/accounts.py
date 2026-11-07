@@ -688,6 +688,19 @@ class Accounts:
             self.store.save()
             return 200, {"ok": True, "user": self.public(u)}
 
+    def grant_role(self, user_id: str, role: str):
+        """Server-internal role change (e.g. an admin approved a host application).
+        Never sets or removes "admin". Caller holds self.lock. -> public user or None."""
+        if role not in ("user", "host"):
+            return None
+        u = self.store.by_id(user_id)
+        if not u or u.get("role") == "admin":
+            return None
+        u["role"] = role
+        u["updatedAt"] = iso(self.clock())
+        self.store.save()
+        return self.public(u)
+
     def admin_set_status(self, token: str, body: dict):
         me = self._require_admin(token)
         if not me:

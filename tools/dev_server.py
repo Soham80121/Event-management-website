@@ -29,6 +29,9 @@ Same as `python -m http.server`, but:
    Event data (tools/eventdata.py; .data/*.json + audit.jsonl):
      /api/events/public        {}                  published host events + built-in overrides
      /api/me/applications      {token}             your host applications
+     /api/me/applications/apply      {token, reason, organization?, info?}   User applies to host
+     /api/me/applications/carry-over {token, application}   your own pending app from browser storage
+     /api/admin/applications/decide  {token, id, decision, note}   approve / reject (reason required)
      /api/me/events            {token}             your events (host / admin)
      /api/me/registrations     {token}             your bookings
      /api/host/registrations   {token, eventId?}   bookings for your own events (host; admin: any)
@@ -76,6 +79,7 @@ ROUTES = {
     "/api/events/public", "/api/me/applications", "/api/me/events", "/api/me/registrations",
     "/api/host/registrations", "/api/admin/applications", "/api/admin/events",
     "/api/admin/registrations", "/api/admin/audit", "/api/admin/import",
+    "/api/me/applications/apply", "/api/me/applications/carry-over", "/api/admin/applications/decide",
 }
 LARGE_ROUTES = {"/api/account/update", "/api/auth/migrate"}
 
@@ -156,6 +160,9 @@ class DevHandler(http.server.SimpleHTTPRequestHandler):
                 "/api/admin/registrations": lambda: d.admin_registrations(token),
                 "/api/admin/audit": lambda: d.admin_audit(token, body),
                 "/api/admin/import": lambda: d.admin_import(token, body),
+                "/api/me/applications/apply": lambda: d.apply_host(token, body),
+                "/api/me/applications/carry-over": lambda: d.carry_over_application(token, body),
+                "/api/admin/applications/decide": lambda: d.decide_application(token, body),
             }[path]()
         except Exception as err:  # noqa: BLE001 - never leak internals to the browser
             self.log_error("API error on %s: %r", path, err)

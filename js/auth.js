@@ -389,7 +389,26 @@
     },
 
     /** A user's public card (name/email) from the cache — used by host & admin views. */
-    userById: function (id) { return publicUserForAdmin(cached(id)); }
+    userById: function (id) { return publicUserForAdmin(cached(id)); },
+
+    /**
+     * Signed-in call to the server API (adds the session token). A 401 means
+     * the session ended on the server: this browser signs out too.
+     * Resolves to the JSON reply with `httpStatus` (0 = server unreachable).
+     */
+    request: function (path, body) {
+      var b = {}; Object.keys(body || {}).forEach(function (k) { b[k] = body[k]; });
+      b.token = token();
+      return api(path, b).then(function (res) {
+        if (res.httpStatus === 401 && readSession()) { clearSession(); refresh(null); emit(); }
+        return res;
+      });
+    },
+
+    /** Store a profile the server just returned (e.g. a role change) and notify listeners. */
+    remember: function (user) { if (user) { cacheUsers([user]); emit(); } },
+
+    SERVER_DOWN: SERVER_DOWN
   };
 
   function update(res) {

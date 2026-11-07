@@ -204,6 +204,10 @@
     var latest = Eventora.hosting.latestApplication();
 
     if (isAdmin(u)) return;                              // panel hidden for admins
+    if (u.role !== 'host' && !Eventora.hosting.applicationsLoaded()) {
+      box.appendChild(el('p', 'host-state__text', 'Loading your application status from the server…'));
+      return;
+    }
     if (u.role === 'host') {
       box.appendChild(el('p', 'host-state__title', 'You’re an Event Host.'));
       box.appendChild(el('p', 'host-state__text', 'Create events, follow their approval and see who registered, all from your host dashboard.'));
@@ -263,23 +267,30 @@
       reason: function (x) { return V.required(x, 'why you want to host events', 30, 1000); },
       info: function (x) { return V.optional(x, 1000); }
     });
+    var sending = false;
     var counter = $('reasonCount');
     f.elements.reason.addEventListener('input', function () { counter.textContent = f.elements.reason.value.trim().length + ' / 1000'; });
     $('hostCancel').addEventListener('click', function () { f.reset(); v.reset(); renderHost(auth.current()); });
     f.addEventListener('submit', function (e) {
       e.preventDefault();
       F.alert(alertEl, 'error', '');
-      if (v.check().length) return;
-      var res = Eventora.hosting.apply({ organization: f.elements.organization.value, reason: f.elements.reason.value, info: f.elements.info.value });
-      if (!res.ok) {
-        if (res.errors) Object.keys(res.errors).forEach(function (k) { if (res.errors[k]) v.show(k, res.errors[k]); });
-        else F.alert(alertEl, 'error', res.error);
-        return;
-      }
-      f.reset(); v.reset();
-      renderHost(auth.current());
-      F.alert($('hostStatusMsg'), 'success', 'Application ' + res.application.id + ' sent. Its status is Pending.');
-      $('hostState').focus();
+      if (v.check().length || sending) return;
+      sending = true;
+      var restore = F.busy(f.querySelector('[type="submit"]'), 'Sending application…');
+      Eventora.hosting.apply({ organization: f.elements.organization.value, reason: f.elements.reason.value, info: f.elements.info.value })
+        .then(function (res) {
+          sending = false;
+          restore();
+          if (!res.ok) {
+            if (res.errors) Object.keys(res.errors).forEach(function (k) { if (res.errors[k]) v.show(k, res.errors[k]); });
+            else F.alert(alertEl, 'error', res.error);
+            return;
+          }
+          f.reset(); v.reset();
+          renderHost(auth.current());
+          F.alert($('hostStatusMsg'), 'success', 'Application ' + res.application.id + ' sent to the admins. Its status is Pending.');
+          $('hostState').focus();
+        });
     });
   }
 
@@ -302,7 +313,8 @@
       bindHostForm();
       $('pfSignOut').addEventListener('click', function () { auth.signOut(); location.href = 'index.html'; });
       renderAll();
-      auth.ready().then(renderAll);
+      // the session (and role) is confirmed by the server, then applications are loaded from it
+      auth.ready().then(function () { renderAll(); return Eventora.hosting.sync(); }).then(renderAll);
       auth.onChange(function (x) { if (x) renderAll(); });
       if (location.hash === '#host-application') {
         var sec = $('host-application');

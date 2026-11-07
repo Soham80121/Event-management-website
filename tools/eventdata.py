@@ -355,6 +355,131 @@ class EventData:
         with self.lock:
             return 200, {"ok": True, "entries": self.read_audit(limit)}
 
+    # ----- host applications: apply / carry over / decide -----
+    def _new_app_id(self) -> str:
+        taken = {a["id"] for a in self.apps.data["applications"]}
+        while True:
+            c = "".join(accounts.secrets.choice(accounts.ID_ALPHABET) for _ in range(8))
+            app_id = "APP-%s-%s" % (c[:4], c[4:])
+            if app_id not in taken:
+                return app_id
+
+    def _pending_for(self, user_id: str):
+        return next((a for a in self.apps.data["applications"]
+                     if a["userId"] == user_id and a["status"] == "pending"), None)
+
+    def apply_host(self, token, body):
+        """A User applies to become an Event Host. Name, email and phone come
+        from the server account, never from the request."""
+        u, err = self.require(token)
+        if err:
+            return err
+        role = self.auth.effective_role(u)
+        if role == "host":
+            return 409, {"ok": False, "error": "already-host", "message": "You’re already an Event Host."}
+        if role == "admin":
+            return 403, {"ok": False, "error": "forbidden", "message": "Admins can already manage events."}
+        errors = {}
+        reason = text(body.get("reason"), 30, 1000)
+        if not reason:
+            errors["reason"] = "Tell us why you want to host events (30–1000 characters)."
+        org = body.get("organization") or ""
+        info = body.get("info") or ""
+        if not isinstance(org, str) or len(org.strip()) > 100:
+            errors["organization"] = "Keep this under 100 characters."
+        if not isinstance(info, str) or len(info.strip()) > 1000:
+            errors["info"] = "Keep this under 1000 characters."
+        if errors:
+            return 400, {"ok": False, "errors": errors}
+        with self.lock:
+            if self._pending_for(u["id"]):
+                return 409, {"ok": False, "error": "pending-exists",
+                             "message": "You already have an application waiting for review."}
+            app = {"id": self._new_app_id(), "userId": u["id"], "name": u["name"], "email": u["email"],
+                   "phone": u.get("phone", ""), "reason": reason, "status": "pending",
+                   "createdAt": accounts.iso(self.clock())}
+            if org.strip():
+                app["organization"] = re.sub(r"\s+", " ", org).strip()
+            if info.strip():
+                app["info"] = info.strip()
+            self.apps.data["applications"].append(app)
+            self.apps.save()
+            self.audit(u, "application.submitted", app["id"])
+            return 200, {"ok": True, "application": app}
+
+    def carry_over_application(self, token, body):
+        """Move the signed-in user's OWN pending application that was saved only
+        in their browser (before applications lived on the server), keeping its ID."""
+        u, err = self.require(token)
+        if err:
+            return err
+        a = body.get("application")
+        if (not self.valid_app(a) or a["userId"] != u["id"] or a["status"] != "pending"
+                or self.auth.effective_role(u) != "user"):
+            return 400, {"ok": False, "error": "not-allowed",
+                         "message": "Only your own pending application can be moved to the server."}
+        with self.lock:
+            if any(x["id"] == a["id"] for x in self.apps.data["applications"]):
+                return 200, {"ok": True, "status": "already-on-server"}
+            if self._pending_for(u["id"]):
+                return 409, {"ok": False, "error": "pending-exists",
+                             "message": "You already have an application waiting for review."}
+            rec = {"id": a["id"], "userId": u["id"], "name": u["name"], "email": u["email"],
+                   "phone": u.get("phone", ""), "reason": text(a["reason"], 1, 1000), "status": "pending",
+                   "createdAt": a["createdAt"]}
+            for k in ("organization", "info"):
+                if a.get(k):
+                    rec[k] = a[k]
+            self.apps.data["applications"].append(rec)
+            self.apps.save()
+            self.audit(u, "application.carried-over", rec["id"])
+            return 200, {"ok": True, "status": "moved", "application": rec}
+
+    def decide_application(self, token, body):
+        """Admin approves or rejects a pending application. Approval makes the
+        applicant an Event Host in the same locked step. A reason is required to reject."""
+        admin, err = self.require(token, "admin")
+        if err:
+            return err
+        decision = body.get("decision")
+        if decision not in ("approved", "rejected"):
+            return 400, {"ok": False, "error": "Unknown decision."}
+        note = body.get("note") or ""
+        if not isinstance(note, str) or len(note.strip()) > 500:
+            return 400, {"ok": False, "field": "note", "error": "Keep the note under 500 characters."}
+        note = note.strip()
+        if decision == "rejected" and len(note) < 5:
+            return 400, {"ok": False, "field": "note", "error": "Give the applicant a reason for the rejection (at least 5 characters)."}
+        with self.lock:
+            app = next((a for a in self.apps.data["applications"] if a["id"] == body.get("id")), None)
+            if not app:
+                return 404, {"ok": False, "error": "Application not found."}
+            if app["userId"] == admin["id"]:
+                return 403, {"ok": False, "error": "You can’t decide your own application."}
+            if app["status"] != "pending":
+                return 409, {"ok": False, "error": "This application was already %s." % app["status"]}
+            user = None
+            if decision == "approved":
+                applicant = self.auth.store.by_id(app["userId"])
+                if not applicant or applicant.get("status") != "active":
+                    return 409, {"ok": False, "error": "The applicant’s account no longer exists or is suspended, so it can’t be approved."}
+                user = self.auth.grant_role(app["userId"], "host")
+                if not user:
+                    return 409, {"ok": False, "error": "The applicant’s role couldn’t be changed."}
+            app["status"] = decision
+            app["decidedAt"] = accounts.iso(self.clock())
+            app["decidedBy"] = admin["id"]
+            if note:
+                app["note"] = note
+            else:
+                app.pop("note", None)
+            self.apps.save()
+            self.audit(admin, "application." + decision, app["id"], userId=app["userId"], note=note)
+            out = {"ok": True, "application": app}
+            if user:
+                out["user"] = user
+            return 200, out
+
     # ----- one-time import of browser-stored data (admin only) -----
     def admin_import(self, token, body):
         """Move data that so far lived only in a browser to the server, keeping IDs.

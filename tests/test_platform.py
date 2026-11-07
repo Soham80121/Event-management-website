@@ -276,5 +276,121 @@ class PlatformTests(unittest.TestCase):
                     self.assertEqual(err.code, 404)
 
 
+
+class ApplicationTests(unittest.TestCase):
+    REASON = "I run a monthly jazz night for about sixty people and want to list it."
+
+    def setUp(self):
+        self.env = Env()
+        e = self.env
+        self.admin_tok, self.admin_id = e.login(ADMIN, "Admin-Start-2026")
+        self.user_tok, self.user_id = e.signup("Soham Test", "soham.test@example.test")
+        self.other_tok, self.other_id = e.signup("Other Person", "other@example.test")
+
+    def tearDown(self):
+        self.env.close()
+
+    def apply(self, tok=None, **body):
+        body.setdefault("reason", self.REASON)
+        return self.env.post("/api/me/applications/apply", dict(body, token=tok or self.user_tok))
+
+    def decide(self, app_id, decision, note="", tok=None):
+        return self.env.post("/api/admin/applications/decide",
+                             {"token": tok or self.admin_tok, "id": app_id, "decision": decision, "note": note})
+
+    def role(self, email, password="Pass2026xx"):
+        return self.env.post("/api/auth/login", {"email": email, "password": password})[1]["user"]["role"]
+
+    def test_submit_uses_server_identity_and_new_id(self):
+        status, body = self.apply(organization="Jazz Club", name="Forged", email="admin@x.test", userId=self.admin_id)
+        self.assertEqual(status, 200, body)
+        app = body["application"]
+        self.assertRegex(app["id"], r"^APP-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$")
+        self.assertEqual((app["userId"], app["name"], app["email"], app["status"]),
+                         (self.user_id, "Soham Test", "soham.test@example.test", "pending"))
+        listed = self.env.post("/api/admin/applications", {"token": self.admin_tok})[1]["applications"]
+        self.assertEqual([a["id"] for a in listed], [app["id"]])            # admin sees it on the server
+
+    def test_validation_and_duplicate_pending(self):
+        self.assertEqual(self.apply(reason="too short")[1]["errors"].keys(), {"reason"})
+        self.assertEqual(self.apply()[0], 200)
+        status, body = self.apply()
+        self.assertEqual((status, body["error"]), (409, "pending-exists"))
+        apps = self.env.post("/api/me/applications", {"token": self.user_tok})[1]["applications"]
+        self.assertEqual(len(apps), 1)
+
+    def test_only_signed_in_users_apply(self):
+        self.assertEqual(self.env.post("/api/me/applications/apply", {"token": "x", "reason": self.REASON})[0], 401)
+        self.assertEqual(self.apply(tok=self.admin_tok)[0], 403)
+
+    def test_approve_makes_user_a_host(self):
+        app = self.apply()[1]["application"]
+        status, body = self.decide(app["id"], "approved")
+        self.assertEqual(status, 200, body)
+        self.assertEqual((body["application"]["status"], body["user"]["role"]), ("approved", "host"))
+        self.assertEqual(body["application"]["decidedBy"], self.admin_id)
+        self.assertEqual(self.role("soham.test@example.test"), "host")
+        self.assertEqual(self.env.post("/api/me/events", {"token": self.user_tok})[0], 200)   # host APIs open
+        self.assertEqual(self.apply()[1]["error"], "already-host")
+        self.assertEqual(self.decide(app["id"], "rejected", "changed my mind")[0], 409)       # decided once
+
+    def test_reject_needs_reason_keeps_user_and_allows_reapply(self):
+        app = self.apply()[1]["application"]
+        status, body = self.decide(app["id"], "rejected", "")
+        self.assertEqual((status, body["field"]), (400, "note"))
+        status, body = self.decide(app["id"], "rejected", "Please add your venue details.")
+        self.assertEqual(status, 200)
+        self.assertEqual((body["application"]["status"], body["application"]["note"]),
+                         ("rejected", "Please add your venue details."))
+        self.assertEqual(self.role("soham.test@example.test"), "user")
+        mine = self.env.post("/api/me/applications", {"token": self.user_tok})[1]["applications"]
+        self.assertEqual(mine[0]["note"], "Please add your venue details.")                # applicant sees why
+        self.assertEqual(self.apply()[0], 200)                                             # may apply again
+
+    def test_only_admin_decides(self):
+        app = self.apply()[1]["application"]
+        self.assertEqual(self.decide(app["id"], "approved", tok=self.user_tok)[0], 403)    # own application
+        self.assertEqual(self.decide(app["id"], "approved", tok=self.other_tok)[0], 403)
+        self.assertEqual(self.decide(app["id"], "approved", tok="made-up")[0], 401)
+        self.assertEqual(self.role("soham.test@example.test"), "user")
+        self.assertEqual(self.decide("APP-0000-0000", "approved")[0], 404)
+        self.assertEqual(self.decide(app["id"], "maybe")[0], 400)
+
+    def test_cannot_approve_suspended_applicant(self):
+        app = self.apply()[1]["application"]
+        self.env.post("/api/admin/set-status", {"token": self.admin_tok, "userId": self.user_id, "status": "suspended"})
+        self.assertEqual(self.decide(app["id"], "approved")[0], 409)
+
+    def test_carry_over_keeps_original_id(self):
+        local = {"id": "APP-ERSD-QGJR", "userId": self.user_id, "name": "Soham Test", "email": "soham.test@example.test",
+                 "phone": "1234567890", "reason": self.REASON, "status": "pending",
+                 "createdAt": "2026-11-07T04:00:00.000Z"}
+        e = self.env
+        status, body = e.post("/api/me/applications/carry-over", {"token": self.user_tok, "application": local})
+        self.assertEqual((status, body["application"]["id"]), (200, "APP-ERSD-QGJR"))
+        again = e.post("/api/me/applications/carry-over", {"token": self.user_tok, "application": local})
+        self.assertEqual(again[1]["status"], "already-on-server")                          # idempotent
+        self.assertEqual(self.apply()[1]["error"], "pending-exists")
+        # nobody can carry over someone else's application, or a decided one
+        theirs = dict(local, id="APP-AAAA-BBBB")
+        self.assertEqual(e.post("/api/me/applications/carry-over", {"token": self.other_tok, "application": theirs})[0], 400)
+        decided = dict(local, id="APP-CCCC-DDDD", userId=self.other_id, status="approved")
+        self.assertEqual(e.post("/api/me/applications/carry-over", {"token": self.other_tok, "application": decided})[0], 400)
+        listed = e.post("/api/admin/applications", {"token": self.admin_tok})[1]["applications"]
+        self.assertEqual([a["id"] for a in listed], ["APP-ERSD-QGJR"])
+
+    def test_every_step_is_audited(self):
+        app = self.apply()[1]["application"]
+        self.decide(app["id"], "rejected", "Not enough detail yet.")
+        app2 = self.apply()[1]["application"]
+        self.decide(app2["id"], "approved", "Welcome aboard")
+        entries = self.env.post("/api/admin/audit", {"token": self.admin_tok})[1]["entries"]
+        self.assertEqual([(x["action"], x["target"]) for x in entries[:4]],
+                         [("application.approved", app2["id"]), ("application.submitted", app2["id"]),
+                          ("application.rejected", app["id"]), ("application.submitted", app["id"])])
+        self.assertEqual(entries[0]["actor"], self.admin_id)
+        self.assertEqual(entries[2]["details"]["note"], "Not enough detail yet.")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

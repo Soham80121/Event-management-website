@@ -5,12 +5,12 @@
    check below runs in the browser, so it only shapes the UI. In Phase 11
    the same functions become backend endpoints that enforce them.
 
-   eventora:host-applications
-     { version, applications: [{ id: 'APP-XXXX-XXXX', userId, name, email,
-       phone, organization, reason, info, status: 'pending'|'approved'|'rejected',
-       createdAt, decidedAt?, decidedBy?, note? }] }
-     - one pending application per user at a time
-     - approving sets the user's role to "host" (auth.admin.setHost)
+   HOST APPLICATIONS live on the dev server (tools/eventdata.py), which
+     enforces the rules: one pending application per user, only an admin
+     decides, approving makes the user an Event Host, rejecting needs a reason.
+     sync() loads them; the getters below read that copy. A pending
+     application from before (saved only in eventora:host-applications in
+     this browser) is moved to the server once, keeping its ID.
 
    eventora:hosted-events
      { version, events: [{ ...catalogue event fields, id: 'h-<slug>-<4>',
@@ -100,6 +100,38 @@
     return o;
   }
 
+  /* ---------- host applications: server copy ---------- */
+  var appCache = { mine: [], all: [], loaded: false };
+  function byNewest(a, b) { return a.createdAt < b.createdAt ? 1 : -1; }
+  function putApp(app) {
+    ['mine', 'all'].forEach(function (k) {
+      var list = appCache[k], at = -1;
+      list.forEach(function (x, i) { if (x.id === app.id) at = i; });
+      if (at !== -1) list[at] = app;
+      else if (k === 'all' || app.userId === (me() && me().id)) list.push(app);
+      list.sort(byNewest);
+    });
+  }
+  function serverError(res, fallback) {
+    if (res.httpStatus === 0) return deny(auth().SERVER_DOWN);
+    if (res.httpStatus === 401) return deny('Your session has ended. Sign in again.');
+    if (res.errors) return { ok: false, errors: res.errors };
+    return { ok: false, field: res.field, error: res.message || res.error || fallback };
+  }
+  /** Move this user's own pending application(s) from browser storage to the server, once. */
+  function carryOver(u) {
+    var local = readApps().filter(function (a) { return a.userId === u.id && a.status === 'pending'; });
+    return local.reduce(function (p, a) {
+      return p.then(function () {
+        return auth().request('/api/me/applications/carry-over', { application: a }).then(function (res) {
+          if (res.httpStatus === 200) {
+            write(APPS, 'applications', read(APPS, 'applications').filter(function (x) { return x.id !== a.id; }));
+          }
+        });
+      });
+    }, Promise.resolve());
+  }
+
   /* ---------- ids ---------- */
   var ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
   function rand(n) {
@@ -173,43 +205,44 @@
     },
 
     /* ----- applications (signed-in user) ----- */
-    myApplications: function () {
+    /** Load applications from the server (own; admins also every one). Resolves when done. */
+    sync: function () {
       var u = me();
-      if (!u) return [];
-      return readApps().filter(function (a) { return a.userId === u.id; })
-        .sort(function (a, b) { return a.createdAt < b.createdAt ? 1 : -1; });
+      if (!u) { appCache = { mine: [], all: [], loaded: false }; return Promise.resolve(); }
+      return carryOver(u).then(function () {
+        var jobs = [auth().request('/api/me/applications', {})];
+        if (auth().can('reviewApplications')) jobs.push(auth().request('/api/admin/applications', {}));
+        return Promise.all(jobs);
+      }).then(function (res) {
+        if (res[0].httpStatus === 200) appCache.mine = res[0].applications.sort(byNewest);
+        if (res[1] && res[1].httpStatus === 200) appCache.all = res[1].applications.sort(byNewest);
+        appCache.loaded = res[0].httpStatus === 200;
+        appCache.status = res[0].httpStatus;
+      });
     },
+    /** Whether the last sync reached the server (false: show "couldn't load"). */
+    applicationsLoaded: function () { return appCache.loaded; },
+
+    myApplications: function () { return appCache.mine.slice(); },
     latestApplication: function () { return this.myApplications()[0] || null; },
 
+    /** Apply to become an Event Host. Resolves to { ok, application } or { ok:false, errors|error }. */
     apply: function (f) {
       var u = me();
-      if (!u) return deny('Sign in to apply.');
-      if (u.role === 'host') return deny('You’re already an Event Host.');
-      if (u.role === 'admin') return deny('Admins can already manage events.');
-      var list = readApps();
-      if (list.some(function (a) { return a.userId === u.id && a.status === 'pending'; })) {
-        return deny('You already have an application waiting for review.');
-      }
+      if (!u) return Promise.resolve(deny('Sign in to apply.'));
       var v = V();
       var errs = {
         organization: v.optional(f.organization, 100),
         reason: v.required(f.reason, 'why you want to host events', 30, 1000),
         info: v.optional(f.info, 1000)
       };
-      if (errs.organization || errs.reason || errs.info) return { ok: false, errors: errs };
-      var taken = {};
-      list.forEach(function (a) { taken[a.id] = true; });
-      var id; do { var r = rand(8); id = 'APP-' + r.slice(0, 4) + '-' + r.slice(4); } while (taken[id]);
-      var app = {
-        id: id, userId: u.id, name: u.name, email: u.email, phone: u.phone,
-        reason: String(f.reason).trim(), status: 'pending', createdAt: new Date().toISOString()
-      };
-      var org = String(f.organization || '').trim(), info = String(f.info || '').trim();
-      if (org) app.organization = org;
-      if (info) app.info = info;
-      list.push(app);
-      if (!write(APPS, 'applications', list)) return deny('Your application couldn’t be saved in this browser.');
-      return { ok: true, application: app };
+      if (errs.organization || errs.reason || errs.info) return Promise.resolve({ ok: false, errors: errs });
+      return auth().request('/api/me/applications/apply', {
+        organization: String(f.organization || ''), reason: String(f.reason || ''), info: String(f.info || '')
+      }).then(function (res) {
+        if (res.httpStatus === 200 && res.application) { putApp(res.application); return { ok: true, application: res.application }; }
+        return serverError(res, 'Your application couldn’t be sent. Please try again.');
+      });
     },
 
     /* ----- hosted events (host) ----- */
@@ -290,27 +323,20 @@
 
       applications: function () {
         this._require('reviewApplications');
-        return readApps().sort(function (a, b) { return a.createdAt < b.createdAt ? 1 : -1; });
+        return appCache.all.slice();
       },
+      /** Approve or reject on the server (a reason is required to reject). Resolves to { ok, error? }. */
       decideApplication: function (id, decision, note) {
         this._require('reviewApplications');
-        if (decision !== 'approved' && decision !== 'rejected') return deny('Unknown decision.');
-        var list = readApps();
-        var app = list.filter(function (a) { return a.id === id; })[0];
-        if (!app) return deny('Application not found.');
-        if (app.status !== 'pending') return deny('This application was already ' + app.status + '.');
-        function record() {
-          app.status = decision;
-          app.decidedAt = new Date().toISOString();
-          app.decidedBy = me().id;
-          if (note && String(note).trim()) app.note = String(note).trim().slice(0, 500);
-          write(APPS, 'applications', list);
-          return { ok: true, application: app };
-        }
-        if (decision !== 'approved') return Promise.resolve(record());
-        // the Host role is set on the server first; the application is
-        // recorded only once the server has accepted it
-        return auth().admin.setHost(app.userId, true).then(function (r) { return r.ok ? record() : r; });
+        return auth().request('/api/admin/applications/decide', { id: id, decision: decision, note: String(note || '') })
+          .then(function (res) {
+            if (res.httpStatus === 200 && res.application) {
+              putApp(res.application);
+              if (res.user) auth().remember(res.user);          // the applicant is now an Event Host
+              return { ok: true, application: res.application };
+            }
+            return serverError(res, 'That decision couldn’t be saved.');
+          });
       },
 
       events: function () {
