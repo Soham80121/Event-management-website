@@ -9,14 +9,15 @@
    | Admin      | "Admin Panel" → admin.html       | Admin account page  |
 
    Admins also get a "Host an Event" text link after Contact. It opens
-   host.html, which for Event Hosts and the Admin is the simple event
-   submission form (js/host-page.js; events are saved as Pending).
+   host-dashboard.html in admin mode: the same dashboard hosts use, but the
+   admin's events are published straight away (no approval step).
 
    Account page (profile.html), Admin Panel (admin.html) and Host an Event
-   (host.html) are separate destinations. The button sits in the hero's
+   (host-dashboard.html for the admin) are separate destinations. The button sits in the hero's
    fitted nav; when its label changes, js/layout.js re-fits it.
    host.html: visitors see the sign-in intro, users are sent to the host
-   application, hosts and the admin stay on it (the submission form).
+   application, the admin goes to the dashboard, hosts stay on it (the
+   submission form).
    Admins are recognised from the account the server-verified admin sign-in
    created, so the right destination is set before the server re-confirms
    the admin session (the Admin Dashboard itself still waits for it).
@@ -42,7 +43,7 @@
     visitor: { cta: 'login.html?next=host.html', label: 'Host an Event', host: 'login.html?next=host.html', account: null },
     user: { cta: 'profile.html#host-application', label: 'Host an Event', host: 'profile.html#host-application', account: 'profile.html' },
     host: { cta: 'host-dashboard.html', label: 'Host Dashboard', host: 'host.html', account: 'profile.html' },
-    admin: { cta: 'admin.html', label: 'Admin Panel', host: 'host.html', account: 'profile.html' }
+    admin: { cta: 'admin.html', label: 'Admin Panel', host: 'host-dashboard.html', account: 'profile.html' }
   };
 
   function renderCta(role) {
@@ -128,8 +129,10 @@
   function routeHostPage() {
     if (page() !== 'host.html' || !Eventora.auth) return;
     var role = navRole(Eventora.auth.current());
-    // users apply to host; hosts and the admin use this page's submission form
+    // users apply to host; the admin's "Host an Event" is the dashboard;
+    // hosts use this page's submission form
     if (role === 'user') location.replace(DEST.user.host);
+    else if (role === 'admin') location.replace(DEST.admin.host);
   }
 
   Eventora.accountNav = {

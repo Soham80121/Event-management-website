@@ -1,16 +1,18 @@
 /* =========================================================================
-   HOST DASHBOARD — host-dashboard.html, for Event Hosts.
-   A host sees and manages only their own events: overview stats, status
-   filters, registrations per event, and edit / delete while an event is
-   Pending or Rejected (an edit resubmits it). New events go through
-   "Host an Event" (host.html) or the form below; both save on the server as
-   Pending, and only an admin approval publishes them.
-   Admins manage events in the Admin panel; their "Host an Event" is host.html.
+   HOST DASHBOARD — host-dashboard.html, for Event Hosts and the Admin.
+   Everyone sees and manages only their own events: overview stats, status
+   filters, registrations per event and the create form.
+   Event Host: events are saved as Pending; only an admin approval publishes
+     them. Edit / delete while Pending or Rejected (an edit resubmits it).
+   Admin ("Host an Event" in the admin navbar): the same page, but the
+     admin's events are published straight away (the server does that), so
+     they never enter Event approvals. Edit (status kept) and Remove.
    ========================================================================= */
 (function (Eventora) {
   'use strict';
 
   var auth, hosting, cat, F;
+  var isAdmin = false;
   var filter = 'all';
   function $(id) { return document.getElementById(id); }
   function el(tag, cls, text) {
@@ -115,7 +117,13 @@
       body.appendChild(el('p', 'host-event__meta', e.category + ' · ' + dateLabel(e)));
       body.appendChild(el('p', 'host-event__meta host-event__meta--muted', e.venue.name + ', ' + e.venue.city +
         ' · ' + (e.price ? '$' + e.price.amount : 'Free')));
-      var help = {
+      var help = isAdmin ? {
+        pending: 'Not public yet. Publish it from Admin panel → All events.',
+        approved: 'Live on EVENTORA.',
+        rejected: 'Not public. Edit it, then publish it from Admin panel → All events.',
+        unpublished: 'Unpublished. Not public; publish it again from Admin panel → All events.',
+        cancelled: 'Cancelled. Not public; registrations are kept.'
+      }[e.status] : {
         pending: 'Waiting for admin approval. Not public yet.',
         approved: 'Live on EVENTORA. Approved events are locked; ask an admin for changes.',
         rejected: 'Not approved. Edit it to resubmit.',
@@ -139,7 +147,13 @@
       actions.appendChild(pub);
     }
     var t = '“' + e.title + '”';
-    if (e.status === 'pending' || e.status === 'rejected') {
+    if (isAdmin) {
+      // the admin's own events: edit any time (status unchanged), or remove
+      actions.appendChild(button('Edit', 'btn-ghost', function () { formApi.edit(e); }));
+      actions.appendChild(armed('Remove', 'Confirm remove', 'btn-ghost btn-danger', function () {
+        done(hosting.admin.removeEvent(e.id), t + ' was removed. Its registrations are kept.');
+      }));
+    } else if (e.status === 'pending' || e.status === 'rejected') {
       actions.appendChild(button('Edit', 'btn-ghost', function () { formApi.edit(e); }));
       actions.appendChild(armed('Delete', 'Confirm delete', 'btn-ghost btn-danger', function () {
         done(hosting.deleteEvent(e.id), t + ' was deleted.');
@@ -173,15 +187,20 @@
   /* ---------- create / edit (shared component: js/event-form.js) ---------- */
   var formApi = null;
   function bindForm() {
-    var form = Eventora.eventForm.render($('eventForm'), { prefix: 'ev', create: 'Submit for approval' });
+    var create = isAdmin ? 'Publish event' : 'Submit for approval';
+    var form = Eventora.eventForm.render($('eventForm'), { prefix: 'ev', create: create });
     formApi = Eventora.eventForm.create(form, {
-      labels: { create: 'Submit for approval', edit: 'Save and resubmit', createTitle: 'Create a new event', editTitle: 'Edit “{title}”' },
+      labels: { create: create, edit: isAdmin ? 'Save changes' : 'Save and resubmit',
+        createTitle: 'Create a new event', editTitle: 'Edit “{title}”' },
       submit: function (v, editingId) {
+        if (isAdmin) return editingId ? hosting.admin.updateEvent(editingId, v) : hosting.createEvent(v);
         return editingId ? hosting.updateEvent(editingId, v) : hosting.createEvent(v);
       },
       saved: function (res, wasEditing) {
-        F.alert($('hdAlert'), 'success', '“' + res.event.title + '” was ' + (wasEditing ? 'updated and resubmitted' : 'submitted') +
-          '. It’s Pending until an admin approves it.');
+        var t = '“' + res.event.title + '”';
+        F.alert($('hdAlert'), 'success', isAdmin
+          ? t + (wasEditing ? ' was updated.' : ' is published on EVENTORA.')
+          : t + ' was ' + (wasEditing ? 'updated and resubmitted' : 'submitted') + '. It’s Pending until an admin approves it.');
         render();
         $('hdAlert').scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
@@ -200,9 +219,13 @@
       auth = Eventora.auth; hosting = Eventora.hosting; cat = Eventora.events; F = Eventora.forms;
       if (!auth.current()) { deny(null); return; }
       auth.ready().then(function (u) {
-        // admins: "Host an Event" is host.html; events are managed in the Admin panel
-        if (u && u.role === 'admin') { location.replace('host.html'); return; }
         if (!u || !auth.can('manageOwnEvents')) { deny(u); return; }
+        isAdmin = u.role === 'admin';
+        if (isAdmin) {
+          $('hdEyebrow').textContent = 'Admin';
+          $('hdLead').textContent = 'Create events, see them live straight away and see who registered.';
+          $('hdFormHint').textContent = 'Your events are published on EVENTORA as soon as you create them.';
+        }
         $('dashBody').hidden = false;
         $('hdWho').textContent = u.name;
         bindForm();
@@ -210,7 +233,7 @@
         hosting.sync().then(render);                       // the host's events saved on the server
         if (location.hash === '#create') $('create').scrollIntoView({ block: 'start' });
         $('regsDialog').querySelector('[data-close]').addEventListener('click', function () { $('regsDialog').close(); });
-        auth.onChange(function (x) { if (!x || !auth.can('manageOwnEvents')) location.reload(); });
+        auth.onChange(function (x) { if (!x || !auth.can('manageOwnEvents') || (x.role === 'admin') !== isAdmin) location.reload(); });
       });
     }
   };

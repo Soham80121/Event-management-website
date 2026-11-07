@@ -507,8 +507,10 @@ class EventData:
         return rec
 
     def submit_event(self, token, body):
-        """An Event Host or the Admin submits an event. It is ALWAYS saved as
-        Pending, owned by the signed-in account; only an admin approval publishes it."""
+        """An Event Host or the Admin creates an event, owned by the signed-in
+        account. A host's event is saved as Pending and only an admin approval
+        publishes it. The Admin's own event is published straight away (the
+        admin is the approver), so it never enters the approval queue."""
         u, err = self.require(token, "host", "admin")
         if err:
             return err
@@ -516,24 +518,28 @@ class EventData:
         if errors:
             return 400, {"ok": False, "errors": errors}
         is_admin = self.auth.effective_role(u) == "admin"
+        live = ("pending", "approved") if is_admin else ("pending",)
         with self.lock:
             evs = self.events.data["events"]
-            dup = next((e for e in evs if e["hostId"] == u["id"] and e["status"] == "pending"
+            dup = next((e for e in evs if e["hostId"] == u["id"] and e["status"] in live
                         and e["title"].lower() == value["title"].lower()
                         and e["date"] == value["date"] and e["time"] == value["time"]), None)
             if dup:
                 return 409, {"ok": False, "error": "duplicate", "event": dup,
-                             "message": "You already submitted this event; it’s waiting for approval."}
+                             "message": "You already created this event." if is_admin
+                             else "You already submitted this event; it’s waiting for approval."}
             now = accounts.iso(self.clock())
             ev = {"id": self._new_event_id(value["title"]), "hostId": u["id"],
-                  "hostName": "EVENTORA" if is_admin else u["name"], "status": "pending",
+                  "hostName": "EVENTORA" if is_admin else u["name"],
+                  "status": "approved" if is_admin else "pending",
                   "createdAt": now, "updatedAt": now, "submittedAt": now}
             if is_admin:
                 ev["createdBy"] = "admin"
+                ev["decidedAt"] = now
             ev.update(self._event_record(value))
             evs.append(ev)
             self.events.save()
-            self.audit(u, "event.submitted", ev["id"], title=ev["title"])
+            self.audit(u, "event.published" if is_admin else "event.submitted", ev["id"], title=ev["title"])
             return 200, {"ok": True, "event": ev}
 
     def carry_over_event(self, token, body):

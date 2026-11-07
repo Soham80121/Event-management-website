@@ -97,7 +97,8 @@
     var events = hosting.admin.allEvents();
     var regs = store.all();
     var pendingApps = apps.filter(function (a) { return a.status === 'pending'; });
-    var pendingEvents = events.filter(function (e) { return e.status === 'pending'; });
+    // admin events are published directly: only hosts' events wait for approval
+    var pendingEvents = events.filter(function (e) { return e.status === 'pending' && e.source !== 'admin'; });
     var stats = [
       ['Total users', users.length, 'users', null],
       ['Total events', events.length, 'events', 'all'],
@@ -290,7 +291,7 @@
 
   /* ----- Event approvals: submitted events with submission + host details ----- */
   function renderApprovals() {
-    var rows = hosting.admin.allEvents().filter(function (r) { return r.status === 'pending'; })
+    var rows = hosting.admin.allEvents().filter(function (r) { return r.status === 'pending' && r.source !== 'admin'; })
       .sort(function (a, b) { return a.submittedAt < b.submittedAt ? -1 : 1; });
     document.querySelector('[data-count="approvals"]').textContent = rows.length;
     var list = $('approvalsList');
@@ -360,7 +361,10 @@
     var set = function (status, msg) { return function () { done(hosting.admin.setEventStatus(row.id, status, n()), '“' + title + '” ' + msg); }; };
     // Approving and rejecting happen only in Event approvals (one review
     // queue, same records): All Events manages events that were already decided.
-    if (row.status === 'pending') {
+    if (row.status === 'pending' && row.source === 'admin') {
+      // an older admin event saved before admin events were published directly
+      out.push(button('Publish', 'btn-ghost btn-sm btn-ok', set('approved', 'is published.')));
+    } else if (row.status === 'pending') {
       out.push(button('Review in Event approvals', 'btn-ghost btn-sm btn-ok', function () { openApproval(row.id); }));
     } else if (row.status === 'approved') {
       out.push(armed('Unpublish', 'Confirm unpublish', 'btn-ghost btn-sm', set('unpublished', 'is no longer public.')));

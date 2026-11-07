@@ -429,10 +429,18 @@ class EventSubmissionTests(unittest.TestCase):
         pending = [x["id"] for x in self.env.post("/api/admin/events", {"token": self.admin_tok})[1]["events"]]
         self.assertEqual(pending, [ev["id"]])                                          # admin sees it
 
-    def test_admin_submission_is_pending_with_admin_ownership(self):
+    def test_admin_event_is_published_directly_with_admin_ownership(self):
         ev = self.submit(self.admin_tok)[1]["event"]
         self.assertEqual((ev["status"], ev["hostId"], ev["hostName"], ev["createdBy"]),
-                         ("pending", self.admin_id, "EVENTORA", "admin"))
+                         ("approved", self.admin_id, "EVENTORA", "admin"))
+        public = [x["id"] for x in self.env.post("/api/events/public")[1]["events"]]
+        self.assertIn(ev["id"], public)                                               # live at once
+        status, body = self.submit(self.admin_tok)                                     # same event again
+        self.assertEqual((status, body["error"]), (409, "duplicate"))
+        host_ev = self.submit(self.host_tok)[1]["event"]
+        self.assertEqual(host_ev["status"], "pending")                                 # hosts still need approval
+        entries = self.env.post("/api/admin/audit", {"token": self.admin_tok})[1]["entries"]
+        self.assertIn(("event.published", ev["id"]), [(x["action"], x["target"]) for x in entries])
 
     def test_who_may_submit(self):
         self.assertEqual(self.submit(self.user_tok)[0], 403)
