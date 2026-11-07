@@ -94,10 +94,86 @@
 .page-hero .cluster { margin-top: var(--space-8); --cluster-gap: var(--space-4); }
 .page-hero .placeholder-note { margin-top: var(--space-8); }
 
+/* ---------- About and Contact (homepage, same for every account) ---------- */
+.section--info { padding-block: clamp(56px, 6.5vw, 96px); border-top: var(--border-hairline); }
 /* The last homepage section (Contact) is at least one screen tall below the
-   fixed nav, content at the top, so "Contact" in the navbar can line its
-   heading up under the nav like every other section (js/sections.js). */
-#contact.section--placeholder {
-  min-height: calc(100vh - var(--nav-offset, 96px));
-  align-items: flex-start;
+   fixed nav, so "Contact" in the navbar can line its heading up under the
+   nav like every other section (js/sections.js). */
+#contact.section--info { min-height: calc(100vh - var(--nav-offset, 96px)); }
+
+/* glass panel shared by the highlights box and the contact cards */
+.info-panel {
+  border-radius: var(--radius-lg);
+  border: var(--border-hairline);
+  background: var(--c-card-surface);
+  box-shadow: var(--shadow-panel);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+}
+
+.about-grid {
+  display: grid; gap: clamp(28px, 4vw, 56px);
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  align-items: start;
+}
+.about-copy { display: grid; gap: var(--space-4); max-width: 620px; }
+.about-copy__title {
+  font-size: clamp(22px, 2.4vw, 30px); line-height: 1.25;
+  font-weight: var(--fw-bold); letter-spacing: var(--tracking-tight);
+  background: linear-gradient(90deg, var(--c-ink) 0%, var(--c-cyan-ice) 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.about-copy .body-copy { color: var(--c-ink-90); }
+
+.about-highlights { padding: var(--space-6) clamp(20px, 2.6vw, 32px); }
+.info-panel__label {
+  font-size: var(--fs-caption); font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-cyan-pale);
+}
+.about-list { list-style: none; display: grid; gap: var(--space-3); margin-top: var(--space-4); }
+.about-list__item { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: var(--space-3); align-items: start; color: var(--c-ink-90); }
+.about-list__icon {
+  width: 26px; height: 26px; padding: 5px; border-radius: var(--radius-full);
+  color: var(--c-cyan-ice); background: rgba(53, 216, 255, .1);
+  box-shadow: inset 0 0 0 1px rgba(142, 244, 255, .28);
+}
+
+.contact-grid {
+  list-style: none;
+  display: grid; gap: var(--space-4);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-width: 860px;
+}
+.contact-card {
+  display: flex; align-items: center; gap: var(--space-4);
+  height: 100%; padding: var(--space-5) var(--space-6);
+  color: var(--c-ink); text-decoration: none;
+  transition: transform var(--dur-base) var(--ease-std), border-color var(--dur-base), box-shadow var(--dur-base);
+}
+.contact-card__icon {
+  flex: none; display: grid; place-items: center;
+  width: 52px; height: 52px; border-radius: var(--radius-full);
+  color: var(--c-cyan-ice); background: rgba(53, 216, 255, .1);
+  box-shadow: inset 0 0 0 1px rgba(142, 244, 255, .3), 0 0 24px -6px rgba(53, 216, 255, .55);
+}
+.contact-card__icon svg { width: 24px; height: 24px; }
+.contact-card__text { display: grid; gap: 2px; min-width: 0; }
+.contact-card__label { font-size: var(--fs-caption); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-muted); }
+.contact-card__value { font-size: 18px; font-weight: var(--fw-bold); overflow-wrap: anywhere; }
+.contact-card__hint { font-size: var(--fs-small); color: var(--c-cyan-pale); }
+@media (hover: hover) {
+  .contact-card:hover { transform: translateY(-3px); border-color: var(--c-card-hover-line); box-shadow: var(--shadow-card-hover); }
+}
+.contact-card:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset-btn); }
+
+@media (max-width: 900px) {
+  .about-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .contact-grid { grid-template-columns: 1fr; }
+  .contact-card { padding: var(--space-4) var(--space-5); }
+  .contact-card__value { font-size: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .contact-card { transition: none; }
+  .contact-card:hover { transform: none; }
 }
