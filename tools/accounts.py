@@ -629,7 +629,8 @@ class Accounts:
         hash. The account is created here with a fresh scrypt hash, keeping
         its ID, creation date and role (user/host; never admin)."""
         if not self.legacy_import:
-            return 403, {"ok": False, "error": "Importing browser accounts is switched off on this server."}
+            return 403, {"ok": False, "code": "import-disabled",
+                         "error": "Importing browser accounts is switched off on this server."}
         rec = body.get("account") if isinstance(body.get("account"), dict) else {}
         password = str(body.get("password") or "")
         email = norm_email(rec.get("email"))

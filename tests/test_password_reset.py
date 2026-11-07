@@ -413,6 +413,20 @@ class RecoveryTests(unittest.TestCase):
         admin_claim = dict(acct, id="usr_BBBBBBBBBBBB", email=ADMIN_EMAIL, role="user")
         self.assertEqual(e.post("/api/auth/migrate", {"account": admin_claim, "password": "Whatever2026"})[0], 403)
 
+    def test_import_disabled_is_reported_with_a_code(self):
+        e = self.env
+        e.service.legacy_import = False
+        acct = {"id": "usr_PM4FQ7TE2KA4", "name": "Ada Lovelace", "email": "ada@example.com", "phone": "+15550101234",
+                "createdAt": "2026-11-07T10:00:00.000Z", "role": "host", "status": "active"}
+        status, body = e.post("/api/auth/migrate", {"account": acct, "password": "NewPass2026"})
+        self.assertEqual((status, body.get("code")), (403, "import-disabled"))
+        self.assertEqual(len(e.store.data["users"]), 1)                    # nothing created
+        # a genuinely new email can still sign up; duplicates (any case/spacing) still can't
+        self.assertEqual(e.signup("Ada Lovelace", "ada@example.com", "Analytical1843")["user"]["role"], "user")
+        status, body = e.post("/api/auth/signup", {"name": "Ada Again", "email": "  ADA@Example.com ",
+                                                   "phone": "+44 20 7946 0958", "password": "Analytical1843"})
+        self.assertEqual((status, body["field"]), (409, "email"))
+
     def test_login_lockout(self):
         e = self.env
         e.signup("Grace Hopper", "grace@example.org", "Cobol1959x")

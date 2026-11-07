@@ -291,13 +291,13 @@
       var bad = Object.keys(errs).filter(function (k) { return errs[k]; });
       if (bad.length) return Promise.resolve({ ok: false, errors: errs });
       var email = normEmail(input.email);
-      if (readCache().legacy.some(function (x) { return x.email === email; })) {
-        return Promise.resolve(fail('email', 'An account with this email already exists. Sign in instead.'));
-      }
       var remember = input.remember !== false;
+      // Duplicate emails are decided by the server only. (An old browser-only
+      // record with this email must not block sign-up: the server may have
+      // stopped importing those, or the account may have been removed.)
       return api('/api/auth/signup', { name: input.name, email: input.email, phone: input.phone,
         password: input.password, remember: remember }).then(function (res) {
-        if (res.httpStatus === 200 && res.token) return signedIn(res, remember);
+        if (res.httpStatus === 200 && res.token) { dropLegacy(email); return signedIn(res, remember); }
         return serverError(res, 'The account couldn’t be created. Please try again.');
       });
     },
@@ -320,6 +320,11 @@
           return api('/api/auth/migrate', { account: account, password: password, remember: !!remember }).then(function (m) {
             if (m.httpStatus === 200 && m.token) { dropLegacy(e); return signedIn(m, !!remember); }
             if (m.httpStatus === 409) dropLegacy(e);
+            if (m.code === 'import-disabled') {
+              // the server no longer takes old browser accounts: these records are dead weight
+              var data = readCache(); data.legacy = []; writeCache(data);
+              return fail('form', res.error || generic.error);
+            }
             return serverError(m, generic.error);
           });
         });
