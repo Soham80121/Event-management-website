@@ -116,54 +116,7 @@
         <section class="panel dash-section" id="create" aria-labelledby="formTitle">
           <h2 class="heading-3" id="formTitle" data-form-title>Create a new event</h2>
           <p class="field__hint">New and edited events stay private until an admin approves them.</p>
-          <form class="panel-form event-form" id="eventForm" novalidate>
-            <p class="form-alert" id="formAlert" role="alert" data-form-alert hidden></p>
-            <div class="field">
-              <label class="field__label" for="evTitle">Event title</label>
-              <input class="field__input" id="evTitle" name="title" type="text" maxlength="80" required>
-            </div>
-            <div class="event-form__grid">
-              <div class="field">
-                <label class="field__label" for="evCategory">Category</label>
-                <select class="field__input" id="evCategory" name="category" required><option value="">Choose…</option></select>
-              </div>
-            <div class="field">
-              <label class="field__label" for="evDate">Date</label>
-              <input class="field__input" id="evDate" name="date" type="date" required>
-            </div>
-            <div class="field">
-              <label class="field__label" for="evTime">Start time</label>
-              <input class="field__input" id="evTime" name="time" type="time" required>
-            </div>
-            <div class="field">
-              <label class="field__label" for="evPrice">Price in USD (0 = free)</label>
-              <input class="field__input" id="evPrice" name="price" type="number" min="0" max="10000" step="1" inputmode="numeric">
-            </div>
-            </div>
-            <div class="event-form__grid event-form__grid--2">
-            <div class="field">
-              <label class="field__label" for="evVenue">Venue</label>
-              <input class="field__input" id="evVenue" name="venue" type="text" maxlength="60" required>
-            </div>
-            <div class="field">
-              <label class="field__label" for="evCity">City</label>
-              <input class="field__input" id="evCity" name="city" type="text" autocomplete="address-level2" maxlength="60" required>
-            </div>
-            </div>
-            <div class="field">
-              <label class="field__label" for="evDescription">Description</label>
-              <textarea class="field__input field__input--area" id="evDescription" name="description" rows="3" maxlength="400" required></textarea>
-            </div>
-            <fieldset class="cover-field">
-              <legend class="field__label">Cover image</legend>
-              <div class="cover-gallery" id="coverGallery" data-cover-gallery></div>
-              <p class="field__error" id="coverError" data-cover-error hidden></p>
-            </fieldset>
-            <div class="cluster">
-              <button class="btn btn--md" type="submit" id="formSubmit" data-submit><span>Submit for approval</span></button>
-              <button class="btn-ghost" type="button" id="formCancel" data-cancel hidden>Cancel editing</button>
-            </div>
-          </form>
+          <form id="eventForm"><!-- fields: js/event-form.js render() --></form>
         </section>
       </div>
     </div>

@@ -1,14 +1,18 @@
 /* =========================================================================
-   ADMIN DASHBOARD — admin.html, the central management interface.
+   ADMIN PANEL — admin.html, the central administrative interface, reached
+   from the "Admin Panel" item in the navbar. It is separate from the Admin's
+   account page (profile.html), which is where admins create events.
 
-   A. Overview       live counts from the real data + the two review queues
-   B. Host apps      all applications, filter by status, review, approve/reject
-   C. Events         every event (built-in + host + admin-created), filter by
-                     status, review, approve/reject, publish/unpublish, cancel,
-                     remove, edit, and create directly (shared js/event-form.js)
-   D. Users          all accounts, details, host role, suspend; the initial
-                     Admin account is protected
-   E. Registrations  every booking, filter by event and status, QR check-in
+   A. Overview         live counts from the real data + the two review queues
+   B. Host apps        all applications, filter by status, review, approve/reject
+   C. Event approvals  submitted events with submission + host details,
+                       approve / reject
+   D. All events       every event (built-in + host + admin-created), filter by
+                       status, review, edit (shared js/event-form.js),
+                       publish/unpublish, cancel, remove
+   E. Users            all accounts, details, host role, suspend; the initial
+                       Admin account is protected
+   F. Registrations    every booking, filter by event and status, QR check-in
 
    Shown only when the dev server confirms the admin session (js/auth.js).
    Every action re-checks the role, but it is still browser code: a
@@ -20,7 +24,7 @@
   var auth, hosting, cat, F, store;
   var formApi = null;
   var appFilter = 'pending', eventFilter = 'all';
-  var TABS = ['overview', 'apps', 'events', 'users', 'regs'];
+  var TABS = ['overview', 'apps', 'approvals', 'events', 'users', 'regs'];
 
   function $(id) { return document.getElementById(id); }
   function el(tag, cls, text) {
@@ -92,7 +96,7 @@
       ['Total users', users.length, 'users', null],
       ['Total events', events.length, 'events', 'all'],
       ['Pending host applications', pendingApps.length, 'apps', 'pending'],
-      ['Pending event approvals', pendingEvents.length, 'events', 'pending'],
+      ['Pending event approvals', pendingEvents.length, 'approvals', null],
       ['Published events', events.filter(function (e) { return e.status === 'approved'; }).length, 'events', 'approved'],
       ['Total registrations', regs.length, 'regs', null]
     ];
@@ -229,7 +233,7 @@
   function renderEvents() {
     var rows = hosting.admin.allEvents();
     var count = function (s) { return rows.filter(function (r) { return s === 'all' || r.status === s; }).length; };
-    document.querySelector('[data-count="events"]').textContent = count('pending');
+    document.querySelector('[data-count="events"]').textContent = count('all');
     filterChips('eventFilters', EVENT_FILTERS.map(function (f) { return [f[0], f[1], count(f[0])]; }), eventFilter,
       function (v) { eventFilter = v; renderEvents(); });
     var shown = rows.filter(function (r) { return eventFilter === 'all' || r.status === eventFilter; })
@@ -261,6 +265,61 @@
       eventActions(row).forEach(function (b) { act.appendChild(b); });
       tr.appendChild(act);
       tbody.appendChild(tr);
+    });
+  }
+
+  /* ----- Event approvals: submitted events with submission + host details ----- */
+  function renderApprovals() {
+    var rows = hosting.admin.allEvents().filter(function (r) { return r.status === 'pending'; })
+      .sort(function (a, b) { return a.submittedAt < b.submittedAt ? -1 : 1; });
+    document.querySelector('[data-count="approvals"]').textContent = rows.length;
+    var list = $('approvalsList');
+    list.textContent = '';
+    if (!rows.length) {
+      list.appendChild(el('li', 'dash-empty dash-empty--small', 'No events are waiting for approval.'));
+      return;
+    }
+    rows.forEach(function (row) {
+      var e = row.event, host = row.hostId ? auth.userById(row.hostId) : null;
+      var li = el('li', 'app-card approval-card');
+      var fig = el('figure', 'approval-card__poster');
+      var img = new Image(); img.alt = e.image.alt; img.loading = 'lazy'; img.src = cat.imageUrl(e, 200, 300);
+      fig.appendChild(img);
+      li.appendChild(fig);
+      var body = el('div', 'approval-card__body');
+      var head = el('div', 'app-card__head');
+      var t = el('div');
+      t.appendChild(el('p', 'cell-strong', e.title));
+      t.appendChild(el('p', 'cell-sub', e.category + ' · ' + eventDay(e) + ' · ' + e.venue.name + ', ' + e.venue.city));
+      head.appendChild(t);
+      head.appendChild(eventChip(row.status));
+      body.appendChild(head);
+      body.appendChild(el('p', 'app-card__label', 'Submission'));
+      body.appendChild(facts([
+        ['Submitted', day(row.submittedAt)], ['Source', sourceLabel(row)], ['Price', e.price ? '$' + e.price.amount : 'Free'], ['Event ID', row.id]
+      ]));
+      body.appendChild(el('p', 'app-card__label', 'Host'));
+      body.appendChild(facts(host ? [
+        ['Name', host.name], ['Email', host.email], ['Role', auth.ROLE_LABELS[host.role]], ['Member since', day(host.createdAt)]
+      ] : [['Host', row.hostName]]));
+      body.appendChild(el('p', 'app-card__label', 'Description'));
+      body.appendChild(el('p', 'app-card__text', e.description));
+      var note = noteField(body, 'Note to the host (optional)');
+      var actions = el('div', 'cluster');
+      var ok = button('', 'btn btn--md', function () {
+        done(hosting.admin.setEventStatus(row.id, 'approved', note.value), '“' + e.title + '” is approved and now published.');
+      });
+      ok.appendChild(el('span', '', 'Approve'));
+      actions.appendChild(ok);
+      if (row.source !== 'catalogue') {
+        actions.appendChild(armed('Reject', 'Confirm reject', 'btn-ghost btn-danger', function () {
+          done(hosting.admin.setEventStatus(row.id, 'rejected', note.value), '“' + e.title + '” was rejected.');
+        }));
+      }
+      actions.appendChild(button('Edit details', 'btn-ghost', function () { openForm(row); }));
+      body.appendChild(actions);
+      li.appendChild(body);
+      list.appendChild(li);
     });
   }
 
@@ -319,40 +378,31 @@
     body.appendChild(actions);
   }
 
-  /* ----- create / edit: shared form component ----- */
+  /* ----- edit: shared form component (creating events happens on the account page) ----- */
   function openForm(row) {
-    var sec = $('create');
+    var sec = $('editEvent');
     sec.hidden = false;
     select('events');
-    $('aePublishRow').hidden = !!row;                   // publish choice only when creating
-    if (row) formApi.edit(row.event);
-    else {
-      formApi.cancel();
-      sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      $('aeTitle').focus({ preventScroll: true });
-    }
+    formApi.edit(row.event);
   }
 
   function bindForm() {
-    var form = $('adEventForm');
+    var form = Eventora.eventForm.render($('adEventForm'), { prefix: 'ae', create: 'Save changes', close: true });
     formApi = Eventora.eventForm.create(form, {
       titleEl: $('adFormTitle'),
-      labels: { create: 'Create event', edit: 'Save changes', createTitle: 'Create an event', editTitle: 'Edit “{title}”' },
+      labels: { create: 'Save changes', edit: 'Save changes', createTitle: 'Edit event', editTitle: 'Edit “{title}”' },
       submit: function (v, editingId) {
-        return editingId ? hosting.admin.updateEvent(editingId, v) : hosting.admin.createEvent(v, form.elements.publish.checked);
+        if (!editingId) return { ok: false, error: 'Choose an event to edit from the list (create events from your account page).' };
+        return hosting.admin.updateEvent(editingId, v);
       },
-      saved: function (res, wasEditing) {
-        var e = res.event;
-        F.alert($('adAlert'), 'success', wasEditing ? '“' + e.title + '” was updated.'
-          : '“' + e.title + '” was created' + (e.status === 'approved' ? ' and published.' : ' as Pending.'));
-        $('create').hidden = true;
-        $('aePublishRow').hidden = false;
+      saved: function (res) {
+        F.alert($('adAlert'), 'success', '“' + res.event.title + '” was updated.');
+        $('editEvent').hidden = true;
         renderAll();
         $('adAlert').scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     });
-    $('aeClose').addEventListener('click', function () { formApi.cancel(); $('create').hidden = true; });
-    $('adCreate').addEventListener('click', function () { openForm(null); });
+    form.querySelector('[data-close-form]').addEventListener('click', function () { formApi.cancel(); $('editEvent').hidden = true; });
   }
 
   /* =========================================================================
@@ -521,7 +571,7 @@
     return t;
   }
 
-  function renderAll() { renderOverview(); renderApps(); renderEvents(); renderUsers(); renderRegs(); }
+  function renderAll() { renderOverview(); renderApps(); renderApprovals(); renderEvents(); renderUsers(); renderRegs(); }
 
   /* ---------- tabs ---------- */
   function select(name, focus) {
@@ -559,7 +609,6 @@
     if (!u) { location.replace('login.html?next=admin.html'); return; }
     $('dashDenied').hidden = false;
     $('dashBody').hidden = true;
-    $('adCreate').hidden = true;
     var why = {
       'not-configured': 'No admin sign-in is configured on the server (python tools/init_admin.py), so no account is an Admin yet.',
       'admin-relogin': 'Your admin session has ended. Sign out and sign in again with the admin email and password.',
@@ -572,19 +621,18 @@
     init: function () {
       if (!$('usersBody') || !Eventora.auth || !Eventora.hosting) return;
       auth = Eventora.auth; hosting = Eventora.hosting; cat = Eventora.events; F = Eventora.forms; store = Eventora.registrations;
-      $('adCreate').hidden = true;
+      // old links: the create form now lives on the admin's account page
+      if (location.hash === '#create') { location.replace('profile.html#create-event'); return; }
       if (!auth.current()) { deny(null); return; }
       auth.ready().then(function (u) {
         if (!u || !auth.can('manageUsers')) { deny(u); return; }
         $('dashBody').hidden = false;
-        $('adCreate').hidden = false;
         $('adWho').textContent = u.email;
         bindTabs();
         bindForm();
         renderAll();
         var h = location.hash.replace('#', '');
-        if (h === 'create') { openForm(null); }
-        else select(TABS.indexOf(h) !== -1 ? h : 'overview');
+        select(TABS.indexOf(h) !== -1 ? h : 'overview');
         window.addEventListener('storage', function () { if (auth.can('manageUsers')) renderAll(); });
       });
     }

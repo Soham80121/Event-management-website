@@ -143,5 +143,50 @@
     return { edit: edit, cancel: cancel, editing: function () { return editingId; } };
   }
 
-  Eventora.eventForm = { create: create };
+  /**
+   * Fill an empty <form> with the standard event fields, so every page that
+   * creates or edits events uses the same markup as well as the same logic.
+   * opts: { prefix: id prefix, publish: show the "Publish immediately"
+   *         checkbox (admins), create: submit label, close: show a Close button }
+   */
+  function render(form, opts) {
+    opts = opts || {};
+    var p = opts.prefix || 'ev';
+    var field = function (name, label, control) {
+      return '<div class="field"><label class="field__label" for="' + p + name + '">' + label + '</label>' + control + '</div>';
+    };
+    var input = function (name, type, extra) {
+      return '<input class="field__input" id="' + p + name + '" name="' + name.toLowerCase() + '" type="' + type + '"' + (extra || '') + '>';
+    };
+    form.classList.add('panel-form', 'event-form');
+    form.setAttribute('novalidate', '');
+    form.innerHTML =
+      '<p class="form-alert" role="alert" data-form-alert hidden></p>' +
+      field('Title', 'Event title', input('Title', 'text', ' maxlength="80" required')) +
+      '<div class="event-form__grid">' +
+        field('Category', 'Category', '<select class="field__input" id="' + p + 'Category" name="category" required><option value="">Choose…</option></select>') +
+        field('Date', 'Date', input('Date', 'date', ' required')) +
+        field('Time', 'Start time', input('Time', 'time', ' required')) +
+        field('Price', 'Price in USD (0 = free)', input('Price', 'number', ' min="0" max="10000" step="1" inputmode="numeric"')) +
+      '</div>' +
+      '<div class="event-form__grid event-form__grid--2">' +
+        field('Venue', 'Venue', input('Venue', 'text', ' maxlength="60" required')) +
+        field('City', 'City', input('City', 'text', ' autocomplete="address-level2" maxlength="60" required')) +
+      '</div>' +
+      field('Description', 'Description', '<textarea class="field__input field__input--area" id="' + p +
+        'Description" name="description" rows="3" maxlength="400" required></textarea>') +
+      '<fieldset class="cover-field"><legend class="field__label">Cover image</legend>' +
+        '<div class="cover-gallery" data-cover-gallery></div>' +
+        '<p class="field__error" id="' + p + 'CoverError" data-cover-error hidden></p></fieldset>' +
+      (opts.publish ? '<label class="check" data-publish-row><input type="checkbox" name="publish" checked>' +
+        '<span>Publish immediately (otherwise it waits as Pending)</span></label>' : '') +
+      '<div class="cluster">' +
+        '<button class="btn btn--md" type="submit" data-submit><span>' + (opts.create || 'Create event') + '</span></button>' +
+        '<button class="btn-ghost" type="button" data-cancel hidden>Cancel editing</button>' +
+        (opts.close ? '<button class="btn-ghost" type="button" data-close-form>Close form</button>' : '') +
+      '</div>';
+    return form;
+  }
+
+  Eventora.eventForm = { create: create, render: render };
 })(window.Eventora);

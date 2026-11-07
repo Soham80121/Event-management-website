@@ -179,6 +179,21 @@
   }
 
   /** Runs the type fitter for the current mode. */
+  var CTA_REFERENCE = 'Host an Event';
+  /** Target width for a non-reference nav label: same type size, natural width. */
+  function ctaWidth(node, cfg, k) {
+    var F = Eventora.fitter;
+    var text = node.textContent;
+    node.style.transform = 'none';
+    node.style.fontSize = (cfg.tc / F.capRatio(node)) + 'px';
+    var w = F.inkWidth(node, k);
+    node.textContent = CTA_REFERENCE;
+    var ref = F.inkWidth(node, k);
+    node.textContent = text;
+    // longer labels may use a little of the button's side padding (up to +10%)
+    return ref > 0 && w > 0 ? Math.min(cfg.tw * 1.1, cfg.tw * w / ref) : cfg.tw;
+  }
+
   function layout() {
     var F = Eventora.fitter;
     var k = state.k;
@@ -200,7 +215,12 @@
       var cfg = TYPE[id];
       var node = $(id);
       if (!node) return;
-      F.fitBox(node, cfg.tw * T, cfg.tc * T, cfg.pre, k);
+      var tw = cfg.tw;
+      // The nav button's label depends on the role ("Host an Event", "Host
+      // Dashboard", "Admin Panel"). The 86px target is the reference label's
+      // width; other labels keep their natural proportion, at most 10% wider.
+      if (id === 'ctaLabel' && node.textContent !== CTA_REFERENCE) tw = ctaWidth(node, cfg, k);
+      F.fitBox(node, tw * T, cfg.tc * T, cfg.pre, k);
       if (cfg.y !== undefined) F.baseline(node, cfg.y);
     });
     if (els.navBtn) F.centreLabel(els.navBtn, $('ctaLabel'), TYPE.ctaLabel.tc * T, k);
@@ -249,6 +269,7 @@
       if (document.fonts && document.fonts.ready) document.fonts.ready.then(layout);
       setTimeout(layout, 400);
       setTimeout(layout, 1400);
+      state.ready = true;
     },
     resize: resize,
     layout: layout

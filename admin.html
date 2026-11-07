@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Admin dashboard — EVENTORA</title>
+  <title>Admin panel — EVENTORA</title>
   <meta name="description" content="EVENTORA administration.">
   <meta name="theme-color" content="#020204">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='12' fill='%23020204'/%3E%3Cellipse cx='24' cy='24' rx='17' ry='8.5' fill='none' stroke='%2335d8ff' stroke-width='3' transform='rotate(-32 24 24)'/%3E%3Ccircle cx='24' cy='24' r='6.5' fill='%2335d8ff'/%3E%3Ccircle cx='24' cy='24' r='2.6' fill='%23fff'/%3E%3C/svg%3E">
@@ -87,16 +87,10 @@
   <div class="page-shell">
   <main id="main" tabindex="-1" class="acct-wrap">
     <div class="container">
-      <header class="dash-head dash-head--admin">
-        <div>
-          <p class="eyebrow">Admin</p>
-          <h1 class="heading-1">Admin dashboard</h1>
-          <p class="lead">Signed in as <span id="adWho">admin</span>. Everything on EVENTORA is managed from here.</p>
-        </div>
-        <div class="dash-head__actions">
-          <a class="btn-ghost" href="profile.html">Your account</a>
-          <button class="btn btn--md" type="button" id="adCreate"><span>Create event</span></button>
-        </div>
+      <header class="dash-head">
+        <p class="eyebrow">Admin</p>
+        <h1 class="heading-1">Admin panel</h1>
+        <p class="lead">Signed in as <span id="adWho">admin</span>. Review applications and events, and manage users, events and registrations.</p>
       </header>
 
       <section class="panel dash-denied" id="dashDenied" hidden>
@@ -112,7 +106,8 @@
         <div class="dash-tabs" role="tablist" aria-label="Admin sections">
           <button class="dash-tab" type="button" role="tab" id="tab-overview" aria-controls="panel-overview" aria-selected="true">Overview</button>
           <button class="dash-tab" type="button" role="tab" id="tab-apps" aria-controls="panel-apps" aria-selected="false" tabindex="-1">Host applications <span class="dash-tab__count" data-count="apps">0</span></button>
-          <button class="dash-tab" type="button" role="tab" id="tab-events" aria-controls="panel-events" aria-selected="false" tabindex="-1">Events <span class="dash-tab__count" data-count="events">0</span></button>
+          <button class="dash-tab" type="button" role="tab" id="tab-approvals" aria-controls="panel-approvals" aria-selected="false" tabindex="-1">Event approvals <span class="dash-tab__count" data-count="approvals">0</span></button>
+          <button class="dash-tab" type="button" role="tab" id="tab-events" aria-controls="panel-events" aria-selected="false" tabindex="-1">All events <span class="dash-tab__count" data-count="events">0</span></button>
           <button class="dash-tab" type="button" role="tab" id="tab-users" aria-controls="panel-users" aria-selected="false" tabindex="-1">Users <span class="dash-tab__count" data-count="users">0</span></button>
           <button class="dash-tab" type="button" role="tab" id="tab-regs" aria-controls="panel-regs" aria-selected="false" tabindex="-1">Registrations <span class="dash-tab__count" data-count="regs">0</span></button>
         </div>
@@ -144,7 +139,12 @@
           <p class="dash-empty__text dash-empty--small" id="appsEmpty" hidden>No applications match this filter.</p>
         </section>
 
-        <!-- C. Event management -->
+        <!-- C. Event approvals: submitted events waiting for review -->
+        <section class="dash-panel" role="tabpanel" id="panel-approvals" aria-labelledby="tab-approvals" tabindex="0" hidden>
+          <ul class="app-list" id="approvalsList" role="list"></ul>
+        </section>
+
+        <!-- D. All events -->
         <section class="dash-panel" role="tabpanel" id="panel-events" aria-labelledby="tab-events" tabindex="0" hidden>
           <div class="dash-toolbar">
             <div class="chip-row dash-filters" role="group" aria-label="Filter events" id="eventFilters"></div>
@@ -157,66 +157,14 @@
           </div>
           <p class="dash-empty__text dash-empty--small" id="eventsEmpty" hidden>No events match this filter.</p>
 
-          <section class="panel dash-section" id="create" aria-labelledby="adFormTitle" hidden>
-            <h2 class="heading-3" id="adFormTitle" data-form-title>Create an event</h2>
-            <p class="field__hint">Admins create events directly, with no host application. Event fields are checked the same way as for hosts.</p>
-            <form class="panel-form event-form" id="adEventForm" novalidate>
-              <p class="form-alert" role="alert" data-form-alert hidden></p>
-              <div class="field">
-                <label class="field__label" for="aeTitle">Event title</label>
-                <input class="field__input" id="aeTitle" name="title" type="text" maxlength="80" required>
-              </div>
-              <div class="event-form__grid">
-                <div class="field">
-                  <label class="field__label" for="aeCategory">Category</label>
-                  <select class="field__input" id="aeCategory" name="category" required><option value="">Choose…</option></select>
-                </div>
-                <div class="field">
-                  <label class="field__label" for="aeDate">Date</label>
-                  <input class="field__input" id="aeDate" name="date" type="date" required>
-                </div>
-                <div class="field">
-                  <label class="field__label" for="aeTime">Start time</label>
-                  <input class="field__input" id="aeTime" name="time" type="time" required>
-                </div>
-                <div class="field">
-                  <label class="field__label" for="aePrice">Price in USD (0 = free)</label>
-                  <input class="field__input" id="aePrice" name="price" type="number" min="0" max="10000" step="1" inputmode="numeric">
-                </div>
-              </div>
-              <div class="event-form__grid event-form__grid--2">
-                <div class="field">
-                  <label class="field__label" for="aeVenue">Venue</label>
-                  <input class="field__input" id="aeVenue" name="venue" type="text" maxlength="60" required>
-                </div>
-                <div class="field">
-                  <label class="field__label" for="aeCity">City</label>
-                  <input class="field__input" id="aeCity" name="city" type="text" autocomplete="address-level2" maxlength="60" required>
-                </div>
-              </div>
-              <div class="field">
-                <label class="field__label" for="aeDescription">Description</label>
-                <textarea class="field__input field__input--area" id="aeDescription" name="description" rows="3" maxlength="400" required></textarea>
-              </div>
-              <fieldset class="cover-field">
-                <legend class="field__label">Cover image</legend>
-                <div class="cover-gallery" data-cover-gallery></div>
-                <p class="field__error" id="aeCoverError" data-cover-error hidden></p>
-              </fieldset>
-              <label class="check" id="aePublishRow">
-                <input type="checkbox" name="publish" checked>
-                <span>Publish immediately (otherwise it waits as Pending)</span>
-              </label>
-              <div class="cluster">
-                <button class="btn btn--md" type="submit" data-submit><span>Create event</span></button>
-                <button class="btn-ghost" type="button" data-cancel hidden>Cancel editing</button>
-                <button class="btn-ghost" type="button" id="aeClose">Close form</button>
-              </div>
-            </form>
+          <section class="panel dash-section" id="editEvent" aria-labelledby="adFormTitle" hidden>
+            <h2 class="heading-3" id="adFormTitle" data-form-title>Edit event</h2>
+            <p class="field__hint">Admins can edit any event. Changes apply straight away; the status doesn’t change.</p>
+            <form id="adEventForm"><!-- fields: js/event-form.js render() --></form>
           </section>
         </section>
 
-        <!-- D. User management -->
+        <!-- E. User management -->
         <section class="dash-panel" role="tabpanel" id="panel-users" aria-labelledby="tab-users" tabindex="0" hidden>
           <div class="table-wrap">
             <table class="data-table">
@@ -227,7 +175,7 @@
           <p class="field__hint admin-perm-note">The initial Admin account is <strong>protected</strong>: it can’t be suspended or demoted here. Admin access comes only from the server’s admin sign-in (see README → “Admin setup”).</p>
         </section>
 
-        <!-- E. Registration management -->
+        <!-- F. Registration management -->
         <section class="dash-panel" role="tabpanel" id="panel-regs" aria-labelledby="tab-regs" tabindex="0" hidden>
           <div class="dash-toolbar">
             <div class="field dash-select">

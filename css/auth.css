@@ -471,3 +471,17 @@ td.cell-actions > * { margin: 2px 4px 2px 0; }
   .dash-tabs::-webkit-scrollbar { display: none; }
   .dash-tab { flex: 0 0 auto; }
 }
+
+/* Admin panel: event approvals (poster + submission + host details) */
+.approval-card { grid-template-columns: 120px minmax(0, 1fr); align-items: start; gap: var(--space-5); }
+.approval-card__poster { margin: 0; aspect-ratio: 2 / 3; overflow: hidden; border-radius: var(--radius-md); border: var(--border-hairline); background: #0f1622; }
+.approval-card__poster img { width: 100%; height: 100%; object-fit: cover; }
+.approval-card__body { display: grid; gap: var(--space-2); min-width: 0; }
+@media (max-width: 700px) {
+  .approval-card { grid-template-columns: 1fr; }
+  .approval-card__poster { width: 110px; }
+}
+
+/* a hint paragraph directly above a rendered form (admin edit form, account create form) */
+.field__hint + .panel-form,
+.field__hint + .form-alert[hidden] + .panel-form { margin-top: var(--space-4); }

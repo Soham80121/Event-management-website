@@ -1,16 +1,18 @@
 /* =========================================================================
    ACCOUNT NAV — role-based navigation in the nav pill (every page).
 
-   | Role       | "Host an Event" goes to         | Account entry goes to |
-   |------------|---------------------------------|-----------------------|
-   | Visitor    | Sign in (then back to host.html)| Sign in               |
-   | User       | Apply to become a Host          | My Profile            |
-   | Event Host | Host Dashboard → Create Event   | My Profile            |
-   | Admin      | Admin Dashboard → Create Event  | Admin Dashboard       |
+   | Role       | Nav button                       | Account icon        |
+   |------------|----------------------------------|---------------------|
+   | Visitor    | "Host an Event" → Sign in        | Sign in             |
+   | User       | "Host an Event" → apply to host  | My Profile          |
+   | Event Host | "Host Dashboard" → own events    | My Profile          |
+   | Admin      | "Admin Panel" → admin.html       | Admin account page  |
 
-   The visible label stays "Host an Event" (the hero nav is a fitted, pixel-
-   laid-out design); only the destination changes. host.html routes signed-in
-   people the same way, so the sign-in round trip lands in the right place.
+   The Admin Panel (admin.html) and the account page (profile.html, where
+   admins also create events) are separate destinations. The button sits in
+   the hero's fitted nav; when its label changes, js/layout.js re-fits it.
+   host.html routes signed-in people: users to the host application, hosts
+   to their dashboard, admins to "Create event" on their account page.
    Admins are recognised from the account the server-verified admin sign-in
    created, so the right destination is set before the server re-confirms
    the admin session (the Admin Dashboard itself still waits for it).
@@ -33,19 +35,26 @@
   }
 
   var DEST = {
-    visitor: { host: 'login.html?next=host.html', account: null },
-    user: { host: 'profile.html#host-application', account: 'profile.html' },
-    host: { host: 'host-dashboard.html#create', account: 'profile.html' },
-    admin: { host: 'admin.html#create', account: 'admin.html' }
+    visitor: { cta: 'login.html?next=host.html', label: 'Host an Event', host: 'login.html?next=host.html', account: null },
+    user: { cta: 'profile.html#host-application', label: 'Host an Event', host: 'profile.html#host-application', account: 'profile.html' },
+    host: { cta: 'host-dashboard.html', label: 'Host Dashboard', host: 'host-dashboard.html#create', account: 'profile.html' },
+    admin: { cta: 'admin.html', label: 'Admin Panel', host: 'profile.html#create-event', account: 'profile.html' }
   };
 
   function renderCta(role) {
     var cta = document.querySelector('.nav .btn');
-    if (!cta) return;
-    cta.href = DEST[role].host;
-    var label = { visitor: 'Host an Event: sign in to get started', user: 'Host an Event: apply to become a host',
-      host: 'Host an Event: create an event', admin: 'Host an Event: create an event' }[role];
-    cta.setAttribute('aria-label', label);
+    var label = document.getElementById('ctaLabel');
+    if (!cta || !label) return;
+    var d = DEST[role];
+    cta.href = d.cta;
+    cta.setAttribute('aria-label', { visitor: 'Host an Event: sign in to get started', user: 'Host an Event: apply to become a host',
+      host: 'Host Dashboard: manage your events', admin: 'Admin Panel' }[role]);
+    if (page() === d.cta.split('#')[0]) cta.setAttribute('aria-current', 'page'); else cta.removeAttribute('aria-current');
+    if (label.textContent !== d.label) {
+      label.textContent = d.label;
+      // the hero nav is a fitted design: re-fit the new label (no-op before layout starts)
+      if (Eventora.layout && Eventora.layout.state && Eventora.layout.state.ready) Eventora.layout.layout();
+    }
   }
 
   function renderAccount(u, role) {
@@ -67,7 +76,7 @@
     }
     link.href = DEST[role].account;
     var isAdmin = role === 'admin';
-    link.setAttribute('aria-label', (isAdmin ? 'Admin dashboard: ' : 'My profile: ') + u.name);
+    link.setAttribute('aria-label', (isAdmin ? 'Admin account: ' : 'My profile: ') + u.name);
     if (u.avatar) {
       var img = new Image();
       img.alt = '';
@@ -76,7 +85,7 @@
     } else {
       badge.textContent = u.name.trim().charAt(0).toUpperCase();
     }
-    labelEl.textContent = (isAdmin ? 'Admin dashboard · ' : 'My profile · ') + u.name.split(' ')[0];
+    labelEl.textContent = (isAdmin ? 'Admin account · ' : 'My profile · ') + u.name.split(' ')[0];
     if (page() === link.getAttribute('href')) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
   }
 

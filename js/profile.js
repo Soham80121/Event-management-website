@@ -34,19 +34,23 @@
     $('pfName').textContent = u.name;
     $('pfEmail').textContent = u.email;
     var role = $('pfRole');
-    role.className = 'role-badge role-badge--' + u.role;
-    role.textContent = auth.ROLE_LABELS[u.role];
+    // the admin account shows "Admin" from the start (the server re-confirms it a moment later)
+    var shown = isAdmin(u) ? 'admin' : u.role;
+    role.className = 'role-badge role-badge--' + shown;
+    role.textContent = auth.ROLE_LABELS[shown];
     $('pfSince').textContent = day(u.createdAt);
     $('pfId').textContent = u.id;
 
     var regs = Eventora.registrations ? Eventora.registrations.forUser(u.id).filter(function (r) { return r.status !== 'cancelled'; }).length : 0;
     $('pfRegCount').textContent = regs === 1 ? '1 active booking' : regs + ' active bookings';
-    // Admins manage everything from the Admin Dashboard: no Host Dashboard card,
-    // no host application. Hosts keep their Host Dashboard card.
+    // Admin account page: no Host Dashboard card, no host application and no
+    // Admin card (the Admin Panel is its own navbar destination). Admins create
+    // events here instead. Hosts keep their Host Dashboard card.
     var admin = isAdmin(u);
     $('pfHostLink').hidden = admin || u.role !== 'host';
-    $('pfAdminLink').hidden = !admin;
     $('host-application').hidden = admin;
+    $('create-event').hidden = !admin;
+    if (admin) bindCreateEvent();
 
     var check = auth.adminCheckStatus();
     $('pfAdminCheck').textContent = {
@@ -135,6 +139,44 @@
           F.alert(alertEl, 'success', 'Your profile is saved.');
         });
     });
+  }
+
+  /* ---------- Create event (admin accounts) — shared js/event-form.js ---------- */
+  var createApi = null;
+  function bindCreateEvent() {
+    if (createApi || !Eventora.eventForm) return;
+    var form = Eventora.eventForm.render($('pfEventForm'), { prefix: 'pe', publish: true, create: 'Create event' });
+    createApi = Eventora.eventForm.create(form, {
+      titleEl: $('pfEventTitle'),
+      labels: { create: 'Create event', edit: 'Create event', createTitle: 'Create an event', editTitle: 'Create an event' },
+      submit: function (v) {
+        try { return Eventora.hosting.admin.createEvent(v, form.elements.publish.checked); }
+        catch (err) { return { ok: false, error: 'Your admin session has ended. Sign out and sign in again to create events.' }; }
+      },
+      saved: function (res) {
+        var e = res.event, alertEl = $('pfEventAlert');
+        alertEl.className = 'form-alert form-alert--success';
+        alertEl.textContent = '';
+        alertEl.appendChild(document.createTextNode('“' + e.title + '” was created' +
+          (e.status === 'approved' ? ' and published. ' : ' as Pending. ')));
+        if (e.status === 'approved') {
+          var view = el('a', 'auth-link', 'View it');
+          view.href = Eventora.events.detailUrl(e);
+          alertEl.appendChild(view);
+          alertEl.appendChild(document.createTextNode(' · '));
+        }
+        var manage = el('a', 'auth-link', 'Manage it in the Admin panel');
+        manage.href = 'admin.html#events';
+        alertEl.appendChild(manage);
+        alertEl.hidden = false;
+        form.elements.publish.checked = true;
+        alertEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    });
+    if (location.hash === '#create-event') {
+      $('create-event').scrollIntoView({ block: 'start' });
+      form.elements.title.focus({ preventScroll: true });
+    }
   }
 
   /* ---------- Become an Event Host ---------- */

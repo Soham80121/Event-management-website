@@ -128,7 +128,8 @@
   /* ---------- create / edit (shared component: js/event-form.js) ---------- */
   var formApi = null;
   function bindForm() {
-    formApi = Eventora.eventForm.create($('eventForm'), {
+    var form = Eventora.eventForm.render($('eventForm'), { prefix: 'ev', create: 'Submit for approval' });
+    formApi = Eventora.eventForm.create(form, {
       labels: { create: 'Submit for approval', edit: 'Save and resubmit',
         createTitle: 'Create a new event', editTitle: 'Edit “{title}”' },
       submit: function (v, editingId) {
