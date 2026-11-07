@@ -83,7 +83,8 @@
 
     var chips = $('hdFilters');
     chips.textContent = '';
-    FILTERS.forEach(function (f) {
+    // admin events never wait for approval: no Pending / Rejected tabs
+    FILTERS.filter(function (f) { return !isAdmin || (f[0] !== 'pending' && f[0] !== 'rejected'); }).forEach(function (f) {
       var b = el('button', 'chip');
       b.type = 'button';
       b.setAttribute('aria-pressed', String(f[0] === filter));
@@ -101,7 +102,8 @@
       var empty = el('li', 'dash-empty');
       empty.appendChild(el('p', 'heading-3', events.length ? 'No events with this status' : 'No events yet'));
       empty.appendChild(el('p', 'dash-empty__text', events.length ? 'Choose another filter above.'
-        : 'Create your first event below or from Host an Event. An admin reviews it before it appears on EVENTORA.'));
+        : isAdmin ? 'Create your first event below. It appears on EVENTORA straight away.'
+          : 'Create your first event below or from Host an Event. An admin reviews it before it appears on EVENTORA.'));
       list.appendChild(empty);
       return;
     }
@@ -225,6 +227,9 @@
           $('hdEyebrow').textContent = 'Admin';
           $('hdLead').textContent = 'Create events, see them live straight away and see who registered.';
           $('hdFormHint').textContent = 'Your events are published on EVENTORA as soon as you create them.';
+          // no approval step for the admin: drop the "Pending approval" card
+          $('hdPending').parentNode.hidden = true;
+          $('hdPending').closest('.stats').classList.add('stats--three');
         }
         $('dashBody').hidden = false;
         $('hdWho').textContent = u.name;

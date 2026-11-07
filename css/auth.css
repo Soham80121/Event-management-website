@@ -533,3 +533,11 @@ td.cell-actions > * { margin: 2px 4px 2px 0; }
 /* Admin panel: the approval card opened from All Events gets a brief highlight */
 .approval-card { transition: box-shadow var(--dur-base), border-color var(--dur-base); }
 .approval-card.is-target { border-color: rgba(142, 244, 255, .6); box-shadow: 0 0 0 3px rgba(53, 216, 255, .18), 0 0 24px rgba(53, 216, 255, .2); }
+
+/* Host dashboard in admin mode: three stat cards (no "Pending approval") */
+.stats--three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.stats .stat[hidden] { display: none; }
+@media (max-width: 600px) {
+  .stats--three { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stats--three .stat:last-child { grid-column: 1 / -1; }
+}

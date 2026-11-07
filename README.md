@@ -293,6 +293,7 @@ Sign in at http://localhost:5500/login.html. The role badge reads **Admin**, the
 The admin's navbar link **Host an Event** opens `host-dashboard.html`, the same page Event Hosts use: stats, *My hosted events* with status filters, registrations per event, *View public page* and the create form. The differences:
 - **Published directly.** The server saves an event the admin creates as **Published** straight away (`createdBy: 'admin'`, host name EVENTORA, audit entry `event.published`). There's no approval or rejection, so admin events never appear in *Admin panel → Event approvals* or in its pending count.
 - **Actions.** *Edit* (any time; the status stays as it is) and *Remove* (registrations are kept). The button reads *Publish event*.
+- **No approval parts.** The *Pending approval* stat card and the *Pending* and *Rejected* filter tabs are hidden; the stats are *My events*, *Live* and *Registrations* (three across; on phones two, with *Registrations* full width).
 - An older admin event still saved as Pending shows *Publish* in *All events*.
 
 ### Host an Event (event submission)
