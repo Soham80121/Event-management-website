@@ -30,6 +30,31 @@
     return document.getElementById(href.slice(1));
   }
 
+  /* ---------- precise jumps ----------
+     A section's own top padding (and the centring of the short placeholder
+     sections) would leave its heading far below the fixed nav. So a jump
+     lines up what the visitor came for: a section's first content (its
+     heading block), or the target itself (the search bar), exactly
+     --nav-offset (nav bottom + 16px) from the top. Home goes to the very top. */
+  function navOffset() {
+    var v = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--nav-offset'));
+    return isNaN(v) ? 96 : v;
+  }
+  function anchorOf(target) {
+    if (!target.hasAttribute('data-nav-key')) return target;
+    var box = target.querySelector('.container') || target;
+    var kids = Array.prototype.filter.call(box.children, function (n) { return n.offsetHeight > 0; });
+    return kids[0] || target;
+  }
+  function jumpY(target) {
+    if (target.id === 'top' || target.classList.contains('stage')) return 0;
+    var y = anchorOf(target).getBoundingClientRect().top + window.pageYOffset - navOffset();
+    return Math.max(0, Math.round(y));
+  }
+  function isJumpTarget(target, link) {
+    return target.hasAttribute('data-nav-key') || !!(link && link.closest('#links'));
+  }
+
   function bindJumpLinks() {
     document.addEventListener('click', function (e) {
       if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
@@ -37,8 +62,14 @@
       if (!link) return;
       var target = targetFor(link);
       if (!target) return;
-      // Let the browser perform the scroll (and update the URL); only move
-      // focus, without a second scroll, so assistive tech lands on the section.
+      if (isJumpTarget(target, link)) {
+        // scroll to the exact spot ourselves (smooth unless reduced motion)
+        e.preventDefault();
+        if (location.hash !== link.getAttribute('href')) history.pushState(null, '', link.getAttribute('href'));
+        var reduced = Eventora.motion && Eventora.motion.reduced ? Eventora.motion.reduced() : false;
+        window.scrollTo({ top: jumpY(target), behavior: reduced ? 'auto' : 'smooth' });
+      }
+      // focus moves without a second scroll, so assistive tech lands on the section
       if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
       target.focus({ preventScroll: true });
       // a section marks itself; a jump target inside a section (the search
@@ -84,14 +115,40 @@
     if (!target || !(target.hasAttribute('data-nav-key') || navLink)) return;
     setCurrent(target.getAttribute('data-nav-key') || navLink.getAttribute('data-nav'));
     if (!target.hasAttribute('data-nav-key')) holdUntil = Date.now() + 1500;
+    var placed = null;
     requestAnimationFrame(function () {
-      target.scrollIntoView({ block: 'start', behavior: 'instant' });
+      placed = jumpY(target);
+      window.scrollTo({ top: placed, behavior: 'instant' });
       target.focus({ preventScroll: true });
+    });
+    // images above may change heights while loading: line up again once,
+    // unless the visitor has scrolled in the meantime
+    window.addEventListener('load', function () {
+      if (placed !== null && Math.abs(window.pageYOffset - placed) < 2) {
+        placed = jumpY(target);
+        window.scrollTo({ top: placed, behavior: 'instant' });
+      }
+    }, { once: true });
+  }
+
+  /* Same-page hash changes the click handler didn't make (Back / Forward, a
+     typed #hash, links elsewhere on the page): line the target up too. */
+  function watchHash() {
+    window.addEventListener('hashchange', function () {
+      var id = location.hash.slice(1);
+      var target = /^[A-Za-z][\w-]*$/.test(id) ? document.getElementById(id) : null;
+      var navLink = target ? dom.one('#links a[data-nav][href="#' + id + '"]') : null;
+      if (!target || !(target.hasAttribute('data-nav-key') || navLink)) return;
+      if (target.getAttribute('data-nav-key') || navLink) setCurrent(target.getAttribute('data-nav-key') || navLink.getAttribute('data-nav'));
+      if (!target.hasAttribute('data-nav-key')) holdUntil = Date.now() + 1500;
+      var reduced = Eventora.motion && Eventora.motion.reduced ? Eventora.motion.reduced() : false;
+      window.scrollTo({ top: jumpY(target), behavior: reduced ? 'auto' : 'smooth' });
     });
   }
 
   Eventora.sections = {
     init: function () {
+      watchHash();
       if (dom.one('[data-nav-key]')) setCurrent('home');
       bindJumpLinks();
       watchSections();

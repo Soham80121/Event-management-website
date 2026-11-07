@@ -93,3 +93,11 @@
 .page-hero .lead { margin-top: var(--space-5); max-width: 560px; }
 .page-hero .cluster { margin-top: var(--space-8); --cluster-gap: var(--space-4); }
 .page-hero .placeholder-note { margin-top: var(--space-8); }
+
+/* The last homepage section (Contact) is at least one screen tall below the
+   fixed nav, content at the top, so "Contact" in the navbar can line its
+   heading up under the nav like every other section (js/sections.js). */
+#contact.section--placeholder {
+  min-height: calc(100vh - var(--nav-offset, 96px));
+  align-items: flex-start;
+}
