@@ -186,7 +186,7 @@
             '<div class="fill" style="background:linear-gradient(180deg,rgba(10,42,74,.98),rgba(10,42,74,0) 40%)"></div></div>' +
           '<div class="cv" style="top:16px;font-size:4.4px;line-height:1.7;color:rgba(255,255,255,.82);width:78px">' +
             'Two days of keynotes, hands-on labs and conversations with the people shaping what comes next.</div>' +
-          '<div style="position:absolute;right:10px;top:16px;font-size:5.6px;font-weight:600;color:#fff;opacity:.92">✳ Eventora</div>';
+          '<div style="position:absolute;right:10px;top:16px;font-size:5.6px;font-weight:600;color:#fff;opacity:.92">✳ EvAtlas</div>';
 
       case 'fest':
         return '<div class="fill" style="background:linear-gradient(158deg,#4a0c80 0%,#7a16a6 40%,#a81fc6 66%,#5c0e90 100%)"></div>' +

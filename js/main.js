@@ -8,7 +8,7 @@
 
   function safely(name, fn) {
     try { fn(); }
-    catch (err) { console.warn('[Eventora] ' + name + ' failed to initialise:', err); }
+    catch (err) { console.warn('[EvAtlas] ' + name + ' failed to initialise:', err); }
   }
 
   function start(name, method) {

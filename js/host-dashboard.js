@@ -90,8 +90,8 @@
       var empty = el('li', 'dash-empty');
       empty.appendChild(el('p', 'heading-3', events.length ? 'No events with this status' : 'No events yet'));
       empty.appendChild(el('p', 'dash-empty__text', events.length ? 'Choose another filter above.'
-        : isAdmin ? 'Create your first event below. It appears on EVENTORA straight away.'
-          : 'Create your first event below or from Host an Event. An admin reviews it before it appears on EVENTORA.'));
+        : isAdmin ? 'Create your first event below. It appears on EvAtlas straight away.'
+          : 'Create your first event below or from Host an Event. An admin reviews it before it appears on EvAtlas.'));
       list.appendChild(empty);
       return;
     }
@@ -109,13 +109,13 @@
         ' · ' + (e.price ? '$' + e.price.amount : 'Free')));
       var help = isAdmin ? {
         pending: 'Not public yet. Publish it from Admin panel → All events.',
-        approved: 'Live on EVENTORA.',
+        approved: 'Live on EvAtlas.',
         rejected: 'Not public. Edit it, then publish it from Admin panel → All events.',
         unpublished: 'Unpublished. Not public; publish it again from Admin panel → All events.',
         cancelled: 'Cancelled. Not public; registrations are kept.'
       }[e.status] : {
         pending: 'Waiting for admin approval. Not public yet.',
-        approved: 'Live on EVENTORA. Approved events are locked; ask an admin for changes.',
+        approved: 'Live on EvAtlas. Approved events are locked; ask an admin for changes.',
         rejected: 'Not approved. Edit it to resubmit.',
         unpublished: 'Unpublished by an admin. Not public for now; it can be published again.',
         cancelled: 'Cancelled by an admin. Not public; registrations are kept.'
@@ -193,7 +193,7 @@
       saved: function (res, wasEditing) {
         var t = '“' + res.event.title + '”';
         F.alert($('hdAlert'), 'success', isAdmin
-          ? t + (wasEditing ? ' was updated.' : ' is published on EVENTORA.')
+          ? t + (wasEditing ? ' was updated.' : ' is published on EvAtlas.')
           : t + ' was ' + (wasEditing ? 'updated and resubmitted' : 'submitted') + '. It’s Pending until an admin approves it.');
         render();
         $('hdAlert').scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -218,7 +218,7 @@
         if (isAdmin) {
           $('hdEyebrow').textContent = 'Admin';
           $('hdLead').textContent = 'Create events, see them live straight away and see who registered.';
-          $('hdFormHint').textContent = 'Your events are published on EVENTORA as soon as you create them.';
+          $('hdFormHint').textContent = 'Your events are published on EvAtlas as soon as you create them.';
           // no approval step for the admin: drop the "Pending approval" card
           $('hdPending').parentNode.hidden = true;
           $('hdPending').closest('.stats').classList.add('stats--three');

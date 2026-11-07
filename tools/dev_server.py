@@ -1,4 +1,4 @@
-"""EVENTORA local dev server (Python standard library only).
+"""EvAtlas local dev server (Python standard library only).
 
 Same as `python -m http.server`, but:
 
@@ -55,8 +55,8 @@ Same as `python -m http.server`, but:
    Configuration (environment variables win over the git-ignored `.env`):
      ADMIN_EMAIL       the admin account's email (run tools/init_admin.py)
      RESEND_API_KEY    Resend API key for password-reset emails
-     EMAIL_FROM        sender, e.g. "EVENTORA <noreply@your-verified-domain.com>"
-                       (default "EVENTORA <onboarding@resend.dev>")
+     EMAIL_FROM        sender, e.g. "EvAtlas <noreply@your-verified-domain.com>"
+                       (default "EvAtlas <onboarding@resend.dev>")
      LEGACY_IMPORT     "off" to stop importing old browser-only accounts
    Secrets are never sent to the browser or logged.
 
@@ -234,7 +234,7 @@ def main() -> None:
             mail = "reset emails via Resend from %s" % service.mailer.sender
         else:
             mail = "reset emails NOT configured (no RESEND_API_KEY): Forgot password will say so"
-        print("EVENTORA dev server: http://localhost:%d/  (no-store caching; %s; %s)" % (port, admin, mail), flush=True)
+        print("EvAtlas dev server: http://localhost:%d/  (no-store caching; %s; %s)" % (port, admin, mail), flush=True)
         httpd.serve_forever()
 
 

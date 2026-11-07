@@ -99,7 +99,7 @@
       signIn.appendChild(el('span', '', kind === 'waitlist' ? 'Join the waitlist' : 'Register now'));
       cta.appendChild(signIn);
       var join = el('p', 'register-cta__mine');
-      join.appendChild(document.createTextNode('You’ll sign in first. New to EVENTORA? '));
+      join.appendChild(document.createTextNode('You’ll sign in first. New to EvAtlas? '));
       var a = el('a', 'register-cta__manage', 'Create an account');
       a.href = authLink('signup.html');
       join.appendChild(a);
@@ -258,7 +258,7 @@
     d('venue').textContent = event.venue.name + ', ' + event.venue.city;
     d('name').textContent = r.name;
     d('email').textContent = r.email;
-    d('note').textContent = 'Saved to your EVENTORA account, so it’s on every device you sign in on. Demo site: no email is sent.';
+    d('note').textContent = 'Saved to your EvAtlas account, so it’s on every device you sign in on. Demo site: no email is sent.';
     renderQr(d('qr'), r.id);
     d('mine').href = 'my-registrations.html#' + r.id;
 

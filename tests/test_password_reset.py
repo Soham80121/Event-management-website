@@ -56,7 +56,7 @@ class Env:
         self.clock = Clock()
         self.logs = []
         config = {
-            "admin_email": ADMIN_EMAIL, "resend_api_key": api_key, "email_from": "EVENTORA <test@example.test>",
+            "admin_email": ADMIN_EMAIL, "resend_api_key": api_key, "email_from": "EvAtlas <test@example.test>",
             "resend_api_url": "http://127.0.0.1:%d/emails" % self.mock.server_address[1],
             "legacy_import": True, "data_dir": self.dir / "data",
         }
@@ -142,7 +142,7 @@ class RecoveryTests(unittest.TestCase):
         self.assertEqual(mail["to"], [ADMIN_EMAIL])                    # OTP goes to the configured admin email
         self.assertIn("Password Reset Request", mail["html"])
         self.assertIn("5 minutes", mail["html"])
-        self.assertIn("EVENTORA", mail["html"])
+        self.assertIn("EvAtlas", mail["html"])
         self.assertNotIn(otp, json.dumps(forgot))                      # never in the API response
         status, ver = e.post("/api/auth/verify-otp", {"email": ADMIN_EMAIL, "otp": otp})
         self.assertEqual(status, 200)
@@ -349,12 +349,12 @@ class RecoveryTests(unittest.TestCase):
 
     def test_sender_placeholder_falls_back(self):
         self.assertEqual(accounts.check_sender("")[0], accounts.DEFAULT_SENDER)
-        sender, note = accounts.check_sender("EVENTORA <noreply@your-verified-domain.com>")
+        sender, note = accounts.check_sender("EvAtlas <noreply@your-verified-domain.com>")
         self.assertEqual(sender, accounts.DEFAULT_SENDER)
         self.assertIn("placeholder", note)
         self.assertEqual(accounts.check_sender("not an address")[0], accounts.DEFAULT_SENDER)
-        self.assertEqual(accounts.check_sender("EVENTORA <noreply@eventora.dev>"), ("EVENTORA <noreply@eventora.dev>", ""))
-        self.assertEqual(accounts.check_sender("noreply@eventora.dev"), ("noreply@eventora.dev", ""))
+        self.assertEqual(accounts.check_sender("EvAtlas <noreply@evatlas.dev>"), ("EvAtlas <noreply@evatlas.dev>", ""))
+        self.assertEqual(accounts.check_sender("noreply@evatlas.dev"), ("noreply@evatlas.dev", ""))
 
     # ---- roles and storage -------------------------------------------------------------
     def test_signup_never_creates_admin(self):

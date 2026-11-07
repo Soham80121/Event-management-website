@@ -116,7 +116,7 @@
      The code and the reset token are handled by the server (js/auth.js →
      recovery). The reset token lives only in this page's memory; nothing
      about the recovery is written to browser storage. */
-  var SERVER_DOWN = 'The EVENTORA server can’t be reached. Start the site with: python tools/dev_server.py';
+  var SERVER_DOWN = 'The EvAtlas server can’t be reached. Start the site with: python tools/dev_server.py';
   var NOT_CONFIGURED = 'Password-reset emails aren’t set up on this server yet, so no code can be sent. ' +
     'The site owner needs to add a Resend API key (RESEND_API_KEY) to the server’s .env file; see the README.';
 

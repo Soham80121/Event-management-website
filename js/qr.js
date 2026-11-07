@@ -1,7 +1,7 @@
 /* =========================================================================
    QR CODE — a small, dependency-free QR encoder (ISO/IEC 18004).
 
-   Scope (all EVENTORA needs, kept deliberately small):
+   Scope (all EvAtlas needs, kept deliberately small):
    - error correction level M (~15% damage tolerance)
    - versions 1–6 (21–41 modules): up to 106 bytes / 154 alphanumeric chars
    - alphanumeric mode when the text allows it (registration IDs such as

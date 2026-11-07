@@ -1,4 +1,4 @@
-# EVENTORA
+# EvAtlas
 
 A premium event discovery and event management website, built with plain HTML5, CSS3 and vanilla JavaScript. It has no frameworks, no build step and no package dependencies.
 
@@ -27,7 +27,7 @@ Use it for anything involving accounts. Opening `index.html` directly still work
 | `profile.html` | Account page. Users and hosts: details, photo, role, My registrations, Host dashboard link (hosts), *Become an Event Host* (users). Admins: the **Admin account** page (profile only) |
 | `host-dashboard.html` | Event Host dashboard: create, edit and track **your own** events; see their registrations. Also the Admin's **Host an Event** page (admin mode: events are published directly) |
 | `admin.html` | Admin panel, the central management interface: overview, host applications, event approvals, all events, users, registrations |
-| `index.html` | The scrolling home page: a full-screen hero, Explore events (curved poster carousel), Upcoming events (the full programme, searchable, filterable and sortable), Event categories, **About EVENTORA** (purpose and key highlights), **Get in Touch** (phone `tel:` and email `mailto:` cards) and the footer (placeholder). About and Contact are the same for every visitor and account |
+| `index.html` | The scrolling home page: a full-screen hero, Explore events (curved poster carousel), Upcoming events (the full programme, searchable, filterable and sortable), Event categories, **About EvAtlas** (purpose and key highlights), **Get in Touch** (phone `tel:` and email `mailto:` cards) and the footer (placeholder). About and Contact are the same for every visitor and account |
 | `host.html` | **Host an Event**. Event Hosts: a simple submission form (saved on the server as Pending). Admin: sent to the Host Dashboard. Visitors: how to start (sign in). Users: sent to *Become an Event Host* |
 | `event.html?id=<event id>` | Redirect only: old links open the event-details panel (`index.html#event=<id>`) |
 | `styleguide.html` | Internal design-system reference that renders the live tokens and reusable recipes. It is `noindex` and not linked from the site |
@@ -86,7 +86,7 @@ The fit accounts for the outermost poster's edge magnification, `cos δ / cos(A 
 
 ## Explore events: curved poster carousel
 
-The Featured grid is replaced by a curved 3D carousel (`js/explore-carousel.js`, `css/explore.css`). Its motion and interaction ideas are adapted from `LEON_VASARI_CURVED_VHS_REFERENCE.txt.txt`, used only as a motion reference. None of that reference's content, branding or palette is used; the carousel keeps EVENTORA's starfield, cyan glow, glass and type.
+The Featured grid is replaced by a curved 3D carousel (`js/explore-carousel.js`, `css/explore.css`). Its motion and interaction ideas are adapted from `LEON_VASARI_CURVED_VHS_REFERENCE.txt.txt`, used only as a motion reference. None of that reference's content, branding or palette is used; the carousel keeps EvAtlas's starfield, cyan glow, glass and type.
 
 - **Content.** It shows all 8 catalogue events in programme order and opens on the soonest featured event. The ring is three loops of copies (24 posters), so it wraps endlessly. Only the poster in the target position is in the Tab order and exposed to screen readers.
 - **Geometry.** Posters sit on a curved arc. Side posters shrink, sink back in depth, turn up to 32° and darken. The front poster lifts, gets a cyan edge and follows the pointer with a small tilt. Posters far off the arc are hidden.
@@ -252,7 +252,7 @@ Sign in at http://localhost:5500/login.html. The role badge reads **Admin**, the
 ### Password recovery (email OTP)
 1. **Enter your registered email** on *Forgot password*. Any provider works (Gmail, Outlook, Yahoo, …).
 2. **The server creates a 6-digit code** with Python's `secrets` module and keeps only a salted SHA-256 hash of it, tied to that account. The code is never returned by the API, logged or stored in the browser.
-3. **It emails the code** through Resend (Python `urllib`, on a background thread) to the address registered on the account, and only that address. The email is EVENTORA-branded: *Password Reset Request*, the code, a 5-minute expiry notice and a "didn't request this?" warning.
+3. **It emails the code** through Resend (Python `urllib`, on a background thread) to the address registered on the account, and only that address. The email is EvAtlas-branded: *Password Reset Request*, the code, a 5-minute expiry notice and a "didn't request this?" warning.
 4. **Enter the code** in the six boxes (typing, pasting or autofill all work). The server allows **5 wrong attempts**, then the code stops working. Codes expire after **5 minutes** and work **once**. A new code replaces the old one. *Resend code* unlocks after a **60-second** countdown, and each email can get at most 5 codes an hour (20 per device).
 5. **Choose a new password** (with show/hide, the live checklist and a confirmation). The verified code is exchanged for a random **reset token** (10 minutes, single use, kept in page memory only). Resetting changes only that account's password hash: **the role and everything else stay the same**, and every session of that account is signed out. The page confirms, then takes you to sign-in.
 
@@ -267,9 +267,9 @@ Sign in at http://localhost:5500/login.html. The role badge reads **Admin**, the
 4. **Configure the server**: add to the git-ignored `.env` (see `.env.example`):
    ```
    RESEND_API_KEY=re_...
-   EMAIL_FROM=EVENTORA <noreply@your-verified-domain.com>
+   EMAIL_FROM=EvAtlas <noreply@your-verified-domain.com>
    ```
-   Leave `EMAIL_FROM` empty to use `EVENTORA <onboarding@resend.dev>`. A sender that is malformed or still a placeholder (such as `your-verified-domain.com`) is ignored with a warning, and the server uses `onboarding@resend.dev` instead. Restart the dev server (it reads `.env` only at start-up); its first line should say `reset emails via Resend from …` and name the sender in use. The key stays on the server: it is never sent to the browser or logged, and `.env` is never committed or served.
+   Leave `EMAIL_FROM` empty to use `EvAtlas <onboarding@resend.dev>`. A sender that is malformed or still a placeholder (such as `your-verified-domain.com`) is ignored with a warning, and the server uses `onboarding@resend.dev` instead. Restart the dev server (it reads `.env` only at start-up); its first line should say `reset emails via Resend from …` and name the sender in use. The key stays on the server: it is never sent to the browser or logged, and `.env` is never committed or served.
 5. **Test delivery**: open http://localhost:5500/forgot-password.html, enter `k.soham.025@gmail.com`, and check that inbox (and Spam). The server console logs `Password reset email to k***@gmail.com accepted by Resend (id …)` only when Resend answers with a message id; otherwise it logs why it failed (for example `HTTP 401 API key is invalid`, or Resend's testing-mode refusal). Resend's dashboard (*Emails*) shows each message and its delivery status. The page itself never says an email was delivered: it says a code "is being emailed" if the address has an account, because confirming delivery per address would reveal which emails are registered.
 
 ### Testing password recovery
@@ -311,7 +311,7 @@ One set of rules on the server (`TRANSITIONS`); the pages only show what the ser
 
 ### Admin: Host an Event (admin mode of the Host Dashboard)
 The admin's navbar link **Host an Event** opens `host-dashboard.html`, the same page Event Hosts use: stats, *My hosted events* with status filters, registrations per event, *View public page* and the create form. The differences:
-- **Published directly.** The server saves an event the admin creates as **Published** straight away (`createdBy: 'admin'`, host name EVENTORA, audit entry `event.published`). There's no approval or rejection, so admin events never appear in *Admin panel → Event approvals* or in its pending count.
+- **Published directly.** The server saves an event the admin creates as **Published** straight away (`createdBy: 'admin'`, host name EvAtlas, audit entry `event.published`). There's no approval or rejection, so admin events never appear in *Admin panel → Event approvals* or in its pending count.
 - **Actions.** *Edit* (any time; the status stays as it is) and *Delete* (permanent: the event and its registrations, after the confirmation dialog). Unpublish, Cancel and Publish stay in *Admin panel → All events*. The button reads *Publish event*.
 - **No approval parts.** The *Pending approval* stat card and the *Pending* and *Rejected* filter tabs are hidden; the stats are *My events*, *Live* and *Registrations* (three across; on phones two, with *Registrations* full width).
 - An older admin event still saved as Pending shows *Publish* in *All events*.
@@ -489,6 +489,6 @@ EventoraSnapshot.compare('desktop-1440');  // after the change: lists every diff
 
 ## Design reference
 
-`DESIGN_REFERENCE.txt.txt` is the visual reference (Vertex Shops). EVENTORA keeps its layout coordinates, button and badge pixel contracts, 3D ring and motion. It replaces the reference's e-commerce content with event content.
+`DESIGN_REFERENCE.txt.txt` is the visual reference (Vertex Shops). EvAtlas keeps its layout coordinates, button and badge pixel contracts, 3D ring and motion. It replaces the reference's e-commerce content with event content.
 
 Photography: Unsplash (images.unsplash.com).

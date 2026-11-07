@@ -115,7 +115,7 @@ class PlatformTests(unittest.TestCase):
                               "decidedAt": "2026-11-07T01:46:02.385Z", "decidedBy": "usr_W2GDP8QYVAXP"}],
             "events": [event("h-engine-room-5p3c", self.host_id, "approved"),
                        event("h-host2-draft-aaaa", self.host2_id, "pending", title="Second Host Draft"),
-                       event("h-launch-night-4d5m", self.admin_id, "approved", createdBy="admin", hostName="EVENTORA")],
+                       event("h-launch-night-4d5m", self.admin_id, "approved", createdBy="admin", hostName="EvAtlas")],
             "overrides": {"jazz-nights": {"status": "unpublished", "note": "internal note", "updatedAt": "2026-11-07T02:00:00Z"}},
             "registrations": [reg("EVR-1FHM-1W3E", "neon-pulse-live", "grace@example.test", self.user_id),
                               reg("EVR-AAAA-BBBB", "h-engine-room-5p3c", "grace@example.test", self.user_id),
@@ -432,7 +432,7 @@ class EventSubmissionTests(unittest.TestCase):
     def test_admin_event_is_published_directly_with_admin_ownership(self):
         ev = self.submit(self.admin_tok)[1]["event"]
         self.assertEqual((ev["status"], ev["hostId"], ev["hostName"], ev["createdBy"]),
-                         ("approved", self.admin_id, "EVENTORA", "admin"))
+                         ("approved", self.admin_id, "EvAtlas", "admin"))
         public = [x["id"] for x in self.env.post("/api/events/public")[1]["events"]]
         self.assertIn(ev["id"], public)                                               # live at once
         status, body = self.submit(self.admin_tok)                                     # same event again

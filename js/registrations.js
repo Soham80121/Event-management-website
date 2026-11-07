@@ -50,7 +50,7 @@
   function warn(msg) {
     if (warned) return;
     warned = true;
-    if (window.console && console.warn) console.warn('[EVENTORA] ' + msg);
+    if (window.console && console.warn) console.warn('[EvAtlas] ' + msg);
   }
 
   function isString(v, max) { return typeof v === 'string' && v.length > 0 && v.length <= max; }
@@ -155,7 +155,7 @@
     // merge: the attendee's own list also carries eventStatus / eventTitle
     if (at === -1) cache.push(rec); else cache[at] = Object.assign({}, cache[at], rec);
   }
-  function serverDown() { return (auth() && auth().SERVER_DOWN) || 'The EVENTORA server can’t be reached.'; }
+  function serverDown() { return (auth() && auth().SERVER_DOWN) || 'The EvAtlas server can’t be reached.'; }
 
   /** Move bookings saved only in this browser to the server, keeping their IDs. */
   function migrate(u) {

@@ -4,7 +4,7 @@
    (js/event-detail.js), which grows out of that poster.
 
    Interaction ideas adapted (not copied) from the "curved archive" motion
-   reference, translated into EVENTORA's design language:
+   reference, translated into EvAtlas's design language:
      · posters stand on a curved arc that recedes into depth; the front
        poster faces the viewer and is pushed forward, its neighbours are
        eased apart, far posters shrink, turn, sink slightly and dim

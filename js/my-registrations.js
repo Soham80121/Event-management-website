@@ -340,7 +340,7 @@
     var font = 'Poppins, Segoe UI, Helvetica, Arial, sans-serif';
     node('rect', { width: 480, height: 700, rx: 28, fill: '#05070b' });
     node('rect', { x: 1, y: 1, width: 478, height: 698, rx: 27, fill: 'none', stroke: '#1d4a63' });
-    node('text', { x: 40, y: 64, fill: '#ffffff', 'font-family': font, 'font-size': 26, 'font-weight': 900, 'letter-spacing': 1 }, 'EVENTORA');
+    node('text', { x: 40, y: 64, fill: '#ffffff', 'font-family': font, 'font-size': 26, 'font-weight': 900, 'letter-spacing': 1 }, 'EvAtlas');
     node('text', { x: 40, y: 92, fill: '#35d8ff', 'font-family': font, 'font-size': 12, 'font-weight': 700, 'letter-spacing': 2 },
       (r.type === 'waitlist' ? 'WAITLIST' : 'TICKET') + ' · ' + x.label.toUpperCase());
     node('text', { x: 40, y: 136, fill: '#ffffff', 'font-family': font, 'font-size': 22, 'font-weight': 700 }, x.title.length > 34 ? x.title.slice(0, 33) + '…' : x.title);
@@ -356,11 +356,11 @@
     node('text', { x: 40, y: 584, fill: '#8fa3b3', 'font-family': font, 'font-size': 12 }, 'ATTENDEE');
     node('text', { x: 40, y: 606, fill: '#ffffff', 'font-family': font, 'font-size': 16 }, r.name);
     node('text', { x: 40, y: 628, fill: '#c9d6e0', 'font-family': font, 'font-size': 13 }, r.email);
-    node('text', { x: 40, y: 668, fill: '#6f8597', 'font-family': font, 'font-size': 11 }, 'Show this QR code at check-in. Demo booking from EVENTORA.');
+    node('text', { x: 40, y: 668, fill: '#6f8597', 'font-family': font, 'font-size': 11 }, 'Show this QR code at check-in. Demo booking from EvAtlas.');
     var blob = new Blob(['<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(svg)], { type: 'image/svg+xml' });
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'EVENTORA-ticket-' + r.id + '.svg';
+    a.download = 'EvAtlas-ticket-' + r.id + '.svg';
     document.body.appendChild(a);
     a.click();
     setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);

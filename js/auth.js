@@ -43,7 +43,7 @@
       'manageUsers', 'reviewApplications', 'reviewEvents', 'viewAllRegistrations']
   };
   var ROLE_LABELS = { visitor: 'Visitor', user: 'User', host: 'Event Host', admin: 'Admin' };
-  var SERVER_DOWN = 'The EVENTORA server can’t be reached. Start the site with: python tools/dev_server.py';
+  var SERVER_DOWN = 'The EvAtlas server can’t be reached. Start the site with: python tools/dev_server.py';
 
   var listeners = [];
   // status: ok | not-configured | unavailable | checking | signed-out

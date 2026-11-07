@@ -1,4 +1,4 @@
-"""Initialise the EVENTORA admin account on the dev server.
+"""Initialise the EvAtlas admin account on the dev server.
 
     python tools/init_admin.py --email k.soham.025@gmail.com
         (asks for the password twice, without echoing it)
@@ -15,7 +15,7 @@ What it does:
 Options:
   --id usr_XXXXXXXXXXXX   user ID for a NEW admin account (keeps links from
                           data created by an earlier browser-only admin)
-  --name "EVENTORA Admin" display name for a new admin account
+  --name "EvAtlas Admin" display name for a new admin account
   --password-env VAR      read the password from an environment variable
                           (for scripts) instead of prompting
 
@@ -51,7 +51,7 @@ def write_env(updates: dict, remove=()) -> None:
         else:
             out.append(line)
     if not lines:
-        out.append("# EVENTORA dev server configuration. Git-ignored and never served.")
+        out.append("# EvAtlas dev server configuration. Git-ignored and never served.")
     for key, value in updates.items():
         if key not in seen:
             out.append("%s=%s" % (key, value))
@@ -59,10 +59,10 @@ def write_env(updates: dict, remove=()) -> None:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Initialise the EVENTORA admin account.")
+    ap = argparse.ArgumentParser(description="Initialise the EvAtlas admin account.")
     ap.add_argument("--email", required=True, help="admin account email (becomes ADMIN_EMAIL)")
     ap.add_argument("--id", default="", help="user ID for a new admin account")
-    ap.add_argument("--name", default="EVENTORA Admin", help="display name for a new admin account")
+    ap.add_argument("--name", default="EvAtlas Admin", help="display name for a new admin account")
     ap.add_argument("--password-env", metavar="VAR", help="read the password from this environment variable")
     args = ap.parse_args()
 

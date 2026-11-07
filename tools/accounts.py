@@ -1,4 +1,4 @@
-"""EVENTORA server-side accounts, sessions and password recovery.
+"""EvAtlas server-side accounts, sessions and password recovery.
 
 Python standard library only. Used by tools/dev_server.py (HTTP API) and
 tools/init_admin.py (admin initialisation).
@@ -72,7 +72,7 @@ ID_RE = re.compile(r"^usr_[0-9A-HJKMNP-TV-Z]{12}$")
 EMAIL_RE = re.compile(r"^[^\s@]+@(?:[^\s@.]+\.)+[^\s@.]{2,}$")
 AVATAR_RE = re.compile(r"^data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$")
 MAX_AVATAR = 250_000
-DEFAULT_SENDER = "EVENTORA <onboarding@resend.dev>"
+DEFAULT_SENDER = "EvAtlas <onboarding@resend.dev>"
 RESEND_URL = "https://api.resend.com/emails"
 
 
@@ -265,7 +265,7 @@ class Store:
         return next((u for u in self.users if u["id"] == uid), None)
 
 
-def init_admin(store: Store, email: str, password: str, name: str = "EVENTORA Admin", wanted_id: str = "") -> dict:
+def init_admin(store: Store, email: str, password: str, name: str = "EvAtlas Admin", wanted_id: str = "") -> dict:
     """Create or update THE admin account (used only by tools/init_admin.py).
 
     - an account already using `email` becomes the admin (same ID, new password);
@@ -331,14 +331,14 @@ class Mailer:
         payload = {
             "from": self.sender,
             "to": [to],
-            "subject": "Your EVENTORA password reset code",
+            "subject": "Your EvAtlas password reset code",
             "html": reset_email_html(name, otp),
             "text": reset_email_text(name, otp),
         }
         req = urllib.request.Request(self.url, data=json.dumps(payload).encode("utf-8"), method="POST", headers={
             "Authorization": "Bearer " + self.api_key,
             "Content-Type": "application/json",
-            "User-Agent": "EVENTORA-dev-server/1.0",
+            "User-Agent": "EvAtlas-dev-server/1.0",
         })
         masked = mask_email(to)
         try:
@@ -378,7 +378,7 @@ def check_sender(value: str):
         return DEFAULT_SENDER, ""
     m = SENDER_RE.match(v)
     if not m:
-        return DEFAULT_SENDER, "isn't a valid sender (use: EVENTORA <noreply@your-domain>); using %s" % DEFAULT_SENDER
+        return DEFAULT_SENDER, "isn't a valid sender (use: EvAtlas <noreply@your-domain>); using %s" % DEFAULT_SENDER
     domain = m.group(1).rsplit("@", 1)[1].lower()
     if any(p in domain for p in PLACEHOLDER_DOMAINS):
         return DEFAULT_SENDER, ("is still a placeholder (%s); using %s, which only delivers to your Resend "
@@ -393,13 +393,13 @@ def mask_email(email: str) -> str:
 
 def reset_email_text(name: str, otp: str) -> str:
     return (
-        "EVENTORA - Password Reset Request\n\n"
+        "EvAtlas - Password Reset Request\n\n"
         "Hi %s,\n\n"
-        "Use this code to reset your EVENTORA password:\n\n"
+        "Use this code to reset your EvAtlas password:\n\n"
         "    %s\n\n"
         "The code expires in 5 minutes and can be used once.\n\n"
         "Didn't ask for this? Ignore this email: your password stays the same. "
-        "Never share this code with anyone; EVENTORA will never ask you for it.\n"
+        "Never share this code with anyone; EvAtlas will never ask you for it.\n"
     ) % (name.split(" ")[0] if name else "there", otp)
 
 
@@ -418,22 +418,22 @@ def reset_email_html(name: str, otp: str) -> str:
 <table role="presentation" width="100%%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#070b12;border:1px solid #142433;border-radius:20px;overflow:hidden;font-family:Segoe UI,Helvetica,Arial,sans-serif;color:#d9e6ef;">
 <tr><td style="padding:28px 32px 18px;background:#050a12;border-bottom:1px solid #12293a;">
   <span style="display:inline-block;width:12px;height:12px;border-radius:50%%;background:#35d8ff;box-shadow:0 0 12px #35d8ff;vertical-align:middle;"></span>
-  <span style="font:900 20px/1 Segoe UI,Helvetica,Arial,sans-serif;letter-spacing:.04em;color:#ffffff;vertical-align:middle;margin-left:8px;">EVENTORA</span>
+  <span style="font:900 20px/1 Segoe UI,Helvetica,Arial,sans-serif;letter-spacing:.04em;color:#ffffff;vertical-align:middle;margin-left:8px;">EvAtlas</span>
 </td></tr>
 <tr><td style="padding:30px 32px 8px;">
   <p style="margin:0 0 6px;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#35d8ff;font-weight:700;">Account security</p>
   <h1 style="margin:0 0 14px;font-size:24px;line-height:1.25;color:#ffffff;">Password Reset Request</h1>
-  <p style="margin:0 0 22px;font-size:15px;line-height:1.6;">Hi %s, use this code to reset your EVENTORA password:</p>
+  <p style="margin:0 0 22px;font-size:15px;line-height:1.6;">Hi %s, use this code to reset your EvAtlas password:</p>
   <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 22px;"><tr>%s</tr></table>
   <p style="margin:0 0 6px;font-size:15px;line-height:1.6;">This code expires in <strong style="color:#ffffff;">5 minutes</strong> and works only once.</p>
 </td></tr>
 <tr><td style="padding:14px 32px 30px;">
   <div style="padding:14px 16px;border-radius:12px;background:#1a1408;border:1px solid #4a3a12;font-size:13px;line-height:1.55;color:#f3dfae;">
-    <strong>Didn&rsquo;t request this?</strong> Ignore this email and your password stays the same. Never share this code: EVENTORA will never ask you for it.
+    <strong>Didn&rsquo;t request this?</strong> Ignore this email and your password stays the same. Never share this code: EvAtlas will never ask you for it.
   </div>
 </td></tr>
 <tr><td style="padding:16px 32px 24px;border-top:1px solid #12293a;font-size:12px;color:#6f8597;">
-  Sent by EVENTORA because a password reset was requested for this email address.
+  Sent by EvAtlas because a password reset was requested for this email address.
 </td></tr>
 </table>
 </td></tr></table>
@@ -574,7 +574,7 @@ class Accounts:
             for k in keys:
                 self.login_failures.pop(k, None)
             if user.get("status") != "active":
-                return 403, {"ok": False, "error": "This account is suspended. Contact an EVENTORA admin."}
+                return 403, {"ok": False, "error": "This account is suspended. Contact an EvAtlas admin."}
             if rehash:
                 user["password"] = hash_password(password)
             return 200, self._new_session(user, bool(body.get("remember")))
@@ -659,7 +659,7 @@ class Accounts:
             self.store.users.append(user)
             if user["status"] != "active":
                 self.store.save()
-                return 403, {"ok": False, "error": "This account is suspended. Contact an EVENTORA admin."}
+                return 403, {"ok": False, "error": "This account is suspended. Contact an EvAtlas admin."}
             self.log("Account %s moved from browser storage to the server (role %s)" % (uid, role))
             return 200, self._new_session(user, bool(body.get("remember")))
 

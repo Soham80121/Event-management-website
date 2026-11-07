@@ -475,7 +475,7 @@
           var o = ov[orig.id] || {};
           var view = o.fields ? Object.assign({}, orig, o.fields) : orig;   // edits shown whatever the status
           return { id: orig.id, source: 'catalogue', status: o.status || 'approved', event: view,
-            hostId: null, hostName: 'EVENTORA (built-in)', submittedAt: '', note: o.note || '' };
+            hostId: null, hostName: 'EvAtlas (built-in)', submittedAt: '', note: o.note || '' };
         });
         this.events().forEach(function (e) {
           rows.push({ id: e.id, source: e.createdBy === 'admin' ? 'admin' : 'host', status: e.status,
@@ -495,7 +495,7 @@
         var id; do { id = 'h-' + slug(c.value.title) + '-' + rand(4).toLowerCase(); }
         while (cat().isCatalogue(id) || list.some(function (e) { return e.id === id; }));
         var now = new Date().toISOString();
-        var ev = Object.assign({ id: id, hostId: u.id, hostName: 'EVENTORA', createdBy: 'admin',
+        var ev = Object.assign({ id: id, hostId: u.id, hostName: 'EvAtlas', createdBy: 'admin',
           status: publish ? 'approved' : 'pending', createdAt: now, updatedAt: now, submittedAt: now }, c.value);
         if (publish) ev.decidedAt = now;
         if (!ev.price) delete ev.price;

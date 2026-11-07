@@ -701,7 +701,7 @@
     $('dashBody').hidden = true;
     var why = {
       'not-configured': 'No admin account is set up on the server yet (python tools/init_admin.py), so no account is an Admin.',
-      unavailable: 'The EVENTORA server couldn’t be reached (start the site with tools/dev_server.py).'
+      unavailable: 'The EvAtlas server couldn’t be reached (start the site with tools/dev_server.py).'
     }[auth.adminCheckStatus()];
     if (why) $('deniedWhy').textContent = why;
   }

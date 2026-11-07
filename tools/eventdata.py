@@ -1,4 +1,4 @@
-"""EVENTORA server-side event data: host applications, hosted events,
+"""EvAtlas server-side event data: host applications, hosted events,
 built-in event overrides, registrations and the admin audit log.
 
 Python standard library only. Used by tools/dev_server.py.
@@ -574,7 +574,7 @@ class EventData:
                              else "You already submitted this event; it’s waiting for approval."}
             now = accounts.iso(self.clock())
             ev = {"id": self._new_event_id(value["title"]), "hostId": u["id"],
-                  "hostName": "EVENTORA" if is_admin else u["name"],
+                  "hostName": "EvAtlas" if is_admin else u["name"],
                   "status": "approved" if is_admin else "pending",
                   "createdAt": now, "updatedAt": now, "submittedAt": now}
             if is_admin:
@@ -603,7 +603,7 @@ class EventData:
                 return 200, {"ok": True, "status": "already-on-server"}
             _, value = self.check_event_fields(e, allow_past=True)
             ev = {"id": e["id"], "hostId": u["id"],
-                  "hostName": "EVENTORA" if self.auth.effective_role(u) == "admin" else u["name"],
+                  "hostName": "EvAtlas" if self.auth.effective_role(u) == "admin" else u["name"],
                   "status": "pending", "createdAt": e["createdAt"],
                   "updatedAt": e.get("updatedAt") if iso_ok(e.get("updatedAt")) else e["createdAt"],
                   "submittedAt": e.get("submittedAt") if iso_ok(e.get("submittedAt")) else e["createdAt"]}

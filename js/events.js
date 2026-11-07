@@ -230,7 +230,7 @@
   function list() { return sources.length ? base().concat(extra()) : base(); }
 
   var problems = validate(EVENTS);
-  if (problems.length) console.warn('[Eventora] event catalogue problems:\n' + problems.join('\n'));
+  if (problems.length) console.warn('[EvAtlas] event catalogue problems:\n' + problems.join('\n'));
 
   // Deep-freeze so no module can mutate the shared catalogue at runtime.
   EVENTS.forEach(function (e) {

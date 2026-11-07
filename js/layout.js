@@ -14,7 +14,7 @@
   var TAB_MAX = BP.tabletMax, TAB_MIN = BP.tabletMin, DW_MIN = CANVAS.tabletMinWindow;
 
   /* Type targets in design px: ink width, cap height, baseline y.
-     Ink widths are tuned to EVENTORA's copy so the fitted lines keep the same
+     Ink widths are tuned to EvAtlas's copy so the fitted lines keep the same
      gentle horizontal condensing as the reference (≈0.9–0.95 of natural). */
   var TYPE = {
     h1a:      { tw: 576,   tc: 37.2, y: 204.5, pre: 'translateX(-50%)' },

@@ -57,7 +57,7 @@
         ? 'Admin role confirmed by the server for this session (ADMIN_EMAIL account, password checked on sign-in).'
         : 'Your account and role are confirmed by the server.',
       'not-configured': 'The server has no admin account yet (run python tools/init_admin.py), so no account is Admin.',
-      unavailable: 'The EVENTORA server couldn’t be reached, so your role couldn’t be confirmed and Admin features are off.',
+      unavailable: 'The EvAtlas server couldn’t be reached, so your role couldn’t be confirmed and Admin features are off.',
       checking: 'Checking with the server…'
     }[check] || '';
   }
@@ -180,7 +180,7 @@
         if (latest.note) box.appendChild(el('p', 'host-state__note', '“' + latest.note + '”'));
         box.appendChild(el('p', 'host-state__text', 'Your application wasn’t approved this time. You can apply again with more detail.'));
       } else {
-        box.appendChild(el('p', 'host-state__text', 'Run concerts, talks, workshops or food nights on EVENTORA. Tell us a little about what you’d host and an admin will review it.'));
+        box.appendChild(el('p', 'host-state__text', 'Run concerts, talks, workshops or food nights on EvAtlas. Tell us a little about what you’d host and an admin will review it.'));
       }
       var open = el('button', 'btn btn--md');
       open.type = 'button';
@@ -269,7 +269,7 @@
     }
     var help = {
       pending: 'Waiting for an admin to review it. Not public yet.',
-      approved: 'Approved and published on EVENTORA.',
+      approved: 'Approved and published on EvAtlas.',
       rejected: 'Not approved. You can edit it and resubmit from the Host Dashboard (in the navbar).',
       unpublished: 'Unpublished by an admin. Not public for now; it can be published again.',
       cancelled: 'Cancelled by an admin. It won’t take place; registrations are kept.'

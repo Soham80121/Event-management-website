@@ -1,5 +1,5 @@
 /* =========================================================================
-   EVENTORA — presentation content for the hero showcase (ring posters and
+   EvAtlas — presentation content for the hero showcase (ring posters and
    the app preview). Event facts — titles, dates, venues, photos, prices —
    come from the catalogue in js/events.js; nothing here duplicates them.
    Requires js/core.js and js/events.js.
