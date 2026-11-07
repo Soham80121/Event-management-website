@@ -196,3 +196,15 @@
 }
 .acct:hover { transform: translateY(-1px); filter: brightness(1.15); }
 .acct:focus-visible { outline: var(--focus-ring); outline-offset: 3px; }
+
+/* ---------- Extra nav link (admins: "Host an Event", js/account-nav.js) ----------
+   js/layout.js keeps the five reference links at their reference scale and
+   publishes the extra link's width as --nav-extra (design px). The pill grows
+   by that much on both sides equally (still centred on x=586.5); the account
+   entry and the CTA slide right by the same amount. Without the extra link
+   the variable is unset and every coordinate is the reference one. */
+@media (min-width: 1081px) {
+  .nav { left: calc(247px - var(--nav-extra, 0px) / 2); width: calc(678px + var(--nav-extra, 0px)); }
+  .acct { left: calc(486px + var(--nav-extra, 0px)); }
+  .nav .btn { left: calc(530.7px + var(--nav-extra, 0px)); }
+}

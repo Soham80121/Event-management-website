@@ -194,6 +194,14 @@
     return ref > 0 && w > 0 ? Math.min(cfg.tw * 1.1, cfg.tw * w / ref) : cfg.tw;
   }
 
+  /** Extra pill width in design px (0 = the reference layout). */
+  function setNavExtra(px) {
+    var nav = $('nav');
+    if (!nav) return;
+    if (px > 0.5) nav.style.setProperty('--nav-extra', px.toFixed(2) + 'px');
+    else nav.style.removeProperty('--nav-extra');
+  }
+
   function layout() {
     var F = Eventora.fitter;
     var k = state.k;
@@ -205,6 +213,7 @@
       els.links.style.fontSize = '';
       els.links.style.transform = '';
       Array.prototype.forEach.call(els.links.children, function (a) { a.style.fontSize = ''; });
+      setNavExtra(0);
       updateNavOffset();
       placeCards();
       return;
@@ -226,9 +235,14 @@
     if (els.navBtn) F.centreLabel(els.navBtn, $('ctaLabel'), TYPE.ctaLabel.tc * T, k);
     if (els.heroBtn) F.centreLabel(els.heroBtn, $('vpLabel'), TYPE.vpLabel.tc * T, k);
 
-    // Nav links: one shared size, then squeeze the whole row.
+    // Nav links: one shared size, then squeeze the whole row. The five
+    // standard links always fill LINK_ROW_W; an extra link (the admin's "Host
+    // an Event") keeps that same scale and widens the pill symmetrically by
+    // its own width (--nav-extra, see components.css).
     els.links.style.transform = '';
     var links = Array.prototype.slice.call(els.links.children);
+    var extraLink = $('navHostLink');
+    var navExtra = 0;
     if (state.mode === 'tablet') {
       links.forEach(function (a) { a.style.fontSize = ''; });
     } else {
@@ -236,8 +250,19 @@
       var fs = LINK_CAP / F.capRatio(links[0]);
       links.forEach(function (a) { a.style.fontSize = fs + 'px'; });
       var rowW = F.inkWidth(els.links, k);
-      if (rowW > 0) els.links.style.transform = 'scaleX(' + (LINK_ROW_W / rowW) + ')';
+      var baseW = rowW;
+      if (extraLink) {
+        extraLink.style.display = 'none';
+        baseW = F.inkWidth(els.links, k);
+        extraLink.style.display = '';
+      }
+      if (baseW > 0) {
+        var sx = LINK_ROW_W / baseW;
+        els.links.style.transform = 'scaleX(' + sx + ')';
+        navExtra = (rowW - baseW) * sx;
+      }
     }
+    setNavExtra(navExtra);
 
     updateNavOffset();
     placeCards();

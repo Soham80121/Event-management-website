@@ -199,6 +199,8 @@ There is a single event-details experience: the panel that grows out of the post
   | Event Host | *Host Dashboard* → their own events | My Profile |
   | Admin | *Admin Panel* → `admin.html` | Admin account page |
 
+  Admins also get a **Host an Event** text link after *Contact*, which opens *Create an event* on their account page (`profile.html#create-event`, focused on the title). On desktop the five standard links keep their size and the pill grows by the extra link's width on both sides, staying centred (`--nav-extra`, set by `js/layout.js`); on tablet and phone it is one more menu row.
+
   `host.html` explains hosting to visitors and routes signed-in people: users to the application, hosts to their Create event form, admins to *Create an event* on their account page (never to the host application). The account entry sits in the gap between the link row and *Host an Event*: a person icon when signed out, your initial or photo when signed in. On tablet and phone it becomes a row in the menu.
 - **Registering for events now needs an account.** Visitors see *Sign in to register* / *Create an account*. The form is prefilled from the profile and the booking is saved with your `userId`.
   - If someone types an email that another account has already booked for that event, they get a plain error and never see that booking.

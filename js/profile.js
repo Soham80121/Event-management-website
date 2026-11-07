@@ -173,10 +173,21 @@
         alertEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     });
-    if (location.hash === '#create-event') {
+    function goToForm() {
+      if (location.hash !== '#create-event') return;
       $('create-event').scrollIntoView({ block: 'start' });
       form.elements.title.focus({ preventScroll: true });
     }
+    goToForm();
+    // Arriving from another page, the browser can reset focus to <body> when
+    // loading finishes; put it back on the form (unless the person moved on).
+    if (document.readyState !== 'complete') {
+      window.addEventListener('load', function () {
+        if (document.activeElement === document.body || !document.activeElement) goToForm();
+      }, { once: true });
+    }
+    // the navbar's "Host an Event" link also works while already on this page
+    window.addEventListener('hashchange', goToForm);
   }
 
   /* ---------- Become an Event Host ---------- */

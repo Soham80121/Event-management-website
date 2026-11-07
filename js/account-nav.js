@@ -8,6 +8,9 @@
    | Event Host | "Host Dashboard" → own events    | My Profile          |
    | Admin      | "Admin Panel" → admin.html       | Admin account page  |
 
+   Admins also get a "Host an Event" text link after Contact, which opens
+   "Create an event" on their account page (profile.html#create-event).
+
    The Admin Panel (admin.html) and the account page (profile.html, where
    admins also create events) are separate destinations. The button sits in
    the hero's fitted nav; when its label changes, js/layout.js re-fits it.
@@ -57,6 +60,27 @@
     }
   }
 
+  /** Admins also get a "Host an Event" text link at the end of the link row
+      (Create an event on their account page); other roles don't. */
+  function renderHostLink(role) {
+    var row = document.getElementById('links');
+    if (!row) return;
+    var link = document.getElementById('navHostLink');
+    var want = role === 'admin';
+    if (want === !!link) return;
+    if (want) {
+      link = document.createElement('a');
+      link.id = 'navHostLink';
+      link.href = DEST.admin.host;
+      link.textContent = 'Host an Event';
+      link.setAttribute('aria-label', 'Host an Event: create an event on your account page');
+      row.appendChild(link);
+    } else {
+      link.remove();
+    }
+    if (Eventora.layout && Eventora.layout.state && Eventora.layout.state.ready) Eventora.layout.layout();
+  }
+
   function renderAccount(u, role) {
     var link = document.getElementById('acctLink');
     if (!link) return;
@@ -94,6 +118,7 @@
     var u = Eventora.auth.current();
     var role = navRole(u);
     renderCta(role);
+    renderHostLink(role);
     renderAccount(u, role);
   }
 
